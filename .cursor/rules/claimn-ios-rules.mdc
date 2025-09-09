@@ -1,0 +1,174 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules — Claimb iOS
+
+## Vision / Scope
+- iPhone-only app. Swift 6, iOS 17+.
+- Local-first: SwiftData for persistence; no backend.
+- Feature focus: Post-game coaching (3 bullets + 1 drill), Champion Pool guidance, lightweight Home insights.
+
+## Architecture North Star
+- Single responsibility. Prefer 100–300 LOC per service file.
+- Shared logic in Swift Package `Packages/ClaimbCore`.
+- App target contains only UI, DI, StoreKit, BackgroundTasks, Notifications.
+- Avoid conditional compilation; if needed, isolate in tiny adapters.
+
+## Coding Style (make Cursor follow this)
+- Use async/await + URLSession. Avoid completion-handler APIs unless bridging.
+- No singletons. Use lightweight DI via `Environment` (struct of clients/services).
+- Protocol-first for external deps (RiotClient, CoachingService, Keychain, Logger, Haptics).
+- Keep functions ≤ 40 LOC; extract pure helpers for KPI/math/formatting.
+- Naming: `<Feature>View`, `<Feature>Coordinator`, `<Thing>Service`, `<Thing>Client`, `<Thing>Adapter`.
+
+## Data & Persistence
+- SwiftData only. One container factory in ClaimbCore.
+- Models: small, explicit. Version them early (add reserved fields only if necessary).
+- Cache everything by `matchId`. Add stable unique constraints where sensible.
+- Coaching cache is keyed by `matchId`; never re-call OpenAI if cached.
+
+## Networking (Riot/OpenAI)
+- All HTTP in ClaimbCore. No networking in Views.
+- Add simple rate limiter (e.g., 1 req / 1.2s burst-friendly).
+- Implement ETag/If-None-Match for Riot GETs via URLCache.
+- Errors: define small error enums; never bubble raw URLError to UI.
+
+## Paywall & Quotas (StoreKit 2)
+- One subscription group: Monthly + Annual; Monthly has 7-day trial.
+- `Entitlements.isSubscriber` + `Quota.consumeIfAvailable()` gate `CoachingService`.
+- Free tier: X analyses per week, configurable via a constant.
+- UI reacts immediately to entitlement changes.
+
+## Performance & UX
+- Sessions are 60–120 sec. Design for one-hand use.
+- Glanceable cards > tables. One primary action per screen.
+- Show loading/error/empty states explicitly; no silent failures.
+- Haptics for success/error. Avoid heavy charts in v1.
+
+## Accessibility & Localization
+- Dynamic Type compatible. Use SF Symbols with labels.
+- Minimum: English only, but wrap strings for easy localization later.
+
+## Security & Secrets
+- No API keys hard-coded in source. Use build settings or config files excluded from VCS.
+- Use Keychain adapter for tokens; never persist secrets in SwiftData.
+
+## File Size Budgets
+- Services: 100–300 LOC (split if larger).
+- Views: ≤ 200 LOC (extract subviews).
+- Do not add a dependency unless it saves >150 LOC AND reduces complexity.
+
+## Don’ts
+- No desktop assumptions (file watchers, overlays, multiwindow).
+- No premature generics or over-abstracted factories.
+- No background polling > 1/day without explicit reason.
+
+## Testability
+- Provide `…Mock` for each protocol in `Tests`.
+- Move parsing and KPI logic into pure functions with unit tests.
+- Keep DI pluggable so tests can inject stubs.
+
+## Pull Requests & Commits (help Cursor structure work)
+- PR title: `[feature] short summary` or `[fix] short summary`.
+- Each PR includes: scope, before/after notes, screenshots if UI.
+- Commit messages are imperative: `Add RiotHTTPClient with ETag cache`.
+
+## Ready-to-use Prompts (inline helpers for Cursor)
+- “Create a `RiotHTTPClient` conforming to `RiotClient` using async/await, URLSession, simple 1.2s rate limiter, and ETag/If-None-Match via URLCache. Keep file <200 LOC. Map JSON to `MatchSummary` safely.”
+- “Refactor this view >200 LOC into subviews. Preserve logic, extract `KPIBadge`, `MatchCard`, keep parent ≤ 180 LOC.”
+- “Add StoreKit 2 entitlements helper returning `isSubscriber`. Include purchase/restore flows, sandbox notes. Keep logic isolated from views.”
+- “Implement `PaywallGuard` decorator for `CoachingService` with `isSubscriber` + `hasFreeQuota`. Throw `subscriptionRequired` when neither holds.”
+
+## Acceptance Checks (Cursor can aim for these)
+- App starts < 1.5s cold; Home shows “Next best 3 champs” and last-match card.
+- Press “Analyze last match” → returns cached coaching instantly or fetches once, then caches.
+- Toggle entitlement in Sandbox → paywall state updates immediately.
+- Airplane mode → last-known matches and coaching still visible.
+
+
+# Cursor Rules — Claimb iOS
+
+## Vision / Scope
+- iPhone-only app. Swift 6, iOS 17+.
+- Local-first: SwiftData for persistence; no backend.
+- Feature focus: Post-game coaching (3 bullets + 1 drill), Champion Pool guidance, lightweight Home insights.
+
+## Architecture North Star
+- Single responsibility. Prefer 100–300 LOC per service file.
+- Shared logic in Swift Package `Packages/ClaimbCore`.
+- App target contains only UI, DI, StoreKit, BackgroundTasks, Notifications.
+- Avoid conditional compilation; if needed, isolate in tiny adapters.
+
+## Coding Style (make Cursor follow this)
+- Use async/await + URLSession. Avoid completion-handler APIs unless bridging.
+- No singletons. Use lightweight DI via `Environment` (struct of clients/services).
+- Protocol-first for external deps (RiotClient, CoachingService, Keychain, Logger, Haptics).
+- Keep functions ≤ 40 LOC; extract pure helpers for KPI/math/formatting.
+- Naming: `<Feature>View`, `<Feature>Coordinator`, `<Thing>Service`, `<Thing>Client`, `<Thing>Adapter`.
+
+## Data & Persistence
+- SwiftData only. One container factory in ClaimbCore.
+- Models: small, explicit. Version them early (add reserved fields only if necessary).
+- Cache everything by `matchId`. Add stable unique constraints where sensible.
+- Coaching cache is keyed by `matchId`; never re-call OpenAI if cached.
+
+## Networking (Riot/OpenAI)
+- All HTTP in ClaimbCore. No networking in Views.
+- Add simple rate limiter (e.g., 1 req / 1.2s burst-friendly).
+- Implement ETag/If-None-Match for Riot GETs via URLCache.
+- Errors: define small error enums; never bubble raw URLError to UI.
+
+## Paywall & Quotas (StoreKit 2)
+- One subscription group: Monthly + Annual; Monthly has 7-day trial.
+- `Entitlements.isSubscriber` + `Quota.consumeIfAvailable()` gate `CoachingService`.
+- Free tier: X analyses per week, configurable via a constant.
+- UI reacts immediately to entitlement changes.
+
+## Performance & UX
+- Sessions are 60–120 sec. Design for one-hand use.
+- Glanceable cards > tables. One primary action per screen.
+- Show loading/error/empty states explicitly; no silent failures.
+- Haptics for success/error. Avoid heavy charts in v1.
+
+## Accessibility & Localization
+- Dynamic Type compatible. Use SF Symbols with labels.
+- Minimum: English only, but wrap strings for easy localization later.
+
+## Security & Secrets
+- No API keys hard-coded in source. Use build settings or config files excluded from VCS.
+- Use Keychain adapter for tokens; never persist secrets in SwiftData.
+
+## File Size Budgets
+- Services: 100–300 LOC (split if larger).
+- Views: ≤ 200 LOC (extract subviews).
+- Do not add a dependency unless it saves >150 LOC AND reduces complexity.
+
+## Don’ts
+- No desktop assumptions (file watchers, overlays, multiwindow).
+- No premature generics or over-abstracted factories.
+- No background polling > 1/day without explicit reason.
+
+## Testability
+- Provide `…Mock` for each protocol in `Tests`.
+- Move parsing and KPI logic into pure functions with unit tests.
+- Keep DI pluggable so tests can inject stubs.
+
+## Pull Requests & Commits (help Cursor structure work)
+- PR title: `[feature] short summary` or `[fix] short summary`.
+- Each PR includes: scope, before/after notes, screenshots if UI.
+- Commit messages are imperative: `Add RiotHTTPClient with ETag cache`.
+
+## Ready-to-use Prompts (inline helpers for Cursor)
+- “Create a `RiotHTTPClient` conforming to `RiotClient` using async/await, URLSession, simple 1.2s rate limiter, and ETag/If-None-Match via URLCache. Keep file <200 LOC. Map JSON to `MatchSummary` safely.”
+- “Refactor this view >200 LOC into subviews. Preserve logic, extract `KPIBadge`, `MatchCard`, keep parent ≤ 180 LOC.”
+- “Add StoreKit 2 entitlements helper returning `isSubscriber`. Include purchase/restore flows, sandbox notes. Keep logic isolated from views.”
+- “Implement `PaywallGuard` decorator for `CoachingService` with `isSubscriber` + `hasFreeQuota`. Throw `subscriptionRequired` when neither holds.”
+
+## Acceptance Checks (Cursor can aim for these)
+- App starts < 1.5s cold; Home shows “Next best 3 champs” and last-match card.
+- Press “Analyze last match” → returns cached coaching instantly or fetches once, then caches.
+- Toggle entitlement in Sandbox → paywall state updates immediately.
+- Airplane mode → last-known matches and coaching still visible.
+
+
