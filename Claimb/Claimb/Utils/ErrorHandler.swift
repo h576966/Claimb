@@ -6,9 +6,13 @@ enum ErrorHandler {
     static func userFriendlyMessage(for error: Error) -> String {
         if let riotError = error as? RiotAPIError {
             switch riotError {
-            case .networkError(let underlyingError):
+            case .invalidURL:
+                return "Invalid URL: Please check your configuration"
+            case .noData:
+                return "No data received: Please try again"
+            case .networkError(_):
                 return "Network error: Please check your internet connection"
-            case .decodingError:
+            case .decodingError(_):
                 return "Data error: Unable to process server response"
             case .rateLimitExceeded:
                 return "Rate limit exceeded: Please wait a moment and try again"

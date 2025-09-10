@@ -428,6 +428,111 @@ public class DataManager: ObservableObject {
             winRate: winRate
         )
     }
+    
+    // MARK: - Baseline Management
+    
+    /// Saves a baseline to the database
+    public func saveBaseline(_ baseline: Baseline) async throws {
+        modelContext.insert(baseline)
+        try modelContext.save()
+    }
+    
+    /// Gets a baseline by role, class tag, and metric
+    public func getBaseline(role: String, classTag: String, metric: String) async throws -> Baseline? {
+        let descriptor = FetchDescriptor<Baseline>(
+            predicate: #Predicate { baseline in
+                baseline.role == role && baseline.classTag == classTag && baseline.metric == metric
+            }
+        )
+        
+        return try modelContext.fetch(descriptor).first
+    }
+    
+    /// Gets all baselines for a specific role and class tag
+    public func getBaselines(role: String, classTag: String) async throws -> [Baseline] {
+        let descriptor = FetchDescriptor<Baseline>(
+            predicate: #Predicate { baseline in
+                baseline.role == role && baseline.classTag == classTag
+            }
+        )
+        
+        return try modelContext.fetch(descriptor)
+    }
+    
+    /// Gets all baselines
+    public func getAllBaselines() async throws -> [Baseline] {
+        let descriptor = FetchDescriptor<Baseline>()
+        return try modelContext.fetch(descriptor)
+    }
+    
+    /// Clears all baselines (for debugging/testing)
+    public func clearBaselines() async throws {
+        let descriptor = FetchDescriptor<Baseline>()
+        let baselines = try modelContext.fetch(descriptor)
+        
+        for baseline in baselines {
+            modelContext.delete(baseline)
+        }
+        
+        try modelContext.save()
+    }
+    
+    /// Loads baseline data from bundled JSON files
+    public func loadBaselineData() async throws {
+        // Check if we already have baseline data
+        let existingBaselines = try await getAllBaselines()
+        if !existingBaselines.isEmpty {
+            return
+        }
+        
+        // Load baseline data from JSON
+        let baselineData = try await loadBaselineJSON()
+        
+        for item in baselineData {
+            let baseline = Baseline(
+                role: item.role,
+                classTag: item.class_tag,
+                metric: item.metric,
+                mean: item.mean,
+                median: item.median,
+                p40: item.p40,
+                p60: item.p60
+            )
+            try await saveBaseline(baseline)
+        }
+    }
+    
+    /// Loads champion class mapping from bundled JSON file
+    public func loadChampionClassMapping() async throws -> [String: String] {
+        let mappingData = try await loadChampionClassMappingJSON()
+        var mapping: [String: String] = [:]
+        
+        for item in mappingData {
+            mapping[item.champion_name] = item.primary_class
+        }
+        
+        return mapping
+    }
+    
+    // MARK: - Private JSON Loading Methods
+    
+    private func loadBaselineJSON() async throws -> [BaselineData] {
+        guard let url = Bundle.main.url(forResource: "baselines_clean", withExtension: "json") else {
+            throw DataManagerError.missingResource("baselines_clean.json")
+        }
+        
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode([BaselineData].self, from: data)
+    }
+    
+    private func loadChampionClassMappingJSON() async throws -> [ChampionClassMappingData] {
+        guard let url = Bundle.main.url(forResource: "champion_class_mapping_clean", withExtension: "json") else {
+            throw DataManagerError.missingResource("champion_class_mapping_clean.json")
+        }
+        
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode([ChampionClassMappingData].self, from: data)
+    }
 }
 
 // MARK: - Supporting Types
@@ -437,4 +542,38 @@ public struct MatchStatistics {
     public let wins: Int
     public let losses: Int
     public let winRate: Double
+}
+
+// MARK: - Data Transfer Objects
+
+private struct BaselineData: Codable {
+    let role: String
+    let class_tag: String
+    let metric: String
+    let mean: Double
+    let median: Double
+    let p40: Double
+    let p60: Double
+}
+
+private struct ChampionClassMappingData: Codable {
+    let champion_name: String
+    let primary_class: String
+    let secondary_class: String?
+}
+
+// MARK: - DataManager Errors
+
+public enum DataManagerError: Error, LocalizedError {
+    case missingResource(String)
+    case invalidData(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .missingResource(let resource):
+            return "Missing resource: \(resource)"
+        case .invalidData(let message):
+            return "Invalid data: \(message)"
+        }
+    }
 }

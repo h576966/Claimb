@@ -45,6 +45,7 @@ public struct RolePerformanceAnalysis {
 
 // MARK: - Baseline Service
 
+@MainActor
 public class BaselineService {
     private let dataManager: DataManager
     private var championClassMapping: [String: String] = [:]
