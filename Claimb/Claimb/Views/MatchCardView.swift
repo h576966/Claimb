@@ -25,72 +25,72 @@ struct MatchCardView: View {
                 
                 // Queue Type
                 Text(match.queueName)
-                    .font(.caption)
-                    .foregroundColor(.white)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                     .fontWeight(.medium)
                 
                 Spacer()
                 
                 // Game Duration
                 Text(formatDuration(match.gameDuration))
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
                 
                 // Game Date
                 Text(match.gameDate, style: .relative)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.top, DesignSystem.Spacing.md)
             
             // Match Content
-            HStack(spacing: 16) {
+            HStack(spacing: DesignSystem.Spacing.md) {
                 // Champion Icon
                 AsyncImage(url: URL(string: champion?.iconURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } placeholder: {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.3))
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                        .fill(DesignSystem.Colors.cardBorder)
                         .overlay(
                             Image(systemName: "questionmark")
-                                .foregroundColor(.gray)
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
                         )
                 }
                 .frame(width: 50, height: 50)
-                .cornerRadius(8)
+                .cornerRadius(DesignSystem.CornerRadius.small)
                 
                 // Match Stats
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     // Champion Name
                     Text(champion?.name ?? "Unknown Champion")
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(DesignSystem.Typography.title3)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
                         .fontWeight(.semibold)
                     
                     // KDA
                     if let participant = playerParticipant {
-                        HStack(spacing: 8) {
+                        HStack(spacing: DesignSystem.Spacing.sm) {
                             Text("\(participant.kills)/\(participant.deaths)/\(participant.assists)")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
+                                .font(DesignSystem.Typography.subheadline)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
                             
                             Text("KDA")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
                         }
                         
                         // CS and Gold
-                        HStack(spacing: 16) {
+                        HStack(spacing: DesignSystem.Spacing.md) {
                             Text("\(Int(participant.csPerMinute)) CS/min")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
                             
                             Text("\(Int(participant.goldPerMinute)) G/min")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
                         }
                     }
                 }
@@ -98,49 +98,42 @@ struct MatchCardView: View {
                 Spacer()
                 
                 // Win/Loss Badge
-                VStack(spacing: 4) {
+                VStack(spacing: DesignSystem.Spacing.xs) {
                     Text(winText)
-                        .font(.headline)
+                        .font(DesignSystem.Typography.title3)
                         .fontWeight(.bold)
                         .foregroundColor(winColor)
                     
                     if let participant = playerParticipant {
                         Text("\(Int(participant.kda * 10) / 10)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.md)
             
             // Match Footer (if ranked)
             if match.isRanked {
                 HStack {
                     Text("Ranked Game")
-                        .font(.caption)
-                        .foregroundColor(.teal)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.accent)
                     
                     Spacer()
                     
                     if let participant = playerParticipant {
                         Text("Vision: \(participant.visionScore)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.bottom, DesignSystem.Spacing.md)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(winColor.opacity(0.3), lineWidth: 1)
-                )
-        )
+        .claimbCard()
         .onAppear {
             loadParticipantData()
         }
@@ -150,9 +143,9 @@ struct MatchCardView: View {
     
     private var winColor: Color {
         guard let participant = playerParticipant else { 
-            return .gray 
+            return DesignSystem.Colors.textTertiary 
         }
-        return participant.win ? .green : .red
+        return participant.win ? DesignSystem.Colors.success : DesignSystem.Colors.error
     }
     
     private var winText: String {

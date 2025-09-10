@@ -29,7 +29,7 @@ struct MainAppView: View {
         NavigationView {
             ZStack {
                 // Black background
-                Color.black.ignoresSafeArea()
+                DesignSystem.Colors.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Header
@@ -61,81 +61,68 @@ struct MainAppView: View {
     // MARK: - Header View
     
     private var headerView: some View {
-        VStack(spacing: 15) {
+        VStack(spacing: DesignSystem.Spacing.md) {
             // Summoner Info
-            VStack(spacing: 8) {
+            VStack(spacing: DesignSystem.Spacing.sm) {
                 Text(summoner.gameName)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text("#\(summoner.tagLine) • \(regionDisplayName)")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .font(DesignSystem.Typography.subheadline)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 if let level = summoner.summonerLevel {
                     Text("Level \(level)")
-                        .font(.caption)
-                        .foregroundColor(.teal)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.accent)
                 }
             }
             
-            // Refresh Button
-            HStack {
+            // Action Buttons
+            HStack(spacing: DesignSystem.Spacing.sm) {
                 Button(action: {
                     Task { await refreshMatches() }
                 }) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 16, weight: .medium))
                         
                         Text("Refresh")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
                     }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.teal)
-                    .cornerRadius(20)
                 }
+                .claimbButton(variant: .primary, size: .small)
                 .disabled(isRefreshing)
                 
                 // Clear Cache Button (for debugging)
                 Button(action: {
                     Task { await clearCache() }
                 }) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "trash")
                             .font(.system(size: 16, weight: .medium))
                         
                         Text("Clear Cache")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
                     }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.red)
-                    .cornerRadius(20)
                 }
+                .claimbButton(variant: .secondary, size: .small)
                 .disabled(isRefreshing)
                 
                 // Test Baselines Button
                 Button(action: {
                     showBaselineTest = true
                 }) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "chart.bar")
                             .font(.system(size: 16, weight: .medium))
                         
                         Text("Test Baselines")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
                     }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.orange)
-                    .cornerRadius(20)
                 }
+                .claimbButton(variant: .secondary, size: .small)
                 .disabled(isRefreshing)
                 
                 Spacer()
@@ -143,26 +130,26 @@ struct MainAppView: View {
                 // Last Refresh Time
                 if let lastRefresh = lastRefreshTime {
                     Text("Updated \(lastRefresh, style: .relative) ago")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textTertiary)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DesignSystem.Spacing.lg)
         }
-        .padding(.top, 20)
-        .padding(.bottom, 15)
-        .background(Color.black)
+        .padding(.top, DesignSystem.Spacing.lg)
+        .padding(.bottom, DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.background)
     }
     
     // MARK: - Loading View
     
     private var loadingView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: DesignSystem.Spacing.lg) {
             GlowCSpinner(size: 80, speed: 1.5)
             
             Text("Loading your matches...")
-                .foregroundColor(.white)
-                .font(.headline)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .font(DesignSystem.Typography.title3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -170,32 +157,28 @@ struct MainAppView: View {
     // MARK: - Empty State View
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "gamecontroller")
                 .font(.system(size: 60))
-                .foregroundColor(.gray)
+                .foregroundColor(DesignSystem.Colors.textTertiary)
             
             Text("No matches found")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Text("Play some games and come back to see your match history")
-                .font(.body)
-                .foregroundColor(.gray)
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, DesignSystem.Spacing.xxl)
             
             Button(action: {
                 Task { await refreshMatches() }
             }) {
                 Text("Refresh")
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Color.teal)
-                    .cornerRadius(20)
+                    .font(DesignSystem.Typography.bodyBold)
             }
+            .claimbButton(variant: .primary, size: .medium)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -204,13 +187,13 @@ struct MainAppView: View {
     
     private var matchListView: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: DesignSystem.Spacing.md) {
                 ForEach(matches, id: \.matchId) { match in
                     MatchCardView(match: match, summoner: summoner)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .padding(.bottom, DesignSystem.Spacing.lg)
         }
     }
     

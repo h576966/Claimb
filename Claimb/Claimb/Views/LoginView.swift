@@ -31,53 +31,68 @@ struct LoginView: View {
         NavigationView {
             ZStack {
                 // Black background
-                Color.black.ignoresSafeArea()
+                DesignSystem.Colors.background.ignoresSafeArea()
                 
-                VStack(spacing: 30) {
+                VStack(spacing: DesignSystem.Spacing.xl) {
                     // App Title
-                    VStack(spacing: 10) {
+                    VStack(spacing: DesignSystem.Spacing.sm) {
                         Text("Claimb")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .font(DesignSystem.Typography.largeTitle)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
                         
                         Text("League of Legends Coaching")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(DesignSystem.Typography.subheadline)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
-                    .padding(.top, 50)
+                    .padding(.top, DesignSystem.Spacing.xxl)
                     
                     // Login Form
-                    VStack(spacing: 20) {
+                    VStack(spacing: DesignSystem.Spacing.lg) {
                         // Game Name Input
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                             Text("Summoner Name")
-                                .foregroundColor(.white)
-                                .font(.headline)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .font(DesignSystem.Typography.title3)
                             
                             TextField("Enter your summoner name", text: $gameName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .padding(DesignSystem.Spacing.md)
+                                .background(DesignSystem.Colors.cardBackground)
+                                .cornerRadius(DesignSystem.CornerRadius.small)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                        .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                                )
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                         }
                         
                         // Tag Line Input
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                             Text("Tag Line")
-                                .foregroundColor(.white)
-                                .font(.headline)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .font(DesignSystem.Typography.title3)
                             
                             TextField("Enter your tag", text: $tagLine)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .padding(DesignSystem.Spacing.md)
+                                .background(DesignSystem.Colors.cardBackground)
+                                .cornerRadius(DesignSystem.CornerRadius.small)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                        .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                                )
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                         }
                         
                         // Region Selection
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                             Text("Region")
-                                .foregroundColor(.white)
-                                .font(.headline)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .font(DesignSystem.Typography.title3)
                             
                             Picker("Region", selection: $selectedRegion) {
                                 ForEach(regions, id: \.0) { region in
@@ -85,10 +100,14 @@ struct LoginView: View {
                                 }
                             }
                             .pickerStyle(MenuPickerStyle())
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.gray.opacity(0.2))
-                            .cornerRadius(8)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .padding(DesignSystem.Spacing.md)
+                            .background(DesignSystem.Colors.cardBackground)
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                            )
                         }
                         
                         // Login Button
@@ -98,45 +117,42 @@ struct LoginView: View {
                             HStack {
                                 if isLoading {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.white))
                                         .scaleEffect(0.8)
                                 } else {
                                     Text("Login")
-                                        .fontWeight(.semibold)
+                                        .font(DesignSystem.Typography.bodyBold)
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .foregroundColor(.black)
-                            .padding()
-                            .background(isValidInput ? Color.teal : Color.gray)
-                            .cornerRadius(12)
                         }
+                        .claimbButton(variant: .primary, size: .large)
                         .disabled(!isValidInput || isLoading)
                         
                         // Error Message
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
+                                .foregroundColor(DesignSystem.Colors.error)
+                                .font(DesignSystem.Typography.caption)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
                         }
                     }
-                    .padding(.horizontal, 30)
+                    .padding(.horizontal, DesignSystem.Spacing.xl)
                     
                     Spacer()
                     
                     // Footer
-                    VStack(spacing: 10) {
+                    VStack(spacing: DesignSystem.Spacing.sm) {
                         Text("Supported Regions: EUW, NA, EUNE")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
                         
                         Text("Data is cached locally for offline use")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
                     }
-                    .padding(.bottom, 30)
+                    .padding(.bottom, DesignSystem.Spacing.xl)
                 }
             }
         }
