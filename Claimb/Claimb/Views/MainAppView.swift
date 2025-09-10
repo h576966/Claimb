@@ -18,7 +18,7 @@ struct MainAppView: View {
     @State private var lastRefreshTime: Date?
     @State private var showBaselineTest = false
     
-    private let riotClient = RiotHTTPClient(apiKey: "RGAPI-2133e577-bec8-433b-b519-b3ba66331263")
+    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     private let dataDragonService = DataDragonService()
     
     init(summoner: Summoner) {

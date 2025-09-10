@@ -24,7 +24,7 @@ struct LoginView: View {
         ("eun1", "Europe Nordic & East")
     ]
     
-    private let riotClient = RiotHTTPClient(apiKey: "RGAPI-2133e577-bec8-433b-b519-b3ba66331263")
+    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     private let dataDragonService = DataDragonService()
     
     var body: some View {
