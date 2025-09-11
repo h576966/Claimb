@@ -12,13 +12,11 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var userSession: UserSession?
     @State private var refreshTrigger = false
-    @State private var isLoggedIn = false
-    @State private var currentSummoner: Summoner?
     
     var body: some View {
         Group {
             if let userSession = userSession {
-                if isLoggedIn, let summoner = currentSummoner {
+                if userSession.isLoggedIn, let summoner = userSession.currentSummoner {
                     MainTabView(summoner: summoner, userSession: userSession)
                         .onAppear {
                             print("🏠 [ContentView] Showing MainTabView for \(summoner.gameName)")
@@ -26,7 +24,7 @@ struct ContentView: View {
                 } else {
                     LoginView(userSession: userSession)
                         .onAppear {
-                            print("🔐 [ContentView] Showing LoginView - isLoggedIn: \(isLoggedIn)")
+                            print("🔐 [ContentView] Showing LoginView - isLoggedIn: \(userSession.isLoggedIn)")
                         }
                 }
             } else {
@@ -49,21 +47,14 @@ struct ContentView: View {
             if userSession == nil {
                 print("🔄 [ContentView] Creating UserSession")
                 userSession = UserSession(modelContext: modelContext)
-            } else {
-                // Sync local state with UserSession
-                isLoggedIn = userSession?.isLoggedIn ?? false
-                currentSummoner = userSession?.currentSummoner
-                print("🔄 [ContentView] Syncing state - isLoggedIn: \(isLoggedIn), summoner: \(currentSummoner?.gameName ?? "nil")")
             }
         }
         .onChange(of: userSession?.isLoggedIn) { oldValue, newValue in
             print("🔄 [ContentView] Login state changed: \(oldValue ?? false) -> \(newValue ?? false)")
-            isLoggedIn = newValue ?? false
             refreshTrigger.toggle()
         }
-        .onChange(of: userSession?.currentSummoner) { oldValue, newValue in
-            print("🔄 [ContentView] Summoner changed: \(oldValue?.gameName ?? "nil") -> \(newValue?.gameName ?? "nil")")
-            currentSummoner = newValue
+        .onChange(of: userSession?.currentSummoner?.gameName) { oldValue, newValue in
+            print("🔄 [ContentView] Summoner changed: \(oldValue ?? "nil") -> \(newValue ?? "nil")")
             refreshTrigger.toggle()
         }
     }

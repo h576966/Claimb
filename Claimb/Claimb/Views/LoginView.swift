@@ -32,15 +32,24 @@ struct LoginView: View {
                 DesignSystem.Colors.background.ignoresSafeArea()
                 
                 VStack(spacing: DesignSystem.Spacing.xl) {
-                    // App Title
-                    VStack(spacing: DesignSystem.Spacing.sm) {
-                        Text("Claimb")
-                            .font(DesignSystem.Typography.largeTitle)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                    // App Icon and Title
+                    VStack(spacing: DesignSystem.Spacing.lg) {
+                        // App Icon
+                        Image("AppIcon")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 80, height: 80)
+                            .cornerRadius(DesignSystem.CornerRadius.medium)
                         
-                        Text("League of Legends Coaching")
-                            .font(DesignSystem.Typography.subheadline)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                        VStack(spacing: DesignSystem.Spacing.sm) {
+                            Text("Claimb")
+                                .font(DesignSystem.Typography.largeTitle)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                            
+                            Text("League of Legends Coaching")
+                                .font(DesignSystem.Typography.subheadline)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
                     }
                     .padding(.top, DesignSystem.Spacing.xxl)
                     
@@ -55,6 +64,7 @@ struct LoginView: View {
                             TextField("Enter your summoner name", text: $gameName)
                                 .textFieldStyle(PlainTextFieldStyle())
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .accentColor(DesignSystem.Colors.primary)
                                 .padding(DesignSystem.Spacing.md)
                                 .background(DesignSystem.Colors.cardBackground)
                                 .cornerRadius(DesignSystem.CornerRadius.small)
@@ -75,6 +85,7 @@ struct LoginView: View {
                             TextField("Enter your tag", text: $tagLine)
                                 .textFieldStyle(PlainTextFieldStyle())
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .accentColor(DesignSystem.Colors.primary)
                                 .padding(DesignSystem.Spacing.md)
                                 .background(DesignSystem.Colors.cardBackground)
                                 .cornerRadius(DesignSystem.CornerRadius.small)
@@ -99,6 +110,7 @@ struct LoginView: View {
                             }
                             .pickerStyle(MenuPickerStyle())
                             .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .accentColor(DesignSystem.Colors.primary)
                             .padding(DesignSystem.Spacing.md)
                             .background(DesignSystem.Colors.cardBackground)
                             .cornerRadius(DesignSystem.CornerRadius.small)
