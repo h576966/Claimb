@@ -11,9 +11,8 @@ import SwiftData
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showLogoutConfirmation = false
-    @ObservedObject var userSession: UserSession
-    
     let summoner: Summoner
+    @ObservedObject var userSession: UserSession
     
     var body: some View {
         TabView(selection: $selectedTab) {
