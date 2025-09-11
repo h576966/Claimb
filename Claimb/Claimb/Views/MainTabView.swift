@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    @State private var selectedTab = 2  // Default to CoachingView
     @State private var showLogoutConfirmation = false
     let summoner: Summoner
     @ObservedObject var userSession: UserSession

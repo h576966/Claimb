@@ -62,6 +62,8 @@ public class UserSession: ObservableObject {
     
     /// Saves login credentials and sets up the session
     public func login(summoner: Summoner) {
+        print("🔐 [UserSession] Starting login process for \(summoner.gameName)#\(summoner.tagLine)")
+        
         // Save credentials to UserDefaults
         UserDefaults.standard.set(summoner.gameName, forKey: "summonerName")
         UserDefaults.standard.set(summoner.tagLine, forKey: "tagline")
@@ -70,6 +72,8 @@ public class UserSession: ObservableObject {
         // Update session state
         self.currentSummoner = summoner
         self.isLoggedIn = true
+        
+        print("🔐 [UserSession] Login completed - isLoggedIn: \(isLoggedIn), summoner: \(summoner.gameName)")
     }
     
     /// Logs out the user and clears all stored data

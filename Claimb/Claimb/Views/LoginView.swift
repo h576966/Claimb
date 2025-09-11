@@ -194,8 +194,11 @@ struct LoginView: View {
             
             // Login the user
             await MainActor.run {
+                print("🔐 [LoginView] About to call userSession.login()")
                 userSession.login(summoner: summoner)
+                print("🔐 [LoginView] userSession.login() completed - isLoggedIn: \(userSession.isLoggedIn)")
                 self.isLoading = false
+                print("🔐 [LoginView] Login process finished, isLoading set to false")
             }
             
         } catch {

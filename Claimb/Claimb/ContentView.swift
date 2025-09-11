@@ -17,8 +17,14 @@ struct ContentView: View {
             if let userSession = userSession {
                 if userSession.isLoggedIn, let summoner = userSession.currentSummoner {
                     MainTabView(summoner: summoner, userSession: userSession)
+                        .onAppear {
+                            print("🏠 [ContentView] Showing MainTabView for \(summoner.gameName)")
+                        }
                 } else {
                     LoginView(userSession: userSession)
+                        .onAppear {
+                            print("🔐 [ContentView] Showing LoginView - isLoggedIn: \(userSession.isLoggedIn)")
+                        }
                 }
             } else {
                 // Loading state while UserSession is being created
@@ -30,10 +36,14 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignSystem.Colors.background)
+                .onAppear {
+                    print("⏳ [ContentView] Showing loading state")
+                }
             }
         }
         .onAppear {
             if userSession == nil {
+                print("🔄 [ContentView] Creating UserSession")
                 userSession = UserSession(modelContext: modelContext)
             }
         }
