@@ -400,8 +400,10 @@ struct MainAppView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    summoner.summonerLevel = 100
     
-    MainAppView(summoner: summoner)
+    return MainAppView(summoner: summoner)
         .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+        .onAppear {
+            summoner.summonerLevel = 100
+        }
 }

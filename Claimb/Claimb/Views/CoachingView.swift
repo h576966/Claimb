@@ -385,8 +385,10 @@ struct CoachingView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    summoner.summonerLevel = 100
     
-    CoachingView(summoner: summoner, userSession: userSession)
+    return CoachingView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
+        .onAppear {
+            summoner.summonerLevel = 100
+        }
 }

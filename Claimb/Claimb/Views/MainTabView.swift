@@ -89,8 +89,10 @@ struct MainTabView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    summoner.summonerLevel = 100
     
-    MainTabView(summoner: summoner, userSession: userSession)
+    return MainTabView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
+        .onAppear {
+            summoner.summonerLevel = 100
+        }
 }

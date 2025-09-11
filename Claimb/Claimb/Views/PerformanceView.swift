@@ -289,8 +289,10 @@ struct PerformanceView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    summoner.summonerLevel = 100
     
-    PerformanceView(summoner: summoner, userSession: userSession)
+    return PerformanceView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
+        .onAppear {
+            summoner.summonerLevel = 100
+        }
 }
