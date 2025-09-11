@@ -156,28 +156,26 @@ struct ChampionView: View {
         }
     }
     
-    private func loadChampions() {
+    private func loadChampions() async {
         isLoading = true
         errorMessage = nil
         
-        Task {
-            do {
-                let dataManager = DataManager(
-                    modelContext: userSession.modelContext,
-                    riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                    dataDragonService: DataDragonService()
-                )
-                let loadedChampions = try await dataManager.getAllChampions()
-                
-                await MainActor.run {
-                    self.champions = loadedChampions
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = error.localizedDescription
-                    self.isLoading = false
-                }
+        do {
+            let dataManager = DataManager(
+                modelContext: userSession.modelContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
+            )
+            let loadedChampions = try await dataManager.getAllChampions()
+            
+            await MainActor.run {
+                self.champions = loadedChampions
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.isLoading = false
             }
         }
     }
