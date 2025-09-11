@@ -35,10 +35,11 @@ struct LoginView: View {
                     // App Icon and Title
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // App Icon
-                        Image("AppIcon")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
+                        Image(systemName: "gamecontroller.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(DesignSystem.Colors.primary)
                             .frame(width: 80, height: 80)
+                            .background(DesignSystem.Colors.cardBackground)
                             .cornerRadius(DesignSystem.CornerRadius.medium)
                         
                         VStack(spacing: DesignSystem.Spacing.sm) {

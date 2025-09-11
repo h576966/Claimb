@@ -74,6 +74,9 @@ public class UserSession: ObservableObject {
         self.isLoggedIn = true
         
         print("🔐 [UserSession] Login completed - isLoggedIn: \(isLoggedIn), summoner: \(summoner.gameName)")
+        
+        // Post notification to trigger view updates
+        NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
     }
     
     /// Logs out the user and clears all stored data
@@ -84,6 +87,9 @@ public class UserSession: ObservableObject {
         // Update session state
         self.currentSummoner = nil
         self.isLoggedIn = false
+        
+        // Post notification to trigger view updates
+        NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
     }
     
     /// Clears stored login credentials

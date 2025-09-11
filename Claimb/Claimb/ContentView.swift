@@ -49,12 +49,8 @@ struct ContentView: View {
                 userSession = UserSession(modelContext: modelContext)
             }
         }
-        .onChange(of: userSession?.isLoggedIn) { oldValue, newValue in
-            print("🔄 [ContentView] Login state changed: \(oldValue ?? false) -> \(newValue ?? false)")
-            refreshTrigger.toggle()
-        }
-        .onChange(of: userSession?.currentSummoner?.gameName) { oldValue, newValue in
-            print("🔄 [ContentView] Summoner changed: \(oldValue ?? "nil") -> \(newValue ?? "nil")")
+        .onReceive(NotificationCenter.default.publisher(for: .init("UserSessionDidChange"))) { _ in
+            print("🔄 [ContentView] Received UserSessionDidChange notification")
             refreshTrigger.toggle()
         }
     }
