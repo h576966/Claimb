@@ -10,7 +10,7 @@ import SwiftData
 
 struct CoachingView: View {
     let summoner: Summoner
-    @Environment(\.modelContext) private var modelContext
+    @ObservedObject var userSession: UserSession
     @State private var matches: [Match] = []
     @State private var selectedRole: String = "TOP"
     @State private var roleStats: [RoleStats] = []
@@ -285,7 +285,7 @@ struct CoachingView: View {
         
         do {
             let dataManager = DataManager(
-                modelContext: modelContext,
+                modelContext: userSession.modelContext,
                 riotClient: riotClient,
                 dataDragonService: DataDragonService()
             )
@@ -377,6 +377,8 @@ struct CoachingView: View {
 }
 
 #Preview {
+    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",
         gameName: "TestSummoner",
@@ -385,6 +387,6 @@ struct CoachingView: View {
     )
     summoner.summonerLevel = 100
     
-    return CoachingView(summoner: summoner)
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+    return CoachingView(summoner: summoner, userSession: userSession)
+        .modelContainer(modelContainer)
 }

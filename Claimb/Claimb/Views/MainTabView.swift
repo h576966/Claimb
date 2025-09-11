@@ -10,14 +10,14 @@ import SwiftUI
 struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showLogoutConfirmation = false
-    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var userSession: UserSession
     
     let summoner: Summoner
     
     var body: some View {
         TabView(selection: $selectedTab) {
             // Champion View
-            ChampionView(summoner: summoner)
+            ChampionView(summoner: summoner, userSession: userSession)
                 .tabItem {
                     Image(systemName: "person.3.fill")
                     Text("Champion")
@@ -25,7 +25,7 @@ struct MainTabView: View {
                 .tag(0)
             
             // Performance View
-            PerformanceView(summoner: summoner)
+            PerformanceView(summoner: summoner, userSession: userSession)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Performance")
@@ -33,7 +33,7 @@ struct MainTabView: View {
                 .tag(1)
             
             // Coaching View
-            CoachingView(summoner: summoner)
+            CoachingView(summoner: summoner, userSession: userSession)
                 .tabItem {
                     Image(systemName: "brain.head.profile")
                     Text("Coaching")
@@ -42,6 +42,22 @@ struct MainTabView: View {
         }
         .accentColor(DesignSystem.Colors.primary)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    showLogoutConfirmation = true
+                }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(summoner.gameName)
+                            .font(DesignSystem.Typography.title3)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                        
+                        Text("#\(summoner.tagLine)")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Logout") {
                     showLogoutConfirmation = true
@@ -60,17 +76,13 @@ struct MainTabView: View {
     }
     
     private func logout() {
-        // Clear user data and return to login
-        UserDefaults.standard.removeObject(forKey: "summonerName")
-        UserDefaults.standard.removeObject(forKey: "tagline")
-        UserDefaults.standard.removeObject(forKey: "region")
-        
-        // Dismiss the current view to return to login
-        dismiss()
+        userSession.logout()
     }
 }
 
 #Preview {
+    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",
         gameName: "TestSummoner",
@@ -79,6 +91,6 @@ struct MainTabView: View {
     )
     summoner.summonerLevel = 100
     
-    return MainTabView(summoner: summoner)
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+    return MainTabView(summoner: summoner, userSession: userSession)
+        .modelContainer(modelContainer)
 }

@@ -9,11 +9,38 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var userSession: UserSession?
+    
     var body: some View {
-        LoginView()
+        Group {
+            if let userSession = userSession {
+                if userSession.isLoggedIn, let summoner = userSession.currentSummoner {
+                    MainTabView(summoner: summoner, userSession: userSession)
+                } else {
+                    LoginView(userSession: userSession)
+                }
+            } else {
+                // Loading state while UserSession is being created
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
+                    Text("Loading...")
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DesignSystem.Colors.background)
+            }
+        }
+        .onAppear {
+            if userSession == nil {
+                userSession = UserSession(modelContext: modelContext)
+            }
+        }
     }
 }
 
 #Preview {
     ContentView()
+        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
 }

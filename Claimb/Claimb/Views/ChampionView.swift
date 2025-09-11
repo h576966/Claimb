@@ -10,7 +10,7 @@ import SwiftData
 
 struct ChampionView: View {
     let summoner: Summoner
-    @Environment(\.modelContext) private var modelContext
+    @ObservedObject var userSession: UserSession
     @State private var champions: [Champion] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -163,7 +163,7 @@ struct ChampionView: View {
         Task {
             do {
                 let dataManager = DataManager(
-                    modelContext: modelContext,
+                    modelContext: userSession.modelContext,
                     riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
                     dataDragonService: DataDragonService()
                 )
@@ -212,6 +212,8 @@ struct ChampionCard: View {
 }
 
 #Preview {
+    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",
         gameName: "TestSummoner",
@@ -220,6 +222,6 @@ struct ChampionCard: View {
     )
     summoner.summonerLevel = 100
     
-    return ChampionView(summoner: summoner)
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+    return ChampionView(summoner: summoner, userSession: userSession)
+        .modelContainer(modelContainer)
 }

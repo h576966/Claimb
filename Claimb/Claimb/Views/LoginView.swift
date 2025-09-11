@@ -9,14 +9,12 @@ import SwiftUI
 import SwiftData
 
 struct LoginView: View {
-    @Environment(\.modelContext) private var modelContext
+    @ObservedObject var userSession: UserSession
     @State private var gameName = ""
     @State private var tagLine = "8778"
     @State private var selectedRegion = "euw1"
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var showMainApp = false
-    @State private var currentSummoner: Summoner?
     
     private let regions = [
         ("euw1", "Europe West"),
@@ -156,11 +154,6 @@ struct LoginView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showMainApp) {
-            if let summoner = currentSummoner {
-                MainTabView(summoner: summoner)
-            }
-        }
     }
     
     // MARK: - Computed Properties
@@ -181,7 +174,7 @@ struct LoginView: View {
         do {
             // Create DataManager
             let dataManager = DataManager(
-                modelContext: modelContext,
+                modelContext: userSession.modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
@@ -199,10 +192,10 @@ struct LoginView: View {
             // Refresh matches
             try await dataManager.refreshMatches(for: summoner)
             
+            // Login the user
             await MainActor.run {
-                self.currentSummoner = summoner
+                userSession.login(summoner: summoner)
                 self.isLoading = false
-                self.showMainApp = true
             }
             
         } catch {
@@ -215,6 +208,8 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView()
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let userSession = UserSession(modelContext: modelContainer.mainContext)
+    return LoginView(userSession: userSession)
+        .modelContainer(modelContainer)
 }
