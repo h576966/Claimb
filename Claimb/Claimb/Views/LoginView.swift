@@ -158,7 +158,7 @@ struct LoginView: View {
         }
         .fullScreenCover(isPresented: $showMainApp) {
             if let summoner = currentSummoner {
-                MainAppView(summoner: summoner)
+                MainTabView(summoner: summoner)
             }
         }
     }
