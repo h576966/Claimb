@@ -12,10 +12,20 @@ struct ChampionView: View {
     let summoner: Summoner
     @ObservedObject var userSession: UserSession
     @State private var champions: [Champion] = []
+    @State private var championStats: [ChampionStats] = []
+    @State private var selectedRole: String = "TOP"
+    @State private var selectedFilter: ChampionFilter = .mostPlayed
+    @State private var roleStats: [RoleStats] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     
     private let dataDragonService = DataDragonService()
+    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
+    
+    enum ChampionFilter: String, CaseIterable {
+        case mostPlayed = "Most Played"
+        case bestPerforming = "Best Performing"
+    }
     
     var body: some View {
         NavigationView {
@@ -26,15 +36,29 @@ struct ChampionView: View {
                     // Header
                     headerView
                     
+                    // Role Selector
+                    if !roleStats.isEmpty {
+                        RoleSelectorView(
+                            selectedRole: $selectedRole,
+                            roleStats: roleStats,
+                            onTap: { }
+                        )
+                        .padding(.horizontal, DesignSystem.Spacing.lg)
+                        .padding(.bottom, DesignSystem.Spacing.md)
+                    }
+                    
+                    // Filter Options
+                    filterOptionsView
+                    
                     // Content
                     if isLoading {
                         loadingView
                     } else if !(errorMessage?.isEmpty ?? true) {
                         errorView
-                    } else if champions.isEmpty {
+                    } else if championStats.isEmpty {
                         emptyStateView
                     } else {
-                        championGridView
+                        championListView
                     }
                 }
             }
@@ -42,7 +66,17 @@ struct ChampionView: View {
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 Task {
-                    await loadChampions()
+                    await loadData()
+                }
+            }
+            .onChange(of: selectedRole) { _, _ in
+                Task {
+                    await loadChampionStats()
+                }
+            }
+            .onChange(of: selectedFilter) { _, _ in
+                Task {
+                    await loadChampionStats()
                 }
             }
         }
@@ -140,15 +174,36 @@ struct ChampionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    private var championGridView: some View {
+    private var filterOptionsView: some View {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            ForEach(ChampionFilter.allCases, id: \.self) { filter in
+                Button(action: {
+                    selectedFilter = filter
+                }) {
+                    Text(filter.rawValue)
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(selectedFilter == filter ? DesignSystem.Colors.white : DesignSystem.Colors.textPrimary)
+                        .padding(.horizontal, DesignSystem.Spacing.md)
+                        .padding(.vertical, DesignSystem.Spacing.sm)
+                        .background(selectedFilter == filter ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground)
+                        .cornerRadius(DesignSystem.CornerRadius.small)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.horizontal, DesignSystem.Spacing.lg)
+        .padding(.bottom, DesignSystem.Spacing.md)
+    }
+    
+    private var championListView: some View {
         ScrollView {
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: DesignSystem.Spacing.md) {
-                ForEach(champions, id: \.id) { champion in
-                    ChampionCard(champion: champion)
+            LazyVStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(championStats, id: \.champion.id) { championStat in
+                    ChampionStatsCard(championStat: championStat, filter: selectedFilter)
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
@@ -156,27 +211,235 @@ struct ChampionView: View {
         }
     }
     
-    private func loadChampions() async {
+    private func loadData() async {
         isLoading = true
         errorMessage = nil
         
         do {
             let dataManager = DataManager(
                 modelContext: userSession.modelContext,
-                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                dataDragonService: DataDragonService()
+                riotClient: riotClient,
+                dataDragonService: dataDragonService
             )
+            
+            // Load champions and matches
             let loadedChampions = try await dataManager.getAllChampions()
+            let matches = try await dataManager.getMatches(for: summoner)
             
             await MainActor.run {
                 self.champions = loadedChampions
+                self.calculateRoleStats(from: matches)
                 self.isLoading = false
             }
+            
+            // Load champion stats after setting role stats
+            await loadChampionStats()
+            
         } catch {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
             }
+        }
+    }
+    
+    private func loadChampionStats() async {
+        do {
+            let dataManager = DataManager(
+                modelContext: userSession.modelContext,
+                riotClient: riotClient,
+                dataDragonService: dataDragonService
+            )
+            
+            let matches = try await dataManager.getMatches(for: summoner)
+            let stats = calculateChampionStats(from: matches, role: selectedRole, filter: selectedFilter)
+            
+            await MainActor.run {
+                self.championStats = stats
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+    
+    private func calculateRoleStats(from matches: [Match]) {
+        var roleStats: [String: (wins: Int, total: Int)] = [:]
+        
+        for match in matches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+                continue
+            }
+            
+            let normalizedRole = RoleUtils.normalizeRole(participant.role)
+            if roleStats[normalizedRole] == nil {
+                roleStats[normalizedRole] = (wins: 0, total: 0)
+            }
+            
+            roleStats[normalizedRole]?.total += 1
+            if participant.win {
+                roleStats[normalizedRole]?.wins += 1
+            }
+        }
+        
+        self.roleStats = roleStats.map { role, stats in
+            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
+            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
+        }.sorted { $0.totalGames > $1.totalGames }
+        
+        // Set selected role to the one with most games
+        if let mostPlayedRole = self.roleStats.first {
+            self.selectedRole = mostPlayedRole.role
+        }
+    }
+    
+    private func calculateChampionStats(from matches: [Match], role: String, filter: ChampionFilter) -> [ChampionStats] {
+        var championStats: [String: ChampionStats] = [:]
+        
+        for match in matches {
+            guard let participant = match.participants.first(where: { 
+                $0.puuid == summoner.puuid && RoleUtils.normalizeRole($0.role) == role 
+            }) else {
+                continue
+            }
+            
+            let championId = participant.championId
+            let champion = champions.first { $0.id == championId }
+            
+            guard let champion = champion else { continue }
+            
+            if championStats[champion.name] == nil {
+                championStats[champion.name] = ChampionStats(
+                    champion: champion,
+                    gamesPlayed: 0,
+                    wins: 0,
+                    winRate: 0.0,
+                    averageKDA: 0.0,
+                    averageCS: 0.0,
+                    averageVisionScore: 0.0
+                )
+            }
+            
+            championStats[champion.name]?.gamesPlayed += 1
+            if participant.win {
+                championStats[champion.name]?.wins += 1
+            }
+            
+            // Update averages
+            let current = championStats[champion.name]!
+            let newKDA = (current.averageKDA * Double(current.gamesPlayed - 1) + participant.kda) / Double(current.gamesPlayed)
+            let newCS = (current.averageCS * Double(current.gamesPlayed - 1) + participant.csPerMinute) / Double(current.gamesPlayed)
+            let newVision = (current.averageVisionScore * Double(current.gamesPlayed - 1) + participant.visionScorePerMinute) / Double(current.gamesPlayed)
+            
+            championStats[champion.name]?.averageKDA = newKDA
+            championStats[champion.name]?.averageCS = newCS
+            championStats[champion.name]?.averageVisionScore = newVision
+        }
+        
+        // Filter champions with at least 3 games and calculate win rates
+        let filteredStats = championStats.values
+            .filter { $0.gamesPlayed >= 3 }
+            .map { stat in
+                var updatedStat = stat
+                updatedStat.winRate = Double(stat.wins) / Double(stat.gamesPlayed)
+                return updatedStat
+            }
+        
+        // Sort based on selected filter
+        switch filter {
+        case .mostPlayed:
+            return filteredStats.sorted { $0.gamesPlayed > $1.gamesPlayed }
+        case .bestPerforming:
+            return filteredStats.sorted { $0.winRate > $1.winRate }
+        }
+    }
+}
+
+// MARK: - Data Structures
+
+struct ChampionStats {
+    let champion: Champion
+    var gamesPlayed: Int
+    var wins: Int
+    var winRate: Double
+    var averageKDA: Double
+    var averageCS: Double
+    var averageVisionScore: Double
+}
+
+// MARK: - Champion Card Views
+
+struct ChampionStatsCard: View {
+    let championStat: ChampionStats
+    let filter: ChampionView.ChampionFilter
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.md) {
+            // Champion Icon
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                .fill(DesignSystem.Colors.cardBackground)
+                .frame(width: 50, height: 50)
+                .overlay(
+                    Image(systemName: "person.circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                )
+            
+            // Champion Info
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                Text(championStat.champion.name)
+                    .font(DesignSystem.Typography.bodyBold)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                
+                Text("\(championStat.gamesPlayed) games")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+            
+            Spacer()
+            
+            // Stats
+            VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                // Primary stat based on filter
+                if filter == .mostPlayed {
+                    Text("\(championStat.gamesPlayed) games")
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(DesignSystem.Colors.primary)
+                } else {
+                    Text("\(Int(championStat.winRate * 100))%")
+                        .font(DesignSystem.Typography.bodyBold)
+                        .foregroundColor(winRateColor)
+                }
+                
+                // Secondary stats
+                HStack(spacing: DesignSystem.Spacing.sm) {
+                    Text("\(String(format: "%.1f", championStat.averageKDA)) KDA")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                    
+                    Text("\(String(format: "%.1f", championStat.averageCS)) CS/min")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            }
+        }
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
+    }
+    
+    private var winRateColor: Color {
+        if championStat.winRate >= 0.6 {
+            return DesignSystem.Colors.accent
+        } else if championStat.winRate >= 0.5 {
+            return DesignSystem.Colors.textSecondary
+        } else {
+            return DesignSystem.Colors.secondary
         }
     }
 }

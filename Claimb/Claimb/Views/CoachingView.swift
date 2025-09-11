@@ -12,13 +12,10 @@ struct CoachingView: View {
     let summoner: Summoner
     @ObservedObject var userSession: UserSession
     @State private var matches: [Match] = []
-    @State private var selectedRole: String = "TOP"
-    @State private var roleStats: [RoleStats] = []
     @State private var isLoading = false
     @State private var isAnalyzing = false
     @State private var errorMessage: String?
     @State private var coachingInsights: String = ""
-    @State private var showRoleSelection = false
     
     private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     
@@ -30,19 +27,6 @@ struct CoachingView: View {
                 VStack(spacing: 0) {
                     // Header
                     headerView
-                    
-                    // Role Selector
-                    if !roleStats.isEmpty {
-                        RoleSelectorView(
-                            selectedRole: $selectedRole,
-                            roleStats: roleStats,
-                            onTap: {
-                                showRoleSelection = true
-                            }
-                        )
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
-                        .padding(.bottom, DesignSystem.Spacing.md)
-                    }
                     
                     // Content
                     if isLoading {
@@ -63,16 +47,6 @@ struct CoachingView: View {
                     await loadMatches()
                 }
             }
-        .sheet(isPresented: $showRoleSelection) {
-            RoleSelectorView(
-                selectedRole: $selectedRole,
-                roleStats: roleStats,
-                onTap: {
-                    showRoleSelection = false
-                },
-                showFullScreen: true
-            )
-        }
         }
     }
     
@@ -294,7 +268,6 @@ struct CoachingView: View {
             await MainActor.run {
                 self.matches = loadedMatches
                 self.isLoading = false
-                self.calculateRoleStats()
             }
         } catch {
             await MainActor.run {
@@ -332,48 +305,6 @@ struct CoachingView: View {
         }
     }
     
-    private func calculateRoleStats() {
-        guard !matches.isEmpty else {
-            roleStats = []
-            selectedRole = "TOP"
-            return
-        }
-        
-        let calculatedStats = calculateRoleWinRates(from: matches, summoner: summoner)
-        roleStats = calculatedStats
-        
-        // Set selected role to the one with the most games, or default to TOP
-        if let mostPlayedRole = calculatedStats.max(by: { $0.totalGames < $1.totalGames }) {
-            selectedRole = mostPlayedRole.role
-        } else {
-            selectedRole = "TOP"
-        }
-    }
-    
-    private func calculateRoleWinRates(from matches: [Match], summoner: Summoner) -> [RoleStats] {
-        var roleStats: [String: (wins: Int, total: Int)] = [:]
-        
-        for match in matches {
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
-                continue
-            }
-            
-            let normalizedRole = RoleUtils.normalizeRole(participant.role)
-            if roleStats[normalizedRole] == nil {
-                roleStats[normalizedRole] = (wins: 0, total: 0)
-            }
-            
-            roleStats[normalizedRole]?.total += 1
-            if participant.win {
-                roleStats[normalizedRole]?.wins += 1
-            }
-        }
-        
-        return roleStats.map { role, stats in
-            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
-            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
-        }.sorted { $0.totalGames > $1.totalGames }
-    }
 }
 
 #Preview {
