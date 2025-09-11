@@ -11,6 +11,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var userSession: UserSession?
+    @State private var refreshTrigger = false
     
     var body: some View {
         Group {
@@ -41,11 +42,20 @@ struct ContentView: View {
                 }
             }
         }
+        .id(refreshTrigger) // Force view refresh when trigger changes
         .onAppear {
             if userSession == nil {
                 print("🔄 [ContentView] Creating UserSession")
                 userSession = UserSession(modelContext: modelContext)
             }
+        }
+        .onChange(of: userSession?.isLoggedIn) { oldValue, newValue in
+            print("🔄 [ContentView] Login state changed: \(oldValue ?? false) -> \(newValue ?? false)")
+            // Force view update by toggling a state variable
+            refreshTrigger.toggle()
+        }
+        .onChange(of: userSession?.currentSummoner?.gameName) { oldValue, newValue in
+            print("🔄 [ContentView] Summoner changed: \(oldValue ?? "nil") -> \(newValue ?? "nil")")
         }
     }
 }
