@@ -139,7 +139,7 @@ struct ChampionView: View {
             
             Button("Retry") {
                 Task {
-                    await loadChampions()
+                    await loadData()
                 }
             }
             .claimbButton(variant: .primary, size: .medium)
@@ -165,7 +165,7 @@ struct ChampionView: View {
             
             Button("Load Champions") {
                 Task {
-                    await loadChampions()
+                    await loadData()
                 }
             }
             .claimbButton(variant: .primary, size: .medium)
