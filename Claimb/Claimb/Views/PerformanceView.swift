@@ -291,6 +291,6 @@ struct PerformanceView: View {
     )
     summoner.summonerLevel = 100
     
-    return PerformanceView(summoner: summoner, userSession: userSession)
+    PerformanceView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
 }

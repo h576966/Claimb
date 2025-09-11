@@ -402,6 +402,6 @@ struct MainAppView: View {
     )
     summoner.summonerLevel = 100
     
-    return MainAppView(summoner: summoner)
+    MainAppView(summoner: summoner)
         .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
 }

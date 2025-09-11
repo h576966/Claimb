@@ -387,6 +387,6 @@ struct CoachingView: View {
     )
     summoner.summonerLevel = 100
     
-    return CoachingView(summoner: summoner, userSession: userSession)
+    CoachingView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
 }

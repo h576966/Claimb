@@ -233,7 +233,7 @@ struct MatchCardView: View {
     
     match.participants = [participant]
     
-    return MatchCardView(match: match, summoner: summoner)
+    MatchCardView(match: match, summoner: summoner)
         .padding()
         .background(Color.black)
 }

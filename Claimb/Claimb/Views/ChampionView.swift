@@ -222,6 +222,6 @@ struct ChampionCard: View {
     )
     summoner.summonerLevel = 100
     
-    return ChampionView(summoner: summoner, userSession: userSession)
+    ChampionView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
 }

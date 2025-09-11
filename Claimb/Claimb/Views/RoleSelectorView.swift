@@ -266,7 +266,7 @@ struct RoleSelectionCard: View {
         RoleStats(role: "UTILITY", winRate: 0.60, totalGames: 12)
     ]
     
-    return RoleSelectorView(
+    RoleSelectorView(
         selectedRole: .constant("SOLO"),
         roleStats: roleStats,
         onTap: { print("Navigate to role selection") }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct MainTabView: View {
     @State private var selectedTab = 0
@@ -91,6 +92,6 @@ struct MainTabView: View {
     )
     summoner.summonerLevel = 100
     
-    return MainTabView(summoner: summoner, userSession: userSession)
+    MainTabView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
 }

@@ -210,6 +210,6 @@ struct LoginView: View {
 #Preview {
     let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
     let userSession = UserSession(modelContext: modelContainer.mainContext)
-    return LoginView(userSession: userSession)
+    LoginView(userSession: userSession)
         .modelContainer(modelContainer)
 }
