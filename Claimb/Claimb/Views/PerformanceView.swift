@@ -561,8 +561,19 @@ struct PerformanceView: View {
             let damageShare = participants.map { participant in
                 let match = matches.first { $0.participants.contains(participant) }
                 let teamDamage = match?.participants.reduce(0) { $0 + $1.totalDamageDealt } ?? 0
-                return teamDamage > 0 ? Double(participant.totalDamageDealt) / Double(teamDamage) : 0.0
+                let playerDamage = participant.totalDamageDealt
+                let share = teamDamage > 0 ? Double(playerDamage) / Double(teamDamage) : 0.0
+                
+                // Debug logging
+                print("🔍 [PerformanceView] Damage Share Debug:")
+                print("   Player Damage: \(playerDamage)")
+                print("   Team Damage: \(teamDamage)")
+                print("   Share: \(String(format: "%.3f", share)) (\(String(format: "%.1f", share * 100))%)")
+                
+                return share
             }.reduce(0, +) / Double(participants.count)
+            
+            print("🔍 [PerformanceView] Average Damage Share: \(String(format: "%.3f", damageShare)) (\(String(format: "%.1f", damageShare * 100))%)")
             
             kpis.append(createKPIMetric(
                 metric: "team_damage_pct",
