@@ -81,7 +81,7 @@ public class ChampionClassMappingService {
     }
     
     public func getClassTag(for champion: Champion) -> String? {
-        return getClassTag(for: champion.championId)
+        return getClassTag(for: champion.key)
     }
 }
 
