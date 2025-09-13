@@ -223,6 +223,7 @@ struct MatchCardView: View {
         goldEarned: 12000,
         visionScore: 25,
         totalDamageDealt: 25000,
+        totalDamageDealtToChampions: 20000,
         totalDamageTaken: 8000,
         dragonTakedowns: 1,
         riftHeraldTakedowns: 0,
@@ -233,7 +234,7 @@ struct MatchCardView: View {
     
     match.participants = [participant]
     
-    return MatchCardView(match: match, summoner: summoner)
+    MatchCardView(match: match, summoner: summoner)
         .padding()
         .background(Color.black)
 }
