@@ -232,9 +232,10 @@ struct MatchCardView: View {
         atakhanTakedowns: 0
     )
     
-    match.participants = [participant]
-    
-    MatchCardView(match: match, summoner: summoner)
+    return MatchCardView(match: match, summoner: summoner)
         .padding()
         .background(Color.black)
+        .onAppear {
+            match.participants = [participant]
+        }
 }
