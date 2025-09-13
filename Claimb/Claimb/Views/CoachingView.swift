@@ -20,32 +20,28 @@ struct CoachingView: View {
     private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                DesignSystem.Colors.background.ignoresSafeArea()
+        ZStack {
+            DesignSystem.Colors.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Custom Navigation Bar
+                headerView
                 
-                VStack(spacing: 0) {
-                    // Header
-                    headerView
-                    
-                    // Content
-                    if isLoading {
-                        loadingView
-                    } else if !(errorMessage?.isEmpty ?? true) {
-                        errorView
-                    } else if matches.isEmpty {
-                        emptyStateView
-                    } else {
-                        coachingContentView
-                    }
+                // Content
+                if isLoading {
+                    loadingView
+                } else if !(errorMessage?.isEmpty ?? true) {
+                    errorView
+                } else if matches.isEmpty {
+                    emptyStateView
+                } else {
+                    coachingContentView
                 }
             }
-            .navigationTitle("Coaching")
-            .navigationBarTitleDisplayMode(.large)
-            .onAppear {
-                Task {
-                    await loadMatches()
-                }
+        }
+        .onAppear {
+            Task {
+                await loadMatches()
             }
         }
     }
@@ -60,7 +56,10 @@ struct CoachingView: View {
                 action: { Task { await analyzePerformance() } },
                 isLoading: isAnalyzing,
                 isDisabled: matches.isEmpty
-            )
+            ),
+            onLogout: {
+                userSession.logout()
+            }
         )
     }
     

@@ -11,6 +11,7 @@ struct SharedHeaderView: View {
     let summoner: Summoner
     let title: String
     let actionButton: ActionButton?
+    let onLogout: (() -> Void)?
     
     struct ActionButton {
         let title: String
@@ -20,52 +21,33 @@ struct SharedHeaderView: View {
         let isDisabled: Bool
     }
     
-    init(summoner: Summoner, title: String, actionButton: ActionButton? = nil) {
+    init(
+        summoner: Summoner, 
+        title: String, 
+        actionButton: ActionButton? = nil,
+        onLogout: (() -> Void)? = nil
+    ) {
         self.summoner = summoner
         self.title = title
         self.actionButton = actionButton
+        self.onLogout = onLogout
     }
     
     var body: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Summoner Info
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summoner.gameName)#\(summoner.tagLine)")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                    
-                    Text("Level \(summoner.summonerLevel ?? 0)")
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                
-                Spacer()
-                
-                // Action Button (if provided)
-                if let actionButton = actionButton {
-                    Button(action: actionButton.action) {
-                        HStack(spacing: DesignSystem.Spacing.sm) {
-                            if actionButton.isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
-                                    .frame(width: 16, height: 16)
-                            } else {
-                                Image(systemName: actionButton.icon)
-                                    .font(.system(size: 16, weight: .medium))
-                            }
-                            
-                            Text(actionButton.title)
-                                .font(DesignSystem.Typography.callout)
-                        }
-                    }
-                    .claimbButton(variant: .primary, size: .small)
-                    .disabled(actionButton.isDisabled || actionButton.isLoading)
-                }
-            }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.top, DesignSystem.Spacing.sm)
-        }
+        CustomNavigationBar(
+            summoner: summoner,
+            title: title,
+            actionButton: actionButton.map { actionButton in
+                CustomNavigationBar.ActionButton(
+                    title: actionButton.title,
+                    icon: actionButton.icon,
+                    action: actionButton.action,
+                    isLoading: actionButton.isLoading,
+                    isDisabled: actionButton.isDisabled
+                )
+            },
+            onLogout: onLogout
+        )
     }
 }
 
@@ -86,7 +68,8 @@ struct SharedHeaderView: View {
             action: { print("Refresh tapped") },
             isLoading: false,
             isDisabled: false
-        )
+        ),
+        onLogout: { print("Logout tapped") }
     )
     .background(DesignSystem.Colors.background)
 }

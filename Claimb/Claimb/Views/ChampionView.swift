@@ -28,62 +28,64 @@ struct ChampionView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                DesignSystem.Colors.background.ignoresSafeArea()
+        ZStack {
+            DesignSystem.Colors.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Custom Navigation Bar
+                headerView
                 
-                VStack(spacing: 0) {
-                    // Header
-                    headerView
-                    
-                    // Role Selector
-                    if !roleStats.isEmpty {
-                        RoleSelectorView(
-                            selectedRole: $selectedRole,
-                            roleStats: roleStats,
-                            onTap: { }
-                        )
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
-                        .padding(.bottom, DesignSystem.Spacing.md)
-                    }
-                    
-                    // Filter Options
-                    filterOptionsView
-                    
-                    // Content
-                    if isLoading {
-                        loadingView
-                    } else if !(errorMessage?.isEmpty ?? true) {
-                        errorView
-                    } else if championStats.isEmpty {
-                        emptyStateView
-                    } else {
-                        championListView
-                    }
+                // Role Selector
+                if !roleStats.isEmpty {
+                    RoleSelectorView(
+                        selectedRole: $selectedRole,
+                        roleStats: roleStats,
+                        onTap: { }
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
+                }
+                
+                // Filter Options
+                filterOptionsView
+                
+                // Content
+                if isLoading {
+                    loadingView
+                } else if !(errorMessage?.isEmpty ?? true) {
+                    errorView
+                } else if championStats.isEmpty {
+                    emptyStateView
+                } else {
+                    championListView
                 }
             }
-            .navigationTitle("Champion Pool")
-            .navigationBarTitleDisplayMode(.large)
-            .onAppear {
-                Task {
-                    await loadData()
-                }
+        }
+        .onAppear {
+            Task {
+                await loadData()
             }
-            .onChange(of: selectedRole) { _, _ in
-                Task {
-                    await loadChampionStats()
-                }
+        }
+        .onChange(of: selectedRole) { _, _ in
+            Task {
+                await loadChampionStats()
             }
-            .onChange(of: selectedFilter) { _, _ in
-                Task {
-                    await loadChampionStats()
-                }
+        }
+        .onChange(of: selectedFilter) { _, _ in
+            Task {
+                await loadChampionStats()
             }
         }
     }
     
     private var headerView: some View {
-        SharedHeaderView(summoner: summoner, title: "Champion Pool")
+        SharedHeaderView(
+            summoner: summoner, 
+            title: "Champion Pool",
+            onLogout: {
+                userSession.logout()
+            }
+        )
     }
     
     private var loadingView: some View {

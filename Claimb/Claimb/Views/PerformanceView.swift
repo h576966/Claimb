@@ -22,46 +22,43 @@ struct PerformanceView: View {
     private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                DesignSystem.Colors.background.ignoresSafeArea()
+        ZStack {
+            DesignSystem.Colors.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Custom Navigation Bar
+                headerView
                 
-                VStack(spacing: 0) {
-                    // Header
-                    headerView
-                    
-                    // Role Selector
-                    if !roleStats.isEmpty {
-                        RoleSelectorView(
-                            selectedRole: $selectedRole,
-                            roleStats: roleStats,
-                            onTap: {
-                                showRoleSelection = true
-                            }
-                        )
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
-                        .padding(.bottom, DesignSystem.Spacing.md)
-                    }
-                    
-                    // Content
-                    if isLoading {
-                        loadingView
-                    } else if !(errorMessage?.isEmpty ?? true) {
-                        errorView
-                    } else if matches.isEmpty {
-                        emptyStateView
-                    } else {
-                        matchListView
-                    }
+                // Role Selector
+                if !roleStats.isEmpty {
+                    RoleSelectorView(
+                        selectedRole: $selectedRole,
+                        roleStats: roleStats,
+                        onTap: {
+                            showRoleSelection = true
+                        }
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
+                }
+                
+                // Content
+                if isLoading {
+                    loadingView
+                } else if !(errorMessage?.isEmpty ?? true) {
+                    errorView
+                } else if matches.isEmpty {
+                    emptyStateView
+                } else {
+                    matchListView
                 }
             }
-            .navigationTitle("Performance")
-            .navigationBarTitleDisplayMode(.large)
-            .onAppear {
-                Task {
-                    await loadMatches()
-                }
+        }
+        .onAppear {
+            Task {
+                await loadMatches()
             }
+        }
         .sheet(isPresented: $showRoleSelection) {
             RoleSelectorView(
                 selectedRole: $selectedRole,
@@ -71,7 +68,6 @@ struct PerformanceView: View {
                 },
                 showFullScreen: true
             )
-        }
         }
     }
     
@@ -85,7 +81,10 @@ struct PerformanceView: View {
                 action: { Task { await refreshMatches() } },
                 isLoading: isRefreshing,
                 isDisabled: false
-            )
+            ),
+            onLogout: {
+                userSession.logout()
+            }
         )
     }
     
