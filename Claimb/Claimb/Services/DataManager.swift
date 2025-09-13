@@ -228,6 +228,7 @@ public class DataManager: ObservableObject {
         let goldEarned = participantJson["goldEarned"] as? Int ?? 0
         let visionScore = participantJson["visionScore"] as? Int ?? 0
         let totalDamageDealt = participantJson["totalDamageDealt"] as? Int ?? 0
+        let totalDamageDealtToChampions = participantJson["totalDamageDealtToChampions"] as? Int ?? 0
         let totalDamageTaken = participantJson["totalDamageTaken"] as? Int ?? 0
         
         // Challenge-based metrics
@@ -257,6 +258,7 @@ public class DataManager: ObservableObject {
             goldEarned: goldEarned,
             visionScore: visionScore,
             totalDamageDealt: totalDamageDealt,
+            totalDamageDealtToChampions: totalDamageDealtToChampions,
             totalDamageTaken: totalDamageTaken,
             dragonTakedowns: dragonTakedowns,
             riftHeraldTakedowns: riftHeraldTakedowns,

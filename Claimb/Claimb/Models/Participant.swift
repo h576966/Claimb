@@ -36,6 +36,7 @@ public class Participant {
     public var goldEarned: Int
     public var visionScore: Int
     public var totalDamageDealt: Int
+    public var totalDamageDealtToChampions: Int
     public var totalDamageTaken: Int
     
     // Objective takedowns
@@ -53,7 +54,7 @@ public class Participant {
                 kills: Int, deaths: Int, assists: Int, win: Bool, largestMultiKill: Int,
                 hadAfkTeammate: Int, gameEndedInSurrender: Bool, eligibleForProgression: Bool,
                 totalMinionsKilled: Int, neutralMinionsKilled: Int, goldEarned: Int,
-                visionScore: Int, totalDamageDealt: Int, totalDamageTaken: Int,
+                visionScore: Int, totalDamageDealt: Int, totalDamageDealtToChampions: Int, totalDamageTaken: Int,
                 dragonTakedowns: Int, riftHeraldTakedowns: Int, baronTakedowns: Int,
                 hordeTakedowns: Int, atakhanTakedowns: Int) {
         self.id = "\(puuid)_\(championId)_\(Date().timeIntervalSince1970)"
@@ -75,6 +76,7 @@ public class Participant {
         self.goldEarned = goldEarned
         self.visionScore = visionScore
         self.totalDamageDealt = totalDamageDealt
+        self.totalDamageDealtToChampions = totalDamageDealtToChampions
         self.totalDamageTaken = totalDamageTaken
         self.dragonTakedowns = dragonTakedowns
         self.riftHeraldTakedowns = riftHeraldTakedowns

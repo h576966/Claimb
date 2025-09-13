@@ -560,14 +560,15 @@ struct PerformanceView: View {
         if role == "MID" || role == "BOTTOM" {
             let damageShare = participants.map { participant in
                 let match = matches.first { $0.participants.contains(participant) }
-                let teamDamage = match?.participants.reduce(0) { $0 + $1.totalDamageDealt } ?? 0
-                let playerDamage = participant.totalDamageDealt
+                // Use totalDamageDealtToChampions for both player and team
+                let teamDamage = match?.participants.reduce(0) { $0 + $1.totalDamageDealtToChampions } ?? 0
+                let playerDamage = participant.totalDamageDealtToChampions
                 let share = teamDamage > 0 ? Double(playerDamage) / Double(teamDamage) : 0.0
                 
                 // Debug logging
-                print("🔍 [PerformanceView] Damage Share Debug:")
-                print("   Player Damage: \(playerDamage)")
-                print("   Team Damage: \(teamDamage)")
+                print("🔍 [PerformanceView] Damage Share Debug (Champions Only):")
+                print("   Player Damage to Champions: \(playerDamage)")
+                print("   Team Damage to Champions: \(teamDamage)")
                 print("   Share: \(String(format: "%.3f", share)) (\(String(format: "%.1f", share * 100))%)")
                 
                 return share
