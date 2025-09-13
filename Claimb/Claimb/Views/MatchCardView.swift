@@ -232,7 +232,7 @@ struct MatchCardView: View {
         atakhanTakedowns: 0
     )
     
-    return MatchCardView(match: match, summoner: summoner)
+    MatchCardView(match: match, summoner: summoner)
         .padding()
         .background(Color.black)
         .onAppear {
