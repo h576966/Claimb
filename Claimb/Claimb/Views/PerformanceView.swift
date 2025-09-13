@@ -487,7 +487,11 @@ struct PerformanceView: View {
         
         guard !participants.isEmpty else { return [] }
         
-        // Calculate basic KPIs (Phase 1 - simple approach)
+        // Load champion class mapping
+        let classMappingService = ChampionClassMappingService()
+        await classMappingService.loadChampionClassMapping(modelContext: userSession.modelContext)
+        
+        // Calculate basic KPIs
         let deathsPerGame = participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
         let visionScore = participants.map { $0.visionScorePerMinute }.reduce(0, +) / Double(participants.count)
         let killParticipation = participants.map { participant in
@@ -498,40 +502,40 @@ struct PerformanceView: View {
         
         var kpis: [KPIMetric] = []
         
-        // Create basic KPIs without baseline comparison for Phase 1
-        kpis.append(KPIMetric(
+        // Create KPIs with baseline comparison
+        kpis.append(createKPIMetric(
             metric: "deaths_per_game",
             value: deathsPerGame,
-            baseline: nil,
-            performanceLevel: .unknown,
-            color: DesignSystem.Colors.textSecondary
+            role: role,
+            classMappingService: classMappingService,
+            modelContext: userSession.modelContext
         ))
         
-        kpis.append(KPIMetric(
+        kpis.append(createKPIMetric(
             metric: "vision_score_per_min",
             value: visionScore,
-            baseline: nil,
-            performanceLevel: .unknown,
-            color: DesignSystem.Colors.textSecondary
+            role: role,
+            classMappingService: classMappingService,
+            modelContext: userSession.modelContext
         ))
         
-        kpis.append(KPIMetric(
+        kpis.append(createKPIMetric(
             metric: "kill_participation_pct",
             value: killParticipation,
-            baseline: nil,
-            performanceLevel: .unknown,
-            color: DesignSystem.Colors.textSecondary
+            role: role,
+            classMappingService: classMappingService,
+            modelContext: userSession.modelContext
         ))
         
         // Add role-specific KPIs
         if role != "SUPPORT" {
             let csPerMin = participants.map { $0.csPerMinute }.reduce(0, +) / Double(participants.count)
-            kpis.append(KPIMetric(
+            kpis.append(createKPIMetric(
                 metric: "cs_per_min",
                 value: csPerMin,
-                baseline: nil,
-                performanceLevel: .unknown,
-                color: DesignSystem.Colors.textSecondary
+                role: role,
+                classMappingService: classMappingService,
+                modelContext: userSession.modelContext
             ))
         }
         
@@ -544,12 +548,12 @@ struct PerformanceView: View {
                 return teamObjectives > 0 ? Double(totalParticipated) / Double(teamObjectives) : 0.0
             }.reduce(0, +) / Double(participants.count)
             
-            kpis.append(KPIMetric(
+            kpis.append(createKPIMetric(
                 metric: "objective_participation_pct",
                 value: objectiveParticipation,
-                baseline: nil,
-                performanceLevel: .unknown,
-                color: DesignSystem.Colors.textSecondary
+                role: role,
+                classMappingService: classMappingService,
+                modelContext: userSession.modelContext
             ))
         }
         
@@ -560,12 +564,12 @@ struct PerformanceView: View {
                 return teamDamage > 0 ? Double(participant.totalDamageDealt) / Double(teamDamage) : 0.0
             }.reduce(0, +) / Double(participants.count)
             
-            kpis.append(KPIMetric(
+            kpis.append(createKPIMetric(
                 metric: "team_damage_pct",
                 value: damageShare,
-                baseline: nil,
-                performanceLevel: .unknown,
-                color: DesignSystem.Colors.textSecondary
+                role: role,
+                classMappingService: classMappingService,
+                modelContext: userSession.modelContext
             ))
         }
         
@@ -576,21 +580,103 @@ struct PerformanceView: View {
                 return teamDamageTaken > 0 ? Double(participant.totalDamageTaken) / Double(teamDamageTaken) : 0.0
             }.reduce(0, +) / Double(participants.count)
             
-            kpis.append(KPIMetric(
+            kpis.append(createKPIMetric(
                 metric: "damage_taken_share_pct",
                 value: damageTakenShare,
-                baseline: nil,
-                performanceLevel: .unknown,
-                color: DesignSystem.Colors.textSecondary
+                role: role,
+                classMappingService: classMappingService,
+                modelContext: userSession.modelContext
             ))
         }
         
         return kpis
     }
+    
+    // MARK: - Helper Functions
+    
+    private func createKPIMetric(
+        metric: String,
+        value: Double,
+        role: String,
+        classMappingService: ChampionClassMappingService,
+        modelContext: ModelContext
+    ) -> KPIMetric {
+        // Get the most common class for this role from the matches
+        let classTag = getMostCommonClassTag(for: role, classMappingService: classMappingService)
+        
+        // Look up baseline data
+        let baseline = findBaseline(metric: metric, role: role, classTag: classTag, modelContext: modelContext)
+        
+        // Calculate performance level and color
+        let (performanceLevel, color) = calculatePerformanceLevel(value: value, baseline: baseline)
+        
+        return KPIMetric(
+            metric: metric,
+            value: value,
+            baseline: baseline,
+            performanceLevel: performanceLevel,
+            color: color
+        )
+    }
+    
+    private func getMostCommonClassTag(for role: String, classMappingService: ChampionClassMappingService) -> String? {
+        // Get all champions played in this role
+        let roleMatches = matches.filter { match in
+            match.participants.contains { $0.puuid == summoner.puuid && RoleUtils.normalizeRole($0.role) == role }
+        }
+        
+        let champions = roleMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })?.champion
+        }
+        
+        // Count class occurrences
+        var classCounts: [String: Int] = [:]
+        for champion in champions {
+            if let classTag = classMappingService.getClassTag(for: champion) {
+                classCounts[classTag, default: 0] += 1
+            }
+        }
+        
+        // Return the most common class
+        return classCounts.max(by: { $0.value < $1.value })?.key
+    }
+    
+    private func findBaseline(metric: String, role: String, classTag: String?, modelContext: ModelContext) -> Baseline? {
+        guard let classTag = classTag else { return nil }
+        
+        do {
+            let descriptor = FetchDescriptor<Baseline>(
+                predicate: #Predicate { baseline in
+                    baseline.role == role && baseline.classTag == classTag && baseline.metric == metric
+                }
+            )
+            let baselines = try modelContext.fetch(descriptor)
+            return baselines.first
+        } catch {
+            print("❌ [PerformanceView] Failed to fetch baseline for \(role)/\(classTag)/\(metric): \(error)")
+            return nil
+        }
+    }
+    
+    private func calculatePerformanceLevel(value: Double, baseline: Baseline?) -> (PerformanceLevel, Color) {
+        guard let baseline = baseline else {
+            return (.unknown, DesignSystem.Colors.textSecondary)
+        }
+        
+        if value < baseline.p40 {
+            return (.poor, DesignSystem.Colors.terracotta)
+        } else if value < baseline.mean {
+            return (.belowMean, DesignSystem.Colors.yellow)
+        } else if value < baseline.p60 {
+            return (.good, DesignSystem.Colors.white)
+        } else {
+            return (.excellent, DesignSystem.Colors.teal)
+        }
+    }
 }
 
 #Preview {
-    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self, ChampionClassMapping.self)
     let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",
