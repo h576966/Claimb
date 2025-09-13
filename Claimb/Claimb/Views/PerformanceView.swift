@@ -664,13 +664,13 @@ struct PerformanceView: View {
         }
         
         if value < baseline.p40 {
-            return (.poor, DesignSystem.Colors.terracotta)
+            return (.poor, DesignSystem.Colors.secondary)  // Red-orange for poor
         } else if value < baseline.mean {
-            return (.belowMean, DesignSystem.Colors.yellow)
+            return (.belowMean, DesignSystem.Colors.warning)  // Orange for below average
         } else if value < baseline.p60 {
-            return (.good, DesignSystem.Colors.white)
+            return (.good, DesignSystem.Colors.white)  // White for good
         } else {
-            return (.excellent, DesignSystem.Colors.teal)
+            return (.excellent, DesignSystem.Colors.accent)  // Teal for excellent
         }
     }
 }
