@@ -51,45 +51,17 @@ struct CoachingView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Summoner Info
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summoner.gameName)#\(summoner.tagLine)")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                    
-                    Text("Level \(summoner.summonerLevel ?? 0)")
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                
-                Spacer()
-                
-                // Analyze Button
-                Button(action: {
-                    Task { await analyzePerformance() }
-                }) {
-                    HStack(spacing: DesignSystem.Spacing.sm) {
-                        if isAnalyzing {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
-                                .frame(width: 16, height: 16)
-                        } else {
-                            Image(systemName: "brain.head.profile")
-                                .font(.system(size: 16, weight: .medium))
-                        }
-                        
-                        Text(isAnalyzing ? "Analyzing..." : "Analyze")
-                            .font(DesignSystem.Typography.callout)
-                    }
-                }
-                .claimbButton(variant: .primary, size: .small)
-                .disabled(isAnalyzing || matches.isEmpty)
-            }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.top, DesignSystem.Spacing.sm)
-        }
+        SharedHeaderView(
+            summoner: summoner,
+            title: "Coaching",
+            actionButton: SharedHeaderView.ActionButton(
+                title: isAnalyzing ? "Analyzing..." : "Analyze",
+                icon: "brain.head.profile",
+                action: { Task { await analyzePerformance() } },
+                isLoading: isAnalyzing,
+                isDisabled: matches.isEmpty
+            )
+        )
     }
     
     private var loadingView: some View {

@@ -83,32 +83,7 @@ struct ChampionView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Summoner Info
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summoner.gameName)#\(summoner.tagLine)")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                    
-                    Text("Level \(summoner.summonerLevel ?? 0)")
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                
-                Spacer()
-                
-                Text(summoner.region.uppercased())
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
-                    .padding(.vertical, 4)
-                    .background(DesignSystem.Colors.cardBackground)
-                    .cornerRadius(DesignSystem.CornerRadius.small)
-            }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.top, DesignSystem.Spacing.sm)
-        }
+        SharedHeaderView(summoner: summoner, title: "Champion Pool")
     }
     
     private var loadingView: some View {
@@ -377,14 +352,21 @@ struct ChampionStatsCard: View {
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.md) {
             // Champion Icon
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                .fill(DesignSystem.Colors.cardBackground)
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Image(systemName: "person.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                )
+            AsyncImage(url: URL(string: championStat.champion.iconURL)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } placeholder: {
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(DesignSystem.Colors.cardBorder)
+                    .overlay(
+                        Image(systemName: "person.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    )
+            }
+            .frame(width: 50, height: 50)
+            .cornerRadius(DesignSystem.CornerRadius.small)
             
             // Champion Info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {

@@ -76,39 +76,17 @@ struct PerformanceView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Summoner Info
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summoner.gameName)#\(summoner.tagLine)")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                    
-                    Text("Level \(summoner.summonerLevel ?? 0)")
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                
-                Spacer()
-                
-                // Refresh Button
-                Button(action: {
-                    Task { await refreshMatches() }
-                }) {
-                    HStack(spacing: DesignSystem.Spacing.sm) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .medium))
-                        
-                        Text("Refresh")
-                            .font(DesignSystem.Typography.callout)
-                    }
-                }
-                .claimbButton(variant: .primary, size: .small)
-                .disabled(isRefreshing)
-            }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.top, DesignSystem.Spacing.sm)
-        }
+        SharedHeaderView(
+            summoner: summoner,
+            title: "Performance",
+            actionButton: SharedHeaderView.ActionButton(
+                title: "Refresh",
+                icon: "arrow.clockwise",
+                action: { Task { await refreshMatches() } },
+                isLoading: isRefreshing,
+                isDisabled: false
+            )
+        )
     }
     
     private var loadingView: some View {
