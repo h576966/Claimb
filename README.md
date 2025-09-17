@@ -53,7 +53,16 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Role-Based Analysis**: Track performance by role (Top, Jungle, Mid, ADC, Support)
 - **Baseline Comparisons**: Compare performance against role-specific baselines
 
+### **✅ Recently Completed (Phase 1 Refactoring)**
+- **DataCoordinator**: Centralized data loading eliminating code duplication
+- **UIState Pattern**: Standardized loading, error, and empty states across all views
+- **Dependency Injection**: Service injection via SwiftUI environment
+- **Shared View Models**: Reusable view models for common data patterns
+- **Structured Logging**: Replaced print statements with ClaimbLogger
+- **Service Protocols**: Protocol-based architecture for better testability
+
 ### **🔄 In Development**
+- **Testing Infrastructure**: Unit tests for critical components
 - **Advanced Performance Metrics**: Trend analysis and improvement suggestions
 - **Champion Pool Optimization**: Meta-based recommendations
 - **Premium Features**: Advanced coaching and unlimited analysis
@@ -113,32 +122,66 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 ### **Project Structure**
 ```
 Claimb/
-├── Models/           # SwiftData models
-├── Services/         # API clients and business logic
-├── Views/            # SwiftUI views
-├── Utils/            # Utilities and design system
-└── Assets.xcassets/  # App icons and images
+├── Core/                    # Core application components
+│   ├── DesignSystem/        # Centralized design system
+│   ├── Services/            # Core services (DataCoordinator)
+│   ├── Utilities/           # Shared utilities and helpers
+│   ├── ViewModels/          # Shared view models
+│   └── Views/               # Core UI components
+├── Features/                # Feature-specific modules
+│   ├── Champions/           # Champion pool analysis
+│   ├── Coaching/            # AI coaching features
+│   ├── KPIs/                # Performance analytics
+│   └── Onboarding/          # Login and role selection
+├── Models/                  # SwiftData models
+├── Services/                # External service integrations
+│   ├── Riot/                # Riot API client
+│   ├── DataDragon/          # Data Dragon service
+│   ├── Storage/             # Data management
+│   └── Coaching/            # Baseline and analysis
+├── Tests/                   # Test suites
+│   ├── Unit/                # Unit tests
+│   └── Snapshot/            # UI snapshot tests
+└── Assets.xcassets/         # App icons and images
 ```
 
 ### **Key Services**
+- **DataCoordinator**: Centralized data loading and state management
 - **RiotHTTPClient**: Handles all Riot API communication with proper rate limiting
 - **DataDragonService**: Manages static game data and champion information
-- **DataManager**: Central data orchestration and caching
+- **DataManager**: Data persistence and caching layer
 - **BaselineService**: Performance analysis and coaching insights
 - **UserSession**: Session management and persistent login
+
+### **Architecture Improvements**
+- **Dependency Injection**: Services injected via SwiftUI environment
+- **Shared View Models**: Reusable view models for common data patterns
+- **UIState Pattern**: Standardized loading, error, and empty states
+- **Service Protocols**: Protocol-based service architecture for testability
+- **Centralized Logging**: Structured logging with ClaimbLogger
 
 ### **Design System**
 - **DesignSystem.Colors**: Centralized color palette with light/dark variants
 - **DesignSystem.Typography**: Consistent text styling with Dynamic Type support
 - **DesignSystem.Spacing**: Standardized spacing and layout constants
+- **DesignSystem.CornerRadius**: Consistent border radius values
+- **DesignSystem.Shadows**: Standardized shadow effects
 - **ClaimbCard**: Reusable card component for consistent UI
-- **ClaimbButton**: Standardized button styling
+- **ClaimbButton**: Standardized button styling with variants
+- **UIState Components**: Standardized loading, error, and empty state views
 
 ### **Testing & Debugging**
 The app includes comprehensive test views for development:
 - **BaselineTestView**: Test baseline data loading and performance analysis
 - **CacheManagementView**: Manage cached data and clear storage
 - **Interactive API Testing**: Built-in tools for testing Riot API integration
+
+### **Code Quality**
+- **Structured Logging**: Centralized logging with ClaimbLogger
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Rate Limiting**: Token-bucket algorithm with exponential backoff
+- **Memory Management**: Proper async/await patterns and task cancellation
+- **Code Organization**: Clean separation of concerns with feature-based modules
 
 ## 🌐 **API Integration**
 
@@ -172,25 +215,31 @@ The app includes comprehensive test views for development:
 
 ## 📈 **Roadmap**
 
-### **Phase 4: Advanced Analytics (Next)**
+### **Phase 2: Testing Infrastructure (Current)**
+- [ ] Unit tests for DataCoordinator and critical components
+- [ ] View model testing with mock services
+- [ ] UI snapshot testing for design system components
+- [ ] Integration tests for API services
+
+### **Phase 3: Advanced Analytics (Next)**
 - [ ] Performance trend analysis
 - [ ] Goal setting and tracking
 - [ ] Comparison with peer performance
 - [ ] Detailed match breakdowns
 
-### **Phase 5: Champion Pool Optimization**
+### **Phase 4: Champion Pool Optimization**
 - [ ] Meta-based champion recommendations
 - [ ] Pool synergy analysis
 - [ ] Counter-pick suggestions
 - [ ] Role-specific guidance
 
-### **Phase 6: Premium Features**
+### **Phase 5: Premium Features**
 - [ ] StoreKit 2 integration
 - [ ] Unlimited analysis quota
 - [ ] Advanced coaching features
 - [ ] Export and sharing capabilities
 
-### **Phase 7: Platform Expansion**
+### **Phase 6: Platform Expansion**
 - [ ] iPad support with NavigationSplitView
 - [ ] macOS Catalyst support
 - [ ] Apple Watch companion app
@@ -211,7 +260,10 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - Use SwiftUI best practices with iOS 18+ APIs
 - Maintain 100-300 LOC per service file
 - Include comprehensive error handling
-- Use structured logging with swift-log
+- Use structured logging with ClaimbLogger
+- Follow dependency injection patterns
+- Use @Observable for view models (Swift 6)
+- Implement proper async/await patterns
 
 ## 📄 **License**
 
