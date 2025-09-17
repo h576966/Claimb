@@ -45,6 +45,9 @@ public class KPIDataViewModel {
 
         matchState = .loading
 
+        // Load baseline data first
+        _ = await dataCoordinator.loadBaselineData()
+
         let result = await dataCoordinator.loadMatches(for: summoner)
 
         matchState = result
@@ -171,12 +174,19 @@ public class KPIDataViewModel {
                 return teamKills > 0
                     ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
             }.reduce(0, +) / Double(participants.count)
+        
+        // Calculate CS per minute
+        let csPerMinute = participants.map { participant in
+            let match = matches.first { $0.participants.contains(participant) }
+            let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
+            return gameDurationMinutes > 0 ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
+        }.reduce(0, +) / Double(participants.count)
 
         var kpis: [KPIMetric] = []
 
         // Create KPIs with baseline comparison
         kpis.append(
-            createKPIMetric(
+            await createKPIMetric(
                 metric: "deaths_per_game",
                 value: deathsPerGame,
                 role: role,
@@ -185,8 +195,8 @@ public class KPIDataViewModel {
             ))
 
         kpis.append(
-            createKPIMetric(
-                metric: "vision_score_per_minute",
+            await createKPIMetric(
+                metric: "vision_score_per_min",
                 value: visionScore,
                 role: role,
                 matches: matches,
@@ -194,13 +204,25 @@ public class KPIDataViewModel {
             ))
 
         kpis.append(
-            createKPIMetric(
-                metric: "kill_participation",
+            await createKPIMetric(
+                metric: "kill_participation_pct",
                 value: killParticipation,
                 role: role,
                 matches: matches,
                 dataManager: dataManager
             ))
+        
+        // Add CS per minute for relevant roles
+        if ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"].contains(role) {
+            kpis.append(
+                await createKPIMetric(
+                    metric: "cs_per_min",
+                    value: csPerMinute,
+                    role: role,
+                    matches: matches,
+                    dataManager: dataManager
+                ))
+        }
 
         return kpis
     }
@@ -211,18 +233,55 @@ public class KPIDataViewModel {
         role: String,
         matches: [Match],
         dataManager: DataManager
-    ) -> KPIMetric {
-        // For now, create KPIs without baseline comparison
-        // This can be enhanced later with proper baseline integration
-        let (performanceLevel, color) = getBasicPerformanceLevel(value: value, metric: metric)
+    ) async -> KPIMetric {
+        // Try to get baseline data for this metric and role
+        let baseline = await getBaselineForMetric(metric: metric, role: role, dataManager: dataManager)
+        
+        let (performanceLevel, color) = getPerformanceLevelWithBaseline(
+            value: value, 
+            metric: metric, 
+            baseline: baseline
+        )
 
         return KPIMetric(
             metric: metric,
             value: value,
-            baseline: nil,
+            baseline: baseline,
             performanceLevel: performanceLevel,
             color: color
         )
+    }
+    
+    private func getBaselineForMetric(metric: String, role: String, dataManager: DataManager) async -> Baseline? {
+        do {
+            // First try to get baseline for "ALL" class tag
+            if let baseline = try await dataManager.getBaseline(role: role, classTag: "ALL", metric: metric) {
+                return baseline
+            }
+            
+            // If no "ALL" baseline, try to get the most common champion class for this role
+            // For now, we'll use "ALL" as fallback, but this could be enhanced to use actual champion class
+            return nil
+        } catch {
+            ClaimbLogger.error("Failed to get baseline for \(metric) in \(role)", service: "KPIDataViewModel", error: error)
+            return nil
+        }
+    }
+    
+    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?) -> (PerformanceLevel, Color) {
+        if let baseline = baseline {
+            // Use baseline data for performance evaluation
+            if baseline.isExcellentPerformance(value) {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if baseline.isGoodPerformance(value) {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.belowMean, DesignSystem.Colors.warning)
+            }
+        } else {
+            // Fallback to basic performance levels
+            return getBasicPerformanceLevel(value: value, metric: metric)
+        }
     }
 
     private func getBasicPerformanceLevel(value: Double, metric: String) -> (
@@ -240,7 +299,7 @@ public class KPIDataViewModel {
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
-        case "vision_score_per_minute":
+        case "vision_score_per_min", "vision_score_per_minute":
             if value > 2.0 {
                 return (.excellent, DesignSystem.Colors.accent)
             } else if value > 1.5 {
@@ -250,12 +309,22 @@ public class KPIDataViewModel {
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
-        case "kill_participation":
+        case "kill_participation_pct", "kill_participation":
             if value > 0.7 {
                 return (.excellent, DesignSystem.Colors.accent)
             } else if value > 0.5 {
                 return (.good, DesignSystem.Colors.white)
             } else if value > 0.3 {
+                return (.belowMean, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        case "cs_per_min":
+            if value > 8.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 6.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value > 5.0 {
                 return (.belowMean, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)

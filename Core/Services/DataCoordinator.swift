@@ -184,6 +184,21 @@ public class DataCoordinator {
         }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
 
+    // MARK: - Baseline Management
+
+    /// Loads baseline data for KPI calculations
+    public func loadBaselineData() async -> UIState<Void> {
+        ClaimbLogger.info("Loading baseline data", service: "DataCoordinator")
+
+        do {
+            try await dataManager.loadBaselineData()
+            return .loaded(())
+        } catch {
+            ClaimbLogger.error("Failed to load baseline data", service: "DataCoordinator", error: error)
+            return .error(error)
+        }
+    }
+
     // MARK: - Cache Management
 
     /// Clears all cached data
