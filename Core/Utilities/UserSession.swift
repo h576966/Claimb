@@ -142,8 +142,14 @@ public class UserSession {
         let savedGameName = UserDefaults.standard.string(forKey: "summonerName")
         let savedTagLine = UserDefaults.standard.string(forKey: "tagline")
         let savedRegion = UserDefaults.standard.string(forKey: "region")
-        print(
-            "🔐 [UserSession] Credentials saved - gameName: \(savedGameName ?? "nil"), tagLine: \(savedTagLine ?? "nil"), region: \(savedRegion ?? "nil")"
+        ClaimbLogger.debug(
+            "Credentials saved - gameName: \(savedGameName ?? "nil"), tagLine: \(savedTagLine ?? "nil"), region: \(savedRegion ?? "nil")",
+            service: "UserSession",
+            metadata: [
+                "savedGameName": savedGameName ?? "nil",
+                "savedTagLine": savedTagLine ?? "nil",
+                "savedRegion": savedRegion ?? "nil"
+            ]
         )
 
         // Update session state

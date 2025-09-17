@@ -133,8 +133,13 @@ public class DataManager {
             let targetCount = maxMatchesPerSummoner
             let fetchCount = max(20, targetCount - existingMatches.count)  // At least 20 new matches
 
-            print(
-                "📊 [DataManager] Existing matches: \(existingMatches.count), fetching \(fetchCount) more"
+            ClaimbLogger.debug(
+                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more",
+                service: "DataManager",
+                metadata: [
+                    "existingCount": String(existingMatches.count),
+                    "fetchCount": String(fetchCount)
+                ]
             )
 
             let matchHistory = try await riotClient.getMatchHistory(
@@ -232,8 +237,13 @@ public class DataManager {
         let match = try await parseMatchData(matchData, matchId: matchId, summoner: summoner)
 
         modelContext.insert(match)
-        print(
-            "📊 [DataManager] Inserted match \(matchId) with \(match.participants.count) participants"
+        ClaimbLogger.debug(
+            "Inserted match \(matchId) with \(match.participants.count) participants",
+            service: "DataManager",
+            metadata: [
+                "matchId": matchId,
+                "participantCount": String(match.participants.count)
+            ]
         )
     }
 
@@ -285,14 +295,25 @@ public class DataManager {
 
         // Parse participants from the info object
         if let participantsJson = info["participants"] as? [[String: Any]] {
-            print(
-                "📊 [DataManager] Found \(participantsJson.count) participants in match \(matchId)")
+            ClaimbLogger.debug(
+                "Found \(participantsJson.count) participants in match \(matchId)",
+                service: "DataManager",
+                metadata: [
+                    "matchId": matchId,
+                    "participantCount": String(participantsJson.count)
+                ]
+            )
             for participantJson in participantsJson {
                 let participant = try await parseParticipant(participantJson, match: match)
                 match.participants.append(participant)
             }
-            print(
-                "📊 [DataManager] Successfully parsed \(match.participants.count) participants for match \(matchId)"
+            ClaimbLogger.debug(
+                "Successfully parsed \(match.participants.count) participants for match \(matchId)",
+                service: "DataManager",
+                metadata: [
+                    "matchId": matchId,
+                    "parsedCount": String(match.participants.count)
+                ]
             )
         } else {
             ClaimbLogger.warning(
@@ -385,22 +406,39 @@ public class DataManager {
             let descriptor = FetchDescriptor<Champion>()
             let allChampions = try modelContext.fetch(descriptor)
 
-            print(
-                "📊 [DataManager] Looking for champion with ID \(participant.championId) among \(allChampions.count) champions"
+            ClaimbLogger.debug(
+                "Looking for champion with ID \(participant.championId) among \(allChampions.count) champions",
+                service: "DataManager",
+                metadata: [
+                    "championId": String(participant.championId),
+                    "totalChampions": String(allChampions.count)
+                ]
             )
 
             // Try ID matching first, then key matching as fallback
             if let champion = allChampions.first(where: { $0.id == participant.championId }) {
                 participant.champion = champion
-                print(
-                    "📊 [DataManager] Found champion by ID: \(champion.name) (ID: \(champion.id), Key: \(champion.key))"
+                ClaimbLogger.debug(
+                    "Found champion by ID: \(champion.name) (ID: \(champion.id), Key: \(champion.key))",
+                    service: "DataManager",
+                    metadata: [
+                        "championName": champion.name,
+                        "championId": String(champion.id),
+                        "championKey": champion.key
+                    ]
                 )
             } else if let champion = allChampions.first(where: {
                 $0.key == String(participant.championId)
             }) {
                 participant.champion = champion
-                print(
-                    "📊 [DataManager] Found champion by key: \(champion.name) (ID: \(champion.id), Key: \(champion.key))"
+                ClaimbLogger.debug(
+                    "Found champion by key: \(champion.name) (ID: \(champion.id), Key: \(champion.key))",
+                    service: "DataManager",
+                    metadata: [
+                        "championName": champion.name,
+                        "championId": String(champion.id),
+                        "championKey": champion.key
+                    ]
                 )
             } else {
                 let availableIds = allChampions.map { "\($0.id)" }.joined(separator: ", ")
@@ -453,7 +491,13 @@ public class DataManager {
             for match in matchesToDelete {
                 modelContext.delete(match)
             }
-            print("📊 [DataManager] Cleaned up \(matchesToDelete.count) old matches")
+            ClaimbLogger.debug(
+                "Cleaned up \(matchesToDelete.count) old matches",
+                service: "DataManager",
+                metadata: [
+                    "deletedCount": String(matchesToDelete.count)
+                ]
+            )
         }
     }
 
@@ -464,23 +508,37 @@ public class DataManager {
         // Check if we already have champion data
         let existingChampions = try await getAllChampions()
         if !existingChampions.isEmpty {
-            print("📊 [DataManager] Champion data already exists, skipping load")
+            ClaimbLogger.debug("Champion data already exists, skipping load", service: "DataManager")
             return
         }
 
-        print("📊 [DataManager] Loading champion data from Data Dragon...")
+        ClaimbLogger.info("Loading champion data from Data Dragon...", service: "DataManager")
         let version = try await dataDragonService.getLatestVersion()
         let champions = try await dataDragonService.getChampions(version: version)
 
-        print("📊 [DataManager] Loaded \(champions.count) champions for version \(version)")
+        ClaimbLogger.info(
+            "Loaded \(champions.count) champions for version \(version)",
+            service: "DataManager",
+            metadata: [
+                "championCount": String(champions.count),
+                "version": version
+            ]
+        )
 
         for (_, championData) in champions {
             let existingChampion = try await getChampion(by: championData.key)
 
             if existingChampion == nil {
                 let champion = try Champion(from: championData, version: version)
-                print(
-                    "📊 [DataManager] Creating champion: \(champion.name) (ID: \(champion.id), Key: \(champion.key)) - Icon URL: \(champion.iconURL)"
+                ClaimbLogger.debug(
+                    "Creating champion: \(champion.name) (ID: \(champion.id), Key: \(champion.key)) - Icon URL: \(champion.iconURL)",
+                    service: "DataManager",
+                    metadata: [
+                        "championName": champion.name,
+                        "championId": String(champion.id),
+                        "championKey": champion.key,
+                        "iconURL": champion.iconURL
+                    ]
                 )
                 modelContext.insert(champion)
             }
@@ -507,7 +565,7 @@ public class DataManager {
 
     /// Clears all cached data (for debugging/testing)
     public func clearAllCache() async throws {
-        print("🗑️ [DataManager] Starting cache clear...")
+        ClaimbLogger.info("Starting cache clear...", service: "DataManager")
 
         // Clear matches and participants
         let matchDescriptor = FetchDescriptor<Match>()
@@ -552,12 +610,12 @@ public class DataManager {
         lastRefreshTime = nil
         errorMessage = nil
 
-        print("🗑️ [DataManager] Cache clear completed")
+        ClaimbLogger.info("Cache clear completed", service: "DataManager")
     }
 
     /// Clears only match data while preserving summoner and champion data
     public func clearMatchData() async throws {
-        print("🗑️ [DataManager] Clearing match data...")
+        ClaimbLogger.info("Clearing match data...", service: "DataManager")
 
         // Clear matches and participants
         let matchDescriptor = FetchDescriptor<Match>()
@@ -585,12 +643,12 @@ public class DataManager {
         lastRefreshTime = nil
         errorMessage = nil
 
-        print("🗑️ [DataManager] Match data cleared")
+        ClaimbLogger.info("Match data cleared", service: "DataManager")
     }
 
     /// Clears only champion data
     public func clearChampionData() async throws {
-        print("🗑️ [DataManager] Clearing champion data...")
+        ClaimbLogger.info("Clearing champion data...", service: "DataManager")
 
         let championDescriptor = FetchDescriptor<Champion>()
         let allChampions = try modelContext.fetch(championDescriptor)
@@ -600,12 +658,12 @@ public class DataManager {
 
         try modelContext.save()
 
-        print("🗑️ [DataManager] Champion data cleared")
+        ClaimbLogger.info("Champion data cleared", service: "DataManager")
     }
 
     /// Clears only baseline data
     public func clearBaselineData() async throws {
-        print("🗑️ [DataManager] Clearing baseline data...")
+        ClaimbLogger.info("Clearing baseline data...", service: "DataManager")
 
         let baselineDescriptor = FetchDescriptor<Baseline>()
         let allBaselines = try modelContext.fetch(baselineDescriptor)
@@ -615,14 +673,14 @@ public class DataManager {
 
         try modelContext.save()
 
-        print("🗑️ [DataManager] Baseline data cleared")
+        ClaimbLogger.info("Baseline data cleared", service: "DataManager")
     }
 
     /// Clears URL cache only
     public func clearURLCache() {
-        print("🗑️ [DataManager] Clearing URL cache...")
+        ClaimbLogger.info("Clearing URL cache...", service: "DataManager")
         URLCache.shared.removeAllCachedResponses()
-        print("🗑️ [DataManager] URL cache cleared")
+        ClaimbLogger.info("URL cache cleared", service: "DataManager")
     }
 
     // MARK: - Statistics
