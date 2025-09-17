@@ -210,13 +210,13 @@ struct LoginView: View {
 
             // Login the user
             await MainActor.run {
-                print("🔐 [LoginView] About to call userSession.login()")
+                ClaimbLogger.debug("About to call userSession.login()", service: "LoginView")
                 userSession.login(summoner: summoner)
-                print(
-                    "🔐 [LoginView] userSession.login() completed - isLoggedIn: \(userSession.isLoggedIn)"
-                )
+                ClaimbLogger.debug("userSession.login() completed", service: "LoginView", metadata: [
+                    "isLoggedIn": String(userSession.isLoggedIn)
+                ])
                 self.isLoading = false
-                print("🔐 [LoginView] Login process finished, isLoading set to false")
+                ClaimbLogger.debug("Login process finished, isLoading set to false", service: "LoginView")
             }
 
         } catch {

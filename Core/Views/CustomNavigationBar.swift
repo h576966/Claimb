@@ -116,11 +116,11 @@ struct CustomNavigationBar: View {
             actionButton: CustomNavigationBar.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",
-                action: { print("Refresh tapped") },
+                action: { ClaimbLogger.debug("Refresh tapped", service: "CustomNavigationBar") },
                 isLoading: false,
                 isDisabled: false
             ),
-            onLogout: { print("Logout tapped") }
+            onLogout: { ClaimbLogger.debug("Logout tapped", service: "CustomNavigationBar") }
         )
         
         Spacer()

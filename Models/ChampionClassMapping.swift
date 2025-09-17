@@ -48,7 +48,7 @@ public class ChampionClassMappingService {
             
             // Load from JSON file if not in SwiftData
             guard let url = Bundle.main.url(forResource: "champion_class_mapping_clean", withExtension: "json") else {
-                print("❌ [ChampionClassMappingService] Could not find champion_class_mapping_clean.json")
+                ClaimbLogger.error("Could not find champion_class_mapping_clean.json", service: "ChampionClassMappingService")
                 return
             }
             
@@ -69,10 +69,12 @@ public class ChampionClassMappingService {
             try modelContext.save()
             isLoaded = true
             
-            print("✅ [ChampionClassMappingService] Loaded \(mappings.count) champion class mappings")
+            ClaimbLogger.info("Loaded champion class mappings", service: "ChampionClassMappingService", metadata: [
+                "count": String(mappings.count)
+            ])
             
         } catch {
-            print("❌ [ChampionClassMappingService] Failed to load champion class mapping: \(error)")
+            ClaimbLogger.error("Failed to load champion class mapping", service: "ChampionClassMappingService", error: error)
         }
     }
     

@@ -303,13 +303,13 @@ struct PerformanceView: View {
 
             if existingMatches.isEmpty {
                 // Load initial 40 matches
-                print("📊 [PerformanceView] No existing matches, loading initial 40")
+                ClaimbLogger.info("No existing matches, loading initial 40", service: "PerformanceView")
                 try await dataManager.loadInitialMatches(for: summoner)
             } else {
                 // Load any new matches incrementally
-                print(
-                    "📊 [PerformanceView] Found \(existingMatches.count) existing matches, checking for new ones"
-                )
+                ClaimbLogger.info("Found existing matches, checking for new ones", service: "PerformanceView", metadata: [
+                    "count": String(existingMatches.count)
+                ])
                 try await dataManager.refreshMatches(for: summoner)
             }
 
@@ -653,9 +653,11 @@ struct PerformanceView: View {
             let baselines = try modelContext.fetch(descriptor)
             return baselines.first
         } catch {
-            print(
-                "❌ [PerformanceView] Failed to fetch baseline for \(role)/\(classTag)/\(metric): \(error)"
-            )
+            ClaimbLogger.error("Failed to fetch baseline", service: "PerformanceView", error: error, metadata: [
+                "role": role,
+                "classTag": classTag,
+                "metric": metric
+            ])
             return nil
         }
     }

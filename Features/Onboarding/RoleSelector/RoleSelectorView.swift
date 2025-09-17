@@ -296,7 +296,7 @@ struct RoleSelectionCard: View {
     RoleSelectorView(
         selectedRole: .constant("MID"),
         roleStats: roleStats,
-        onTap: { print("Navigate to role selection") }
+        onTap: { ClaimbLogger.debug("Navigate to role selection", service: "RoleSelectorView") }
     )
     .padding()
     .background(DesignSystem.Colors.background)

@@ -52,14 +52,21 @@ struct RoleUtils {
                     result = "JUNGLE" // NONE typically means Jungle
                 }
             default: 
-                print("⚠️ [RoleUtils] Unknown role '\(role)' with lane '\(lane ?? "unknown")', defaulting to TOP")
+                ClaimbLogger.warning("Unknown role, defaulting to TOP", service: "RoleUtils", metadata: [
+                    "role": role,
+                    "lane": lane ?? "unknown"
+                ])
                 result = "TOP" // Fallback to Top
             }
         }
         
         // Debug logging for role mapping investigation (only for NONE roles)
         if upperRole == "NONE" {
-            print("🔍 [RoleUtils] Role mapping: '\(role)' + '\(lane ?? "nil")' -> '\(result)'")
+            ClaimbLogger.debug("Role mapping", service: "RoleUtils", metadata: [
+                "role": role,
+                "lane": lane ?? "nil",
+                "result": result
+            ])
         }
         
         return result

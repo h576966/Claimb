@@ -77,9 +77,8 @@ public class UserSession {
                 } else {
                     // Summoner not found in database, but we have credentials
                     // Try to recreate the summoner from stored credentials
-                    print(
-                        "🔐 [UserSession] Summoner not found in database, recreating from stored credentials"
-                    )
+                    ClaimbLogger.info(
+                        "Summoner not found in database, recreating from stored credentials", service: "UserSession")
                     try await recreateSummonerFromCredentials(
                         gameName: gameName, tagLine: tagLine, region: region)
                 }
@@ -116,12 +115,15 @@ public class UserSession {
             self.isLoggedIn = true
         }
 
-        print("🔐 [UserSession] Successfully recreated summoner from stored credentials")
+        ClaimbLogger.info("Successfully recreated summoner from stored credentials", service: "UserSession")
     }
 
     /// Saves login credentials and sets up the session
     public func login(summoner: Summoner) {
-        print("🔐 [UserSession] Starting login process for \(summoner.gameName)#\(summoner.tagLine)")
+        ClaimbLogger.info("Starting login process", service: "UserSession", metadata: [
+            "gameName": summoner.gameName,
+            "tagLine": summoner.tagLine
+        ])
 
         // Save credentials to UserDefaults
         UserDefaults.standard.set(summoner.gameName, forKey: "summonerName")
@@ -140,9 +142,10 @@ public class UserSession {
         self.currentSummoner = summoner
         self.isLoggedIn = true
 
-        print(
-            "🔐 [UserSession] Login completed - isLoggedIn: \(isLoggedIn), summoner: \(summoner.gameName)"
-        )
+        ClaimbLogger.info("Login completed", service: "UserSession", metadata: [
+            "isLoggedIn": String(isLoggedIn),
+            "summoner": summoner.gameName
+        ])
 
         // Post notification to trigger view updates
         NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
@@ -150,7 +153,7 @@ public class UserSession {
 
     /// Logs out the user and clears all stored data
     public func logout() {
-        print("🔐 [UserSession] Logging out user")
+        ClaimbLogger.info("Logging out user", service: "UserSession")
 
         // Clear stored credentials
         clearStoredCredentials()
@@ -199,7 +202,7 @@ public class UserSession {
                 self.currentSummoner = refreshedSummoner
             }
         } catch {
-            print("Failed to refresh summoner: \(error)")
+            ClaimbLogger.error("Failed to refresh summoner", service: "UserSession", error: error)
         }
     }
 
@@ -216,7 +219,7 @@ public class UserSession {
     public func updatePrimaryRole(_ role: String) {
         selectedPrimaryRole = role
         UserDefaults.standard.set(role, forKey: "selectedPrimaryRole")
-        print("🎯 [UserSession] Primary role updated to: \(role)")
+        ClaimbLogger.info("Primary role updated", service: "UserSession", metadata: ["role": role])
     }
 
     /// Sets the primary role based on most played role from match data
