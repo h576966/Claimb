@@ -306,6 +306,41 @@ public class KPIDataViewModel {
                 return baseline
             }
             
+            // For custom KPIs that don't have baseline data, create hardcoded baselines
+            if metric == "primary_role_consistency" {
+                let customBaseline = Baseline(
+                    role: baselineRole,
+                    classTag: "ALL",
+                    metric: metric,
+                    mean: 75.0,  // 75% average role consistency
+                    median: 75.0, // 75% median role consistency
+                    p40: 60.0,   // 60% for P40 (Below Average threshold)
+                    p60: 84.0    // 84% for P60 (Excellent threshold)
+                )
+                ClaimbLogger.debug("Using hardcoded baseline for \(metric)", service: "KPIDataViewModel", metadata: [
+                    "mean": String(format: "%.1f", customBaseline.mean),
+                    "p40": String(format: "%.1f", customBaseline.p40),
+                    "p60": String(format: "%.1f", customBaseline.p60)
+                ])
+                return customBaseline
+            } else if metric == "champion_pool_size" {
+                let customBaseline = Baseline(
+                    role: baselineRole,
+                    classTag: "ALL",
+                    metric: metric,
+                    mean: 4.0,   // 4 champions average
+                    median: 4.0, // 4 champions median
+                    p40: 2.0,    // 2 champions for P40 (Below Average threshold)
+                    p60: 5.0     // 5 champions for P60 (Good threshold)
+                )
+                ClaimbLogger.debug("Using hardcoded baseline for \(metric)", service: "KPIDataViewModel", metadata: [
+                    "mean": String(format: "%.1f", customBaseline.mean),
+                    "p40": String(format: "%.1f", customBaseline.p40),
+                    "p60": String(format: "%.1f", customBaseline.p60)
+                ])
+                return customBaseline
+            }
+            
             ClaimbLogger.warning("No baseline found for \(metric) in \(baselineRole)", service: "KPIDataViewModel")
             return nil
         } catch {

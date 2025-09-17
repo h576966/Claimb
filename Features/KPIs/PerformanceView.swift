@@ -91,23 +91,11 @@ struct KPICard: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             } else {
-                // Custom targets for new KPIs without baseline data
+                // Fallback for KPIs without baseline data (should not happen with hardcoded baselines)
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    if kpi.metric == "primary_role_consistency" {
-                        Text("Target: 84%")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                        Text("Goal: Stay focused on your main role")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    } else if kpi.metric == "champion_pool_size" {
-                        Text("Target: 2-3 champions")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                        Text("Goal: Master a few champions")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    }
+                    Text("No baseline data")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
 
