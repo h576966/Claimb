@@ -403,11 +403,23 @@ public class KPIDataViewModel {
         let primaryRoleGames = recentMatches.compactMap { match in
             match.participants.first(where: {
                 $0.puuid == summoner.puuid
-                    && mapParticipantRoleToOurFormat($0.role) == primaryRole
+                    && RoleUtils.normalizeRole($0.role, lane: $0.lane) == primaryRole
             })
         }.count
 
-        return Double(primaryRoleGames) / Double(recentMatches.count) * 100.0
+        let consistency = Double(primaryRoleGames) / Double(recentMatches.count) * 100.0
+        
+        // Debug logging for role consistency calculation
+        ClaimbLogger.debug(
+            "Role Consistency Calculation", service: "KPIDataViewModel",
+            metadata: [
+                "primaryRole": primaryRole,
+                "totalGames": String(recentMatches.count),
+                "primaryRoleGames": String(primaryRoleGames),
+                "consistency": String(format: "%.1f", consistency)
+            ])
+        
+        return consistency
     }
 
     /// Calculate champion pool size (unique champions in last 20 games) - role independent
@@ -422,6 +434,16 @@ public class KPIDataViewModel {
 
         // Count unique champions
         let uniqueChampions = Set(allParticipants.map { $0.championId }).count
+        
+        // Debug logging for champion pool size calculation
+        ClaimbLogger.debug(
+            "Champion Pool Size Calculation", service: "KPIDataViewModel",
+            metadata: [
+                "totalGames": String(recentMatches.count),
+                "participantCount": String(allParticipants.count),
+                "uniqueChampions": String(uniqueChampions),
+                "championIds": allParticipants.map { String($0.championId) }.joined(separator: ",")
+            ])
 
         return Double(uniqueChampions)
     }
