@@ -144,7 +144,10 @@ struct PerformanceView: View {
                 // Role Selector
                 if !roleStats.isEmpty {
                     RoleSelectorView(
-                        selectedRole: $userSession.selectedPrimaryRole,
+                        selectedRole: Binding(
+                            get: { userSession.selectedPrimaryRole },
+                            set: { userSession.selectedPrimaryRole = $0 }
+                        ),
                         roleStats: roleStats,
                         onTap: {
                             showRoleSelection = true
@@ -178,7 +181,10 @@ struct PerformanceView: View {
         }
         .sheet(isPresented: $showRoleSelection) {
             RoleSelectorView(
-                selectedRole: $userSession.selectedPrimaryRole,
+                selectedRole: Binding(
+                    get: { userSession.selectedPrimaryRole },
+                    set: { userSession.selectedPrimaryRole = $0 }
+                ),
                 roleStats: roleStats,
                 onTap: {
                     showRoleSelection = false

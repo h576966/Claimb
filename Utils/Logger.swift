@@ -6,39 +6,43 @@
 //
 
 import Foundation
-import Logging
+import os.log
 
 /// Centralized logging system for Claimb
 public struct ClaimbLogger {
-    private static let logger = Logger(label: "com.claimb.app")
+    private static let logger = Logger(subsystem: "com.claimb.app", category: "general")
     
     // MARK: - Log Levels
     
     /// Debug level logging (development only)
     public static func debug(_ message: String, service: String = "App", metadata: [String: String] = [:]) {
         #if DEBUG
-        logger.debug("[\(service)] \(message)", metadata: Logger.Metadata(metadata))
+        let metadataString = metadata.isEmpty ? "" : " | \(metadata.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))"
+        logger.debug("[\(service)] \(message)\(metadataString)")
         #endif
     }
     
     /// Info level logging
     public static func info(_ message: String, service: String = "App", metadata: [String: String] = [:]) {
-        logger.info("[\(service)] \(message)", metadata: Logger.Metadata(metadata))
+        let metadataString = metadata.isEmpty ? "" : " | \(metadata.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))"
+        logger.info("[\(service)] \(message)\(metadataString)")
     }
     
     /// Warning level logging
     public static func warning(_ message: String, service: String = "App", metadata: [String: String] = [:]) {
-        logger.warning("[\(service)] \(message)", metadata: Logger.Metadata(metadata))
+        let metadataString = metadata.isEmpty ? "" : " | \(metadata.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))"
+        logger.warning("[\(service)] \(message)\(metadataString)")
     }
     
     /// Error level logging
     public static func error(_ message: String, service: String = "App", error: Error? = nil, metadata: [String: String] = [:]) {
-        var errorMetadata = metadata
+        var allMetadata = metadata
         if let error = error {
-            errorMetadata["error"] = error.localizedDescription
-            errorMetadata["errorType"] = String(describing: type(of: error))
+            allMetadata["error"] = error.localizedDescription
+            allMetadata["errorType"] = String(describing: type(of: error))
         }
-        logger.error("[\(service)] \(message)", metadata: Logger.Metadata(errorMetadata))
+        let metadataString = allMetadata.isEmpty ? "" : " | \(allMetadata.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))"
+        logger.error("[\(service)] \(message)\(metadataString)")
     }
     
     // MARK: - Convenience Methods
@@ -101,13 +105,3 @@ public struct ClaimbLogger {
     }
 }
 
-// MARK: - Logging Extensions
-
-extension Logger.Metadata {
-    init(_ dictionary: [String: String]) {
-        self.init()
-        for (key, value) in dictionary {
-            self[key] = .string(value)
-        }
-    }
-}

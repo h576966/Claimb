@@ -11,12 +11,10 @@ import SwiftUI
 struct ChampionView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @State private var champions: [Champion] = []
+    @State private var championState: UIState<[Champion]> = .idle
     @State private var championStats: [ChampionStats] = []
     @State private var selectedFilter: ChampionFilter = .mostPlayed
     @State private var roleStats: [RoleStats] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
     @State private var showRoleSelection = false
 
     private let dataDragonService = DataDragonService()
@@ -38,7 +36,10 @@ struct ChampionView: View {
                 // Role Selector
                 if !roleStats.isEmpty {
                     RoleSelectorView(
-                        selectedRole: $userSession.selectedPrimaryRole,
+                        selectedRole: Binding(
+                            get: { userSession.selectedPrimaryRole },
+                            set: { userSession.selectedPrimaryRole = $0 }
+                        ),
                         roleStats: roleStats,
                         onTap: {
                             showRoleSelection = true
@@ -51,15 +52,20 @@ struct ChampionView: View {
                 // Filter Options
                 filterOptionsView
 
-                // Content
-                if isLoading {
-                    loadingView
-                } else if !(errorMessage?.isEmpty ?? true) {
-                    errorView
-                } else if championStats.isEmpty {
-                    emptyStateView
-                } else {
-                    championListView
+                // Content with UI State Management
+                ClaimbContentWrapper(
+                    state: championState,
+                    loadingMessage: "Loading champions...",
+                    emptyMessage: "No champions found",
+                    retryAction: { 
+                        Task { await loadData() }
+                    }
+                ) { champions in
+                    if championStats.isEmpty {
+                        emptyStateView
+                    } else {
+                        championListView(champions: champions)
+                    }
                 }
             }
         }
@@ -80,7 +86,10 @@ struct ChampionView: View {
         }
         .sheet(isPresented: $showRoleSelection) {
             RoleSelectorView(
-                selectedRole: $userSession.selectedPrimaryRole,
+                selectedRole: Binding(
+                    get: { userSession.selectedPrimaryRole },
+                    set: { userSession.selectedPrimaryRole = $0 }
+                ),
                 roleStats: roleStats,
                 onTap: {
                     showRoleSelection = false
@@ -100,42 +109,6 @@ struct ChampionView: View {
         )
     }
 
-    private var loadingView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
-            Text("Loading champions...")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var errorView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.error)
-
-            Text("Error Loading Champions")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text(errorMessage ?? "Unknown error occurred")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Retry") {
-                Task {
-                    await loadData()
-                }
-            }
-            .claimbButton(variant: .primary, size: .medium)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
@@ -194,7 +167,7 @@ struct ChampionView: View {
         .padding(.bottom, DesignSystem.Spacing.md)
     }
 
-    private var championListView: some View {
+    private func championListView(champions: [Champion]) -> some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.sm) {
                 ForEach(championStats, id: \.champion.id) { championStat in
@@ -207,8 +180,7 @@ struct ChampionView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        championState = .loading
 
         do {
             let dataManager = DataManager(
@@ -222,13 +194,13 @@ struct ChampionView: View {
 
             if existingMatches.isEmpty {
                 // Load initial 40 matches
-                print("📊 [ChampionView] No existing matches, loading initial 40")
+                ClaimbLogger.info("No existing matches, loading initial 40", service: "ChampionView")
                 try await dataManager.loadInitialMatches(for: summoner)
             } else {
                 // Load any new matches incrementally
-                print(
-                    "📊 [ChampionView] Found \(existingMatches.count) existing matches, checking for new ones"
-                )
+                ClaimbLogger.info("Found existing matches, checking for new ones", service: "ChampionView", metadata: [
+                    "count": String(existingMatches.count)
+                ])
                 try await dataManager.refreshMatches(for: summoner)
             }
 
@@ -237,9 +209,8 @@ struct ChampionView: View {
             let matches = try await dataManager.getMatches(for: summoner)
 
             await MainActor.run {
-                self.champions = loadedChampions
+                self.championState = .success(loadedChampions)
                 self.calculateRoleStats(from: matches)
-                self.isLoading = false
             }
 
             // Load champion stats after setting role stats
@@ -247,8 +218,8 @@ struct ChampionView: View {
 
         } catch {
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
+                self.championState = .failure(error)
+                ClaimbLogger.error("Failed to load champions", service: "ChampionView", error: error)
             }
         }
     }
@@ -270,7 +241,8 @@ struct ChampionView: View {
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
+                self.championState = .failure(error)
+                ClaimbLogger.error("Failed to load champion stats", service: "ChampionView", error: error)
             }
         }
     }
@@ -327,7 +299,7 @@ struct ChampionView: View {
             }
 
             let championId = participant.championId
-            let champion = champions.first { $0.id == championId }
+            let champion = championState.data?.first { $0.id == championId }
 
             guard let champion = champion else { continue }
 
