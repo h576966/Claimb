@@ -18,7 +18,8 @@ public class DataManager {
     private let dataDragonService: DataDragonServiceProtocol
 
     // Cache limits
-    private let maxMatchesPerSummoner = 50
+    private let maxMatchesPerSummoner = 100  // Increased from 50 to 100
+    private let maxGameAgeInDays = 365  // Filter out games older than 1 year
 
     public var isLoading = false
     public var lastRefreshTime: Date?
@@ -130,13 +131,13 @@ public class DataManager {
             let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
             // Fetch more matches if we have less than the target
-            // Account for filtering: fetch 50% more to compensate for ARAM/Swiftplay/etc. that will be filtered out
+            // Account for filtering: fetch 100% more to compensate for ARAM/Swiftplay/old games that will be filtered out
             let targetCount = maxMatchesPerSummoner
-            let baseFetchCount = max(20, targetCount - existingMatches.count)
-            let fetchCount = Int(Double(baseFetchCount) * 1.5)  // 50% buffer for filtering
+            let baseFetchCount = max(30, targetCount - existingMatches.count)  // Increased minimum from 20 to 30
+            let fetchCount = Int(Double(baseFetchCount) * 2.0)  // 100% buffer for filtering (was 50%)
 
             ClaimbLogger.debug(
-                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (with 50% buffer for filtering)",
+                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (with 100% buffer for filtering)",
                 service: "DataManager",
                 metadata: [
                     "existingCount": String(existingMatches.count),
@@ -204,13 +205,13 @@ public class DataManager {
                 "Loading initial matches", service: "DataManager",
                 metadata: [
                     "gameName": summoner.gameName,
-                    "count": "60",  // Fetch 60 to account for filtering
+                    "count": "200",  // Fetch 200 to account for filtering (100% buffer)
                 ])
 
             let matchHistory = try await riotClient.getMatchHistory(
                 puuid: summoner.puuid,
                 region: summoner.region,
-                count: 60  // 50% buffer for filtering
+                count: 200  // 100% buffer for filtering (was 60)
             )
 
             var addedMatchesCount = 0
@@ -290,8 +291,8 @@ public class DataManager {
         }
     }
 
-    /// Checks if a match is relevant for analysis (Ranked, Draft, Summoner's Rift only)
-    private func isRelevantMatch(gameMode: String, gameType: String, queueId: Int, mapId: Int) -> Bool {
+    /// Checks if a match is relevant for analysis (Ranked, Draft, Summoner's Rift only, within 1 year)
+    private func isRelevantMatch(gameMode: String, gameType: String, queueId: Int, mapId: Int, gameCreation: Int) -> Bool {
         // Must be on Summoner's Rift (mapId 11)
         guard mapId == 11 else { return false }
         
@@ -301,6 +302,20 @@ public class DataManager {
         // Must be a relevant queue type
         let relevantQueues = [420, 440, 400] // Ranked Solo/Duo, Ranked Flex, Normal Draft
         guard relevantQueues.contains(queueId) else { return false }
+        
+        // Must be within the last year (filter out old games)
+        let gameDate = Date(timeIntervalSince1970: TimeInterval(gameCreation) / 1000.0)
+        let oneYearAgo = Calendar.current.date(byAdding: .day, value: -maxGameAgeInDays, to: Date()) ?? Date()
+        guard gameDate >= oneYearAgo else { 
+            ClaimbLogger.debug(
+                "Skipping old match", service: "DataManager",
+                metadata: [
+                    "gameDate": gameDate.formatted(date: .abbreviated, time: .omitted),
+                    "oneYearAgo": oneYearAgo.formatted(date: .abbreviated, time: .omitted),
+                    "daysOld": String(Calendar.current.dateComponents([.day], from: gameDate, to: Date()).day ?? 0)
+                ])
+            return false 
+        }
         
         return true
     }
@@ -337,8 +352,8 @@ public class DataManager {
         let gameEndTimestamp = info["gameEndTimestamp"] as? Int ?? 0
 
         // Filter out irrelevant matches BEFORE creating Match object
-        // This prevents storing ARAM, Swiftplay, and other non-relevant game types
-        if !isRelevantMatch(gameMode: gameMode, gameType: gameType, queueId: queueId, mapId: mapId) {
+        // This prevents storing ARAM, Swiftplay, old games, and other non-relevant game types
+        if !isRelevantMatch(gameMode: gameMode, gameType: gameType, queueId: queueId, mapId: mapId, gameCreation: gameCreation) {
             ClaimbLogger.debug(
                 "Skipping irrelevant match", service: "DataManager",
                 metadata: [
@@ -346,7 +361,8 @@ public class DataManager {
                     "gameMode": gameMode,
                     "gameType": gameType,
                     "queueId": String(queueId),
-                    "mapId": String(mapId)
+                    "mapId": String(mapId),
+                    "gameCreation": String(gameCreation)
                 ])
             // Throw a specific error that can be caught and handled gracefully
             throw MatchFilterError.irrelevantMatch
@@ -569,7 +585,7 @@ public class DataManager {
     }
 
     /// Gets matches for a summoner
-    public func getMatches(for summoner: Summoner, limit: Int = 40) async throws -> [Match] {
+    public func getMatches(for summoner: Summoner, limit: Int = 100) async throws -> [Match] {
         // For now, get all matches and filter manually to avoid SwiftData predicate issues
         let descriptor = FetchDescriptor<Match>(
             sortBy: [SortDescriptor(\.gameCreation, order: .reverse)]
@@ -807,6 +823,40 @@ public class DataManager {
         )
     }
 
+    /// Gets match statistics with age filtering for a summoner
+    public func getMatchStatisticsWithAgeFilter(for summoner: Summoner) async throws -> MatchStatisticsWithAge {
+        let allMatches = try await getMatches(for: summoner, limit: 1000)  // Get more to analyze age distribution
+        
+        // Filter matches by age
+        let oneYearAgo = Calendar.current.date(byAdding: .day, value: -maxGameAgeInDays, to: Date()) ?? Date()
+        let recentMatches = allMatches.filter { match in
+            let gameDate = Date(timeIntervalSince1970: TimeInterval(match.gameCreation) / 1000.0)
+            return gameDate >= oneYearAgo
+        }
+        
+        let totalMatches = recentMatches.count
+        let wins = recentMatches.filter { match in
+            match.participants.contains { $0.puuid == summoner.puuid && $0.win }
+        }.count
+
+        let winRate = totalMatches > 0 ? Double(wins) / Double(totalMatches) : 0.0
+        
+        // Calculate age distribution
+        let oldMatchesCount = allMatches.count - recentMatches.count
+        let oldestMatch = allMatches.last
+        let newestMatch = allMatches.first
+        
+        return MatchStatisticsWithAge(
+            totalMatches: totalMatches,
+            wins: wins,
+            losses: totalMatches - wins,
+            winRate: winRate,
+            oldMatchesFiltered: oldMatchesCount,
+            oldestMatchDate: oldestMatch?.gameCreation,
+            newestMatchDate: newestMatch?.gameCreation
+        )
+    }
+
     // MARK: - Baseline Management
 
     /// Saves a baseline to the database
@@ -926,6 +976,16 @@ public struct MatchStatistics {
     public let wins: Int
     public let losses: Int
     public let winRate: Double
+}
+
+public struct MatchStatisticsWithAge {
+    public let totalMatches: Int
+    public let wins: Int
+    public let losses: Int
+    public let winRate: Double
+    public let oldMatchesFiltered: Int
+    public let oldestMatchDate: Int?
+    public let newestMatchDate: Int?
 }
 
 // MARK: - Data Transfer Objects
