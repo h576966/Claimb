@@ -265,9 +265,12 @@ public class KPIDataViewModel {
     
     private func getBaselineForMetric(metric: String, role: String, dataManager: DataManager) async -> Baseline? {
         do {
+            // Map role names to match baseline data format
+            let baselineRole = mapRoleToBaselineFormat(role)
+            
             // First try to get baseline for "ALL" class tag
-            if let baseline = try await dataManager.getBaseline(role: role, classTag: "ALL", metric: metric) {
-                ClaimbLogger.debug("Found baseline for \(metric) in \(role)", service: "KPIDataViewModel", metadata: [
+            if let baseline = try await dataManager.getBaseline(role: baselineRole, classTag: "ALL", metric: metric) {
+                ClaimbLogger.debug("Found baseline for \(metric) in \(baselineRole)", service: "KPIDataViewModel", metadata: [
                     "mean": String(format: "%.3f", baseline.mean),
                     "p40": String(format: "%.3f", baseline.p40),
                     "p60": String(format: "%.3f", baseline.p60)
@@ -275,11 +278,28 @@ public class KPIDataViewModel {
                 return baseline
             }
             
-            ClaimbLogger.warning("No baseline found for \(metric) in \(role)", service: "KPIDataViewModel")
+            ClaimbLogger.warning("No baseline found for \(metric) in \(baselineRole)", service: "KPIDataViewModel")
             return nil
         } catch {
             ClaimbLogger.error("Failed to get baseline for \(metric) in \(role)", service: "KPIDataViewModel", error: error)
             return nil
+        }
+    }
+    
+    private func mapRoleToBaselineFormat(_ role: String) -> String {
+        switch role.uppercased() {
+        case "MID":
+            return "MIDDLE"
+        case "ADC":
+            return "BOTTOM"
+        case "SUPPORT":
+            return "UTILITY"
+        case "JUNGLE":
+            return "JUNGLE"
+        case "TOP":
+            return "TOP"
+        default:
+            return role.uppercased()
         }
     }
     
