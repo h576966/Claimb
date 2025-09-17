@@ -115,7 +115,6 @@ public class ChampionDataViewModel {
             guard
                 let participant = match.participants.first(where: {
                     $0.puuid == summoner.puuid
-                        && RoleUtils.normalizeRole($0.role, lane: $0.lane) == role
                 })
             else {
                 continue
@@ -125,6 +124,17 @@ public class ChampionDataViewModel {
             let champion = currentChampions.first { $0.id == championId }
 
             guard let champion = champion else { continue }
+            
+            // Debug logging for champion role investigation
+            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            ClaimbLogger.debug(
+                "Champion stats calculation", service: "ChampionDataViewModel",
+                metadata: [
+                    "champion": champion.name,
+                    "actualRole": actualRole,
+                    "selectedRole": role,
+                    "championId": String(championId)
+                ])
 
             if championStats[champion.name] == nil {
                 championStats[champion.name] = ChampionStats(
