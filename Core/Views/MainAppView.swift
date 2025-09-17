@@ -12,11 +12,9 @@ struct MainAppView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dataCoordinator) private var dataCoordinator
     @State private var summoner: Summoner
-    @State private var matchState: UIState<[Match]> = .idle
-    @State private var isRefreshing = false
+    @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showBaselineTest = false
     @State private var selectedRole: String = "TOP"
-    @State private var roleStats: [RoleStats] = []
     @State private var showRoleSelection = false
 
     init(summoner: Summoner) {
@@ -34,10 +32,10 @@ struct MainAppView: View {
                     headerView
 
                     // Role Selector
-                    if !roleStats.isEmpty {
+                    if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                         RoleSelectorView(
                             selectedRole: $selectedRole,
-                            roleStats: roleStats,
+                            roleStats: viewModel.roleStats,
                             onTap: {
                                 showRoleSelection = true
                             }
@@ -47,23 +45,28 @@ struct MainAppView: View {
                     }
 
                     // Content
-                    ClaimbContentWrapper(
-                        state: matchState,
-                        loadingMessage: "Loading matches...",
-                        emptyMessage: "No matches found",
-                        retryAction: { Task { await loadMatches() } }
-                    ) { matches in
-                        matchListView(matches: matches)
+                    if let viewModel = matchDataViewModel {
+                        ClaimbContentWrapper(
+                            state: viewModel.matchState,
+                            loadingMessage: "Loading matches...",
+                            emptyMessage: "No matches found",
+                            retryAction: { Task { await viewModel.loadMatches() } }
+                        ) { matches in
+                            matchListView(matches: matches)
+                        }
+                    } else {
+                        ClaimbLoadingView(message: "Initializing...")
                     }
                 }
             }
             .navigationBarHidden(true)
         }
         .onAppear {
-            Task { await loadMatches() }
+            initializeViewModel()
+            Task { await matchDataViewModel?.loadMatches() }
         }
         .refreshable {
-            await refreshMatches()
+            await matchDataViewModel?.refreshMatches()
         }
         .sheet(isPresented: $showBaselineTest) {
             BaselineTestView()
@@ -94,7 +97,7 @@ struct MainAppView: View {
             // Action Buttons
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Button(action: {
-                    Task { await refreshMatches() }
+                    Task { await matchDataViewModel?.refreshMatches() }
                 }) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "arrow.clockwise")
@@ -105,11 +108,11 @@ struct MainAppView: View {
                     }
                 }
                 .claimbButton(variant: .primary, size: .small)
-                .disabled(isRefreshing)
+                .disabled(matchDataViewModel?.isRefreshing ?? false)
 
                 // Clear Cache Button (for debugging)
                 Button(action: {
-                    Task { await clearCache() }
+                    Task { await matchDataViewModel?.clearCache() }
                 }) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "trash")
@@ -120,7 +123,7 @@ struct MainAppView: View {
                     }
                 }
                 .claimbButton(variant: .secondary, size: .small)
-                .disabled(isRefreshing)
+                .disabled(matchDataViewModel?.isRefreshing ?? false)
 
                 // Test Baselines Button
                 Button(action: {
@@ -135,7 +138,7 @@ struct MainAppView: View {
                     }
                 }
                 .claimbButton(variant: .secondary, size: .small)
-                .disabled(isRefreshing)
+                .disabled(matchDataViewModel?.isRefreshing ?? false)
 
                 Spacer()
 
@@ -179,7 +182,7 @@ struct MainAppView: View {
                 .padding(.horizontal, DesignSystem.Spacing.xxl)
 
             Button(action: {
-                Task { await refreshMatches() }
+                Task { await matchDataViewModel?.refreshMatches() }
             }) {
                 Text("Refresh")
                     .font(DesignSystem.Typography.bodyBold)
@@ -188,14 +191,16 @@ struct MainAppView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showRoleSelection) {
-            RoleSelectorView(
-                selectedRole: $selectedRole,
-                roleStats: roleStats,
-                onTap: {
-                    showRoleSelection = false
-                },
-                showFullScreen: true
-            )
+            if let viewModel = matchDataViewModel {
+                RoleSelectorView(
+                    selectedRole: $selectedRole,
+                    roleStats: viewModel.roleStats,
+                    onTap: {
+                        showRoleSelection = false
+                    },
+                    showFullScreen: true
+                )
+            }
         }
     }
 
@@ -226,68 +231,12 @@ struct MainAppView: View {
 
     // MARK: - Methods
 
-    private func loadMatches() async {
-        guard let dataCoordinator = dataCoordinator else {
-            await MainActor.run {
-                self.matchState = .error(DataCoordinatorError.notAvailable)
-            }
-            return
-        }
-
-        await MainActor.run {
-            self.matchState = .loading
-        }
-
-        let result = await dataCoordinator.loadMatches(for: summoner, limit: 5)
-
-        await MainActor.run {
-            self.matchState = result
-
-            // Update role stats if we have matches
-            if case .loaded(let matches) = result {
-                self.roleStats = dataCoordinator.calculateRoleStats(
-                    from: matches, summoner: summoner)
-            }
-        }
-    }
-
-    private func refreshMatches() async {
-        guard let dataCoordinator = dataCoordinator else { return }
-
-        await MainActor.run {
-            self.isRefreshing = true
-        }
-
-        let result = await dataCoordinator.refreshMatches(for: summoner)
-
-        await MainActor.run {
-            self.matchState = result
-            self.isRefreshing = false
-
-            // Update role stats if we have matches
-            if case .loaded(let matches) = result {
-                self.roleStats = dataCoordinator.calculateRoleStats(
-                    from: matches, summoner: summoner)
-            }
-        }
-    }
-
-    private func clearCache() async {
-        guard let dataCoordinator = dataCoordinator else { return }
-
-        await MainActor.run {
-            self.isRefreshing = true
-        }
-
-        let result = await dataCoordinator.clearAllCache()
-
-        await MainActor.run {
-            self.isRefreshing = false
-
-            if case .loaded = result {
-                // Reload matches after clearing cache
-                Task { await loadMatches() }
-            }
+    private func initializeViewModel() {
+        if matchDataViewModel == nil {
+            matchDataViewModel = MatchDataViewModel(
+                dataCoordinator: dataCoordinator,
+                summoner: summoner
+            )
         }
     }
 

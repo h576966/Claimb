@@ -12,7 +12,7 @@ struct CoachingView: View {
     let summoner: Summoner
     let userSession: UserSession
     @Environment(\.dataCoordinator) private var dataCoordinator
-    @State private var matchState: UIState<[Match]> = .idle
+    @State private var matchDataViewModel: MatchDataViewModel?
     @State private var isAnalyzing = false
     @State private var coachingInsights: String = ""
 
@@ -25,19 +25,24 @@ struct CoachingView: View {
                 headerView
 
                 // Content
-                ClaimbContentWrapper(
-                    state: matchState,
-                    loadingMessage: "Loading coaching data...",
-                    emptyMessage: "No matches found for analysis",
-                    retryAction: { Task { await loadMatches() } }
-                ) { matches in
-                    coachingContentView(matches: matches)
+                if let viewModel = matchDataViewModel {
+                    ClaimbContentWrapper(
+                        state: viewModel.matchState,
+                        loadingMessage: "Loading coaching data...",
+                        emptyMessage: "No matches found for analysis",
+                        retryAction: { Task { await viewModel.loadMatches() } }
+                    ) { matches in
+                        coachingContentView(matches: matches)
+                    }
+                } else {
+                    ClaimbLoadingView(message: "Initializing...")
                 }
             }
         }
         .onAppear {
+            initializeViewModel()
             Task {
-                await loadMatches()
+                await matchDataViewModel?.loadMatches()
             }
         }
     }
@@ -51,7 +56,7 @@ struct CoachingView: View {
                 icon: "brain.head.profile",
                 action: { Task { await analyzePerformance() } },
                 isLoading: isAnalyzing,
-                isDisabled: !matchState.isLoaded || matchState.data?.isEmpty != false
+                isDisabled: !(matchDataViewModel?.hasMatches ?? false)
             ),
             onLogout: {
                 userSession.logout()
@@ -167,25 +172,6 @@ struct CoachingView: View {
         .cornerRadius(DesignSystem.CornerRadius.medium)
     }
 
-    private func loadMatches() async {
-        guard let dataCoordinator = dataCoordinator else {
-            await MainActor.run {
-                self.matchState = .error(DataCoordinatorError.notAvailable)
-            }
-            return
-        }
-
-        await MainActor.run {
-            self.matchState = .loading
-        }
-
-        let result = await dataCoordinator.loadMatches(for: summoner)
-
-        await MainActor.run {
-            self.matchState = result
-        }
-    }
-
     private func analyzePerformance() async {
         isAnalyzing = true
         coachingInsights = ""
@@ -194,8 +180,8 @@ struct CoachingView: View {
         try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
 
         // Generate mock insights based on recent matches
-        guard let matches = matchState.data else { return }
-        let recentMatches = Array(matches.prefix(10))
+        guard let viewModel = matchDataViewModel else { return }
+        let recentMatches = viewModel.getRecentMatches(limit: 10)
         let wins = recentMatches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })?.win
         }.filter { $0 }.count
@@ -215,6 +201,15 @@ struct CoachingView: View {
             }
 
             self.isAnalyzing = false
+        }
+    }
+
+    private func initializeViewModel() {
+        if matchDataViewModel == nil {
+            matchDataViewModel = MatchDataViewModel(
+                dataCoordinator: dataCoordinator,
+                summoner: summoner
+            )
         }
     }
 
