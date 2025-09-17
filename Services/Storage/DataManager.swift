@@ -15,7 +15,7 @@ import SwiftUI
 public class DataManager {
     private let modelContext: ModelContext
     private let riotClient: RiotClient
-    private let dataDragonService: DataDragonService
+    private let dataDragonService: DataDragonServiceProtocol
 
     // Cache limits
     private let maxMatchesPerSummoner = 50
@@ -25,7 +25,8 @@ public class DataManager {
     public var errorMessage: String?
 
     public init(
-        modelContext: ModelContext, riotClient: RiotClient, dataDragonService: DataDragonService
+        modelContext: ModelContext, riotClient: RiotClient,
+        dataDragonService: DataDragonServiceProtocol
     ) {
         self.modelContext = modelContext
         self.riotClient = riotClient
@@ -38,11 +39,13 @@ public class DataManager {
     public func createOrUpdateSummoner(gameName: String, tagLine: String, region: String)
         async throws -> Summoner
     {
-        ClaimbLogger.info("Creating/updating summoner", service: "DataManager", metadata: [
-            "gameName": gameName,
-            "tagLine": tagLine,
-            "region": region
-        ])
+        ClaimbLogger.info(
+            "Creating/updating summoner", service: "DataManager",
+            metadata: [
+                "gameName": gameName,
+                "tagLine": tagLine,
+                "region": region,
+            ])
 
         // Get account data from Riot API
         let accountResponse = try await riotClient.getAccountByRiotId(
@@ -152,7 +155,8 @@ public class DataManager {
                 newMatchesCount += 1
             }
 
-            ClaimbLogger.dataOperation("Added new matches", count: newMatchesCount, service: "DataManager")
+            ClaimbLogger.dataOperation(
+                "Added new matches", count: newMatchesCount, service: "DataManager")
 
             try await cleanupOldMatches(for: summoner)
             summoner.lastUpdated = Date()
@@ -173,10 +177,12 @@ public class DataManager {
         errorMessage = nil
 
         do {
-            ClaimbLogger.info("Loading initial matches", service: "DataManager", metadata: [
-                "gameName": summoner.gameName,
-                "count": "40"
-            ])
+            ClaimbLogger.info(
+                "Loading initial matches", service: "DataManager",
+                metadata: [
+                    "gameName": summoner.gameName,
+                    "count": "40",
+                ])
 
             let matchHistory = try await riotClient.getMatchHistory(
                 puuid: summoner.puuid,
@@ -193,7 +199,8 @@ public class DataManager {
             lastRefreshTime = Date()
             try modelContext.save()
 
-            ClaimbLogger.dataOperation("Loaded initial matches", count: matchHistory.history.count, service: "DataManager")
+            ClaimbLogger.dataOperation(
+                "Loaded initial matches", count: matchHistory.history.count, service: "DataManager")
 
         } catch {
             errorMessage = "Failed to load initial matches: \(error.localizedDescription)"
@@ -208,16 +215,19 @@ public class DataManager {
         // Check if match already exists
         let existingMatch = try await getMatch(by: matchId)
         if existingMatch != nil {
-            ClaimbLogger.cache("Match already exists, skipping", key: matchId, service: "DataManager")
+            ClaimbLogger.cache(
+                "Match already exists, skipping", key: matchId, service: "DataManager")
             return
         }
 
         ClaimbLogger.apiRequest("match/\(matchId)", service: "DataManager")
         let matchData = try await riotClient.getMatch(matchId: matchId, region: region)
-        ClaimbLogger.debug("Received match data", service: "DataManager", metadata: [
-            "matchId": matchId,
-            "bytes": String(matchData.count)
-        ])
+        ClaimbLogger.debug(
+            "Received match data", service: "DataManager",
+            metadata: [
+                "matchId": matchId,
+                "bytes": String(matchData.count),
+            ])
 
         let match = try await parseMatchData(matchData, matchId: matchId, summoner: summoner)
 
@@ -285,10 +295,12 @@ public class DataManager {
                 "📊 [DataManager] Successfully parsed \(match.participants.count) participants for match \(matchId)"
             )
         } else {
-            ClaimbLogger.warning("No participants found in match", service: "DataManager", metadata: [
-                "matchId": matchId,
-                "availableKeys": Array(info.keys).joined(separator: ",")
-            ])
+            ClaimbLogger.warning(
+                "No participants found in match", service: "DataManager",
+                metadata: [
+                    "matchId": matchId,
+                    "availableKeys": Array(info.keys).joined(separator: ","),
+                ])
         }
 
         return match
@@ -392,16 +404,19 @@ public class DataManager {
                 )
             } else {
                 let availableIds = allChampions.map { "\($0.id)" }.joined(separator: ", ")
-                ClaimbLogger.warning("Champion not found for participant", service: "DataManager", metadata: [
-                    "championId": String(participant.championId),
-                    "availableIds": availableIds
-                ])
+                ClaimbLogger.warning(
+                    "Champion not found for participant", service: "DataManager",
+                    metadata: [
+                        "championId": String(participant.championId),
+                        "availableIds": availableIds,
+                    ])
             }
 
             // Save the context to ensure the relationship is persisted
             try modelContext.save()
         } catch {
-            ClaimbLogger.error("Error loading champion for participant", service: "DataManager", error: error)
+            ClaimbLogger.error(
+                "Error loading champion for participant", service: "DataManager", error: error)
         }
     }
 

@@ -13,10 +13,10 @@ struct RoleUtils {
     static func normalizeRole(_ role: String, lane: String? = nil) -> String {
         let upperRole = role.uppercased()
         let upperLane = lane?.uppercased() ?? ""
-        
+
         // Use combination of role and lane for better accuracy
         let result: String
-        
+
         // Check lane first for more accurate mapping
         switch upperLane {
         case "JUNGLE":
@@ -33,7 +33,7 @@ struct RoleUtils {
             case "DUO_SUPPORT", "SUPPORT", "UTILITY":
                 result = "SUPPORT"
             default:
-                result = "BOTTOM" // Default to ADC for bot lane
+                result = "BOTTOM"  // Default to ADC for bot lane
             }
         default:
             // Fallback to role-only mapping if lane is unknown
@@ -49,34 +49,38 @@ struct RoleUtils {
                 if upperLane == "JUNGLE" {
                     result = "JUNGLE"
                 } else {
-                    result = "JUNGLE" // NONE typically means Jungle
+                    result = "JUNGLE"  // NONE typically means Jungle
                 }
-            default: 
-                ClaimbLogger.warning("Unknown role, defaulting to TOP", service: "RoleUtils", metadata: [
-                    "role": role,
-                    "lane": lane ?? "unknown"
-                ])
-                result = "TOP" // Fallback to Top
+            default:
+                ClaimbLogger.warning(
+                    "Unknown role, defaulting to TOP", service: "RoleUtils",
+                    metadata: [
+                        "role": role,
+                        "lane": lane ?? "unknown",
+                    ])
+                result = "TOP"  // Fallback to Top
             }
         }
-        
+
         // Debug logging for role mapping investigation (only for NONE roles)
         if upperRole == "NONE" {
-            ClaimbLogger.debug("Role mapping", service: "RoleUtils", metadata: [
-                "role": role,
-                "lane": lane ?? "nil",
-                "result": result
-            ])
+            ClaimbLogger.debug(
+                "Role mapping", service: "RoleUtils",
+                metadata: [
+                    "role": role,
+                    "lane": lane ?? "nil",
+                    "result": result,
+                ])
         }
-        
+
         return result
     }
-    
+
     /// Legacy method for backward compatibility
     static func normalizeRole(_ role: String) -> String {
         return normalizeRole(role, lane: nil)
     }
-    
+
     /// Returns the display name for a normalized role
     static func displayName(for role: String) -> String {
         switch role.uppercased() {
@@ -88,7 +92,7 @@ struct RoleUtils {
         default: return role
         }
     }
-    
+
     /// Returns the icon name for a normalized role
     static func iconName(for role: String) -> String {
         switch role.uppercased() {
@@ -100,7 +104,7 @@ struct RoleUtils {
         default: return "RoleTopIcon"
         }
     }
-    
+
     /// Returns the win rate color based on performance
     static func winRateColor(_ winRate: Double) -> String {
         if winRate >= 0.54 {
@@ -121,7 +125,7 @@ public struct RoleStats {
     public let role: String
     public let winRate: Double
     public let totalGames: Int
-    
+
     public init(role: String, winRate: Double, totalGames: Int) {
         self.role = role
         self.winRate = winRate

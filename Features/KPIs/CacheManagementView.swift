@@ -10,13 +10,12 @@ import SwiftUI
 
 struct CacheManagementView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.riotClient) private var riotClient
+    @Environment(\.dataDragonService) private var dataDragonService
     @State private var isClearing = false
     @State private var clearMessage = ""
     @State private var showAlert = false
     @State private var alertMessage = ""
-
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
-    private let dataDragonService = DataDragonService()
 
     var body: some View {
         NavigationStack {
@@ -129,6 +128,12 @@ struct CacheManagementView: View {
         clearMessage = "Clearing all cache..."
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "CacheManagementView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -157,6 +162,12 @@ struct CacheManagementView: View {
         clearMessage = "Clearing match data..."
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "CacheManagementView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -185,6 +196,12 @@ struct CacheManagementView: View {
         clearMessage = "Clearing champion data..."
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "CacheManagementView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -213,6 +230,12 @@ struct CacheManagementView: View {
         clearMessage = "Clearing baseline data..."
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "CacheManagementView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -237,6 +260,11 @@ struct CacheManagementView: View {
     }
 
     private func clearURLCache() {
+        guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+            clearMessage = "Services not available"
+            return
+        }
+
         let dataManager = DataManager(
             modelContext: modelContext,
             riotClient: riotClient,

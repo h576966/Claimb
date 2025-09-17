@@ -12,7 +12,7 @@ struct SharedHeaderView: View {
     let title: String
     let actionButton: ActionButton?
     let onLogout: (() -> Void)?
-    
+
     struct ActionButton {
         let title: String
         let icon: String
@@ -20,10 +20,10 @@ struct SharedHeaderView: View {
         let isLoading: Bool
         let isDisabled: Bool
     }
-    
+
     init(
-        summoner: Summoner, 
-        title: String, 
+        summoner: Summoner,
+        title: String,
         actionButton: ActionButton? = nil,
         onLogout: (() -> Void)? = nil
     ) {
@@ -32,7 +32,7 @@ struct SharedHeaderView: View {
         self.actionButton = actionButton
         self.onLogout = onLogout
     }
-    
+
     var body: some View {
         CustomNavigationBar(
             summoner: summoner,
@@ -58,7 +58,7 @@ struct SharedHeaderView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    
+
     return SharedHeaderView(
         summoner: summoner,
         title: "Test View",

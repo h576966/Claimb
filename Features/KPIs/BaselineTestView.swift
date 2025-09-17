@@ -10,14 +10,13 @@ import SwiftUI
 
 struct BaselineTestView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.riotClient) private var riotClient
+    @Environment(\.dataDragonService) private var dataDragonService
     @State private var baselineCount = 0
     @State private var championMappingCount = 0
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var testResults: [String] = []
-
-    private let riotClient = RiotHTTPClient(apiKey: "RGAPI-2133e577-bec8-433b-b519-b3ba66331263")
-    private let dataDragonService = DataDragonService()
 
     var body: some View {
         NavigationStack {
@@ -194,6 +193,12 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -223,6 +228,12 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -269,6 +280,12 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -298,6 +315,12 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -327,6 +350,12 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
@@ -352,6 +381,12 @@ struct BaselineTestView: View {
 
     private func updateCounts() async {
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "BaselineTestView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,

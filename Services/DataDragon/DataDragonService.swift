@@ -8,17 +8,17 @@
 import Foundation
 
 /// Service for fetching and caching static game data from Riot's Data Dragon CDN
-public class DataDragonService {
-    
+public class DataDragonService: DataDragonServiceProtocol {
+
     // MARK: - Properties
-    
+
     private let baseURL = "https://ddragon.leagueoflegends.com"
     private let session: URLSession
     private var cachedVersion: String?
     private var cachedChampions: [String: DataDragonChampion] = [:]
-    
+
     // MARK: - Initialization
-    
+
     public init() {
         // Configure URLSession with caching
         let config = URLSessionConfiguration.default
@@ -26,26 +26,26 @@ public class DataDragonService {
         config.requestCachePolicy = .returnCacheDataElseLoad
         self.session = URLSession(configuration: config)
     }
-    
+
     // MARK: - Public Methods
-    
+
     /// Fetches the latest patch version from Data Dragon
     public func getLatestVersion() async throws -> String {
         guard let url = URL(string: "\(baseURL)/api/versions.json") else {
             throw DataDragonError.invalidURL
         }
-        
+
         let (data, _) = try await session.data(from: url)
         let versions = try JSONDecoder().decode([String].self, from: data)
-        
+
         guard let latestVersion = versions.first else {
             throw DataDragonError.noVersionsAvailable
         }
-        
+
         cachedVersion = latestVersion
         return latestVersion
     }
-    
+
     /// Fetches champion data for a specific version
     public func getChampions(version: String? = nil) async throws -> [String: DataDragonChampion] {
         let versionToUse: String
@@ -56,33 +56,36 @@ public class DataDragonService {
         } else {
             versionToUse = try await getLatestVersion()
         }
-        
+
         // Return cached data if available and version matches
         if !cachedChampions.isEmpty && cachedVersion == versionToUse {
             return cachedChampions
         }
-        
-        guard let url = URL(string: "\(baseURL)/cdn/\(versionToUse)/data/en_US/champion.json") else {
+
+        guard let url = URL(string: "\(baseURL)/cdn/\(versionToUse)/data/en_US/champion.json")
+        else {
             throw DataDragonError.invalidURL
         }
-        
+
         let (data, _) = try await session.data(from: url)
         let response = try JSONDecoder().decode(DataDragonChampionResponse.self, from: data)
-        
+
         cachedChampions = response.data
         cachedVersion = versionToUse
-        
+
         return cachedChampions
     }
-    
+
     /// Gets champion icon URL for a specific champion and version
     public func getChampionIconURL(championId: String, version: String? = nil) -> URL? {
         let versionToUse = version ?? cachedVersion ?? "latest"
         return URL(string: "\(baseURL)/cdn/\(versionToUse)/img/champion/\(championId).png")
     }
-    
+
     /// Gets champion data by ID
-    public func getChampion(by id: String, version: String? = nil) async throws -> DataDragonChampion? {
+    public func getChampion(by id: String, version: String? = nil) async throws
+        -> DataDragonChampion?
+    {
         let champions = try await getChampions(version: version)
         return champions[id]
     }
@@ -102,31 +105,65 @@ public struct DataDragonChampion: Codable {
     public let key: String
     public let name: String
     public let title: String
+    public let image: DataDragonImage
+    public let tags: [String]
+
+    public init(
+        id: String, key: String, name: String, title: String, image: DataDragonImage, tags: [String]
+    ) {
+        self.id = id
+        self.key = key
+        self.name = name
+        self.title = title
+        self.image = image
+        self.tags = tags
+    }
 }
 
+public struct DataDragonImage: Codable {
+    public let full: String
+    public let sprite: String
+    public let group: String
+    public let x: Int
+    public let y: Int
+    public let w: Int
+    public let h: Int
 
+    public init(full: String, sprite: String, group: String, x: Int, y: Int, w: Int, h: Int) {
+        self.full = full
+        self.sprite = sprite
+        self.group = group
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+    }
+}
 
 // MARK: - Errors
 
 public enum DataDragonError: Error, LocalizedError {
-    case noVersionsAvailable
-    case championNotFound
-    case invalidVersion
     case invalidURL
+    case noVersionsAvailable
+    case noChampionsAvailable
+    case championNotFound
     case networkError(Error)
-    
+    case decodingError(Error)
+
     public var errorDescription: String? {
         switch self {
-        case .noVersionsAvailable:
-            return "No versions available from Data Dragon"
-        case .championNotFound:
-            return "Champion not found"
-        case .invalidVersion:
-            return "Invalid version format"
         case .invalidURL:
             return "Invalid URL"
+        case .noVersionsAvailable:
+            return "No versions available"
+        case .noChampionsAvailable:
+            return "No champions available"
+        case .championNotFound:
+            return "Champion not found"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
+        case .decodingError(let error):
+            return "Decoding error: \(error.localizedDescription)"
         }
     }
 }

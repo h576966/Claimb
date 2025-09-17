@@ -12,7 +12,7 @@ struct CustomNavigationBar: View {
     let title: String
     let actionButton: ActionButton?
     let onLogout: (() -> Void)?
-    
+
     struct ActionButton {
         let title: String
         let icon: String
@@ -20,10 +20,10 @@ struct CustomNavigationBar: View {
         let isLoading: Bool
         let isDisabled: Bool
     }
-    
+
     init(
-        summoner: Summoner, 
-        title: String, 
+        summoner: Summoner,
+        title: String,
         actionButton: ActionButton? = nil,
         onLogout: (() -> Void)? = nil
     ) {
@@ -32,7 +32,7 @@ struct CustomNavigationBar: View {
         self.actionButton = actionButton
         self.onLogout = onLogout
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Main navigation content
@@ -44,32 +44,34 @@ struct CustomNavigationBar: View {
                         .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(1)
-                    
+
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Text("Level \(summoner.summonerLevel ?? 0)")
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
+
                         // Future: Rank badge would go here
                         // RankBadge(rank: summoner.rank)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Action Button (Right side)
                 if let actionButton = actionButton {
                     Button(action: actionButton.action) {
                         HStack(spacing: DesignSystem.Spacing.xs) {
                             if actionButton.isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
+                                    .progressViewStyle(
+                                        CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
+                                    )
                                     .frame(width: 14, height: 14)
                             } else {
                                 Image(systemName: actionButton.icon)
                                     .font(DesignSystem.Typography.caption)
                             }
-                            
+
                             Text(actionButton.title)
                                 .font(DesignSystem.Typography.caption)
                         }
@@ -77,7 +79,7 @@ struct CustomNavigationBar: View {
                     .claimbButton(variant: .primary, size: .small)
                     .disabled(actionButton.isDisabled || actionButton.isLoading)
                 }
-                
+
                 // Logout Button (if provided)
                 if let onLogout = onLogout {
                     Button(action: onLogout) {
@@ -90,7 +92,7 @@ struct CustomNavigationBar: View {
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.vertical, DesignSystem.Spacing.sm)
-            
+
             // Divider line
             Rectangle()
                 .fill(DesignSystem.Colors.cardBorder)
@@ -108,7 +110,7 @@ struct CustomNavigationBar: View {
         tagLine: "1234",
         region: "euw1"
     )
-    
+
     return VStack(spacing: 0) {
         CustomNavigationBar(
             summoner: summoner,
@@ -122,7 +124,7 @@ struct CustomNavigationBar: View {
             ),
             onLogout: { ClaimbLogger.debug("Logout tapped", service: "CustomNavigationBar") }
         )
-        
+
         Spacer()
     }
     .background(DesignSystem.Colors.background)

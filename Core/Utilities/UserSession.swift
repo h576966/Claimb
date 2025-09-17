@@ -45,11 +45,13 @@ public class UserSession {
             return
         }
 
-        ClaimbLogger.debug("Found stored credentials", service: "UserSession", metadata: [
-            "gameName": gameName,
-            "tagLine": tagLine,
-            "region": region
-        ])
+        ClaimbLogger.debug(
+            "Found stored credentials", service: "UserSession",
+            metadata: [
+                "gameName": gameName,
+                "tagLine": tagLine,
+                "region": region,
+            ])
 
         // Try to find the summoner in the database
         Task {
@@ -62,9 +64,11 @@ public class UserSession {
 
                 // Look for existing summoner by checking all summoners
                 let allSummoners = try await dataManager.getAllSummoners()
-                ClaimbLogger.debug("Found summoners in database", service: "UserSession", metadata: [
-                    "count": String(allSummoners.count)
-                ])
+                ClaimbLogger.debug(
+                    "Found summoners in database", service: "UserSession",
+                    metadata: [
+                        "count": String(allSummoners.count)
+                    ])
 
                 if let summoner = allSummoners.first(where: {
                     $0.gameName == gameName && $0.tagLine == tagLine && $0.region == region
@@ -78,7 +82,8 @@ public class UserSession {
                     // Summoner not found in database, but we have credentials
                     // Try to recreate the summoner from stored credentials
                     ClaimbLogger.info(
-                        "Summoner not found in database, recreating from stored credentials", service: "UserSession")
+                        "Summoner not found in database, recreating from stored credentials",
+                        service: "UserSession")
                     try await recreateSummonerFromCredentials(
                         gameName: gameName, tagLine: tagLine, region: region)
                 }
@@ -115,15 +120,18 @@ public class UserSession {
             self.isLoggedIn = true
         }
 
-        ClaimbLogger.info("Successfully recreated summoner from stored credentials", service: "UserSession")
+        ClaimbLogger.info(
+            "Successfully recreated summoner from stored credentials", service: "UserSession")
     }
 
     /// Saves login credentials and sets up the session
     public func login(summoner: Summoner) {
-        ClaimbLogger.info("Starting login process", service: "UserSession", metadata: [
-            "gameName": summoner.gameName,
-            "tagLine": summoner.tagLine
-        ])
+        ClaimbLogger.info(
+            "Starting login process", service: "UserSession",
+            metadata: [
+                "gameName": summoner.gameName,
+                "tagLine": summoner.tagLine,
+            ])
 
         // Save credentials to UserDefaults
         UserDefaults.standard.set(summoner.gameName, forKey: "summonerName")
@@ -142,10 +150,12 @@ public class UserSession {
         self.currentSummoner = summoner
         self.isLoggedIn = true
 
-        ClaimbLogger.info("Login completed", service: "UserSession", metadata: [
-            "isLoggedIn": String(isLoggedIn),
-            "summoner": summoner.gameName
-        ])
+        ClaimbLogger.info(
+            "Login completed", service: "UserSession",
+            metadata: [
+                "isLoggedIn": String(isLoggedIn),
+                "summoner": summoner.gameName,
+            ])
 
         // Post notification to trigger view updates
         NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)

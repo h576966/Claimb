@@ -5,39 +5,45 @@
 //  Created by Niklas Johansson on 2025-09-07.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var userSession: UserSession?
     @State private var refreshTrigger = false
-    
+
     var body: some View {
         Group {
             if let userSession = userSession {
                 if userSession.isLoggedIn, let summoner = userSession.currentSummoner {
                     MainTabView(summoner: summoner, userSession: userSession)
                         .onAppear {
-                            ClaimbLogger.info("Showing MainTabView", service: "ContentView", metadata: [
-                                "summoner": summoner.gameName
-                            ])
+                            ClaimbLogger.info(
+                                "Showing MainTabView", service: "ContentView",
+                                metadata: [
+                                    "summoner": summoner.gameName
+                                ])
                         }
                 } else {
                     LoginView(userSession: userSession)
                         .onAppear {
-                            ClaimbLogger.info("Showing LoginView", service: "ContentView", metadata: [
-                                "isLoggedIn": String(userSession.isLoggedIn)
-                            ])
+                            ClaimbLogger.info(
+                                "Showing LoginView", service: "ContentView",
+                                metadata: [
+                                    "isLoggedIn": String(userSession.isLoggedIn)
+                                ])
                         }
                 }
             } else {
                 // Loading state while UserSession is being created
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
+                        .progressViewStyle(
+                            CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
+                        )
                         .scaleEffect(1.2)
-                    
+
                     Text("Checking for saved login...")
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -49,7 +55,7 @@ struct ContentView: View {
                 }
             }
         }
-        .id(refreshTrigger) // Force view refresh when trigger changes
+        .id(refreshTrigger)  // Force view refresh when trigger changes
         .onAppear {
             if userSession == nil {
                 ClaimbLogger.debug("Creating UserSession", service: "ContentView")
@@ -65,5 +71,7 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+        .modelContainer(for: [
+            Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
+        ])
 }

@@ -123,15 +123,14 @@ struct KPICard: View {
 struct PerformanceView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @State private var matches: [Match] = []
+    @Environment(\.dataCoordinator) private var dataCoordinator
+    @Environment(\.riotClient) private var riotClient
+    @Environment(\.dataDragonService) private var dataDragonService
+    @State private var matchState: UIState<[Match]> = .idle
     @State private var roleStats: [RoleStats] = []
     @State private var kpiData: [KPIMetric] = []
-    @State private var isLoading = false
     @State private var isRefreshing = false
-    @State private var errorMessage: String?
     @State private var showRoleSelection = false
-
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
 
     var body: some View {
         ZStack {
@@ -158,14 +157,13 @@ struct PerformanceView: View {
                 }
 
                 // Content
-                if isLoading {
-                    loadingView
-                } else if !(errorMessage?.isEmpty ?? true) {
-                    errorView
-                } else if matches.isEmpty {
-                    emptyStateView
-                } else {
-                    kpiListView
+                ClaimbContentWrapper(
+                    state: matchState,
+                    loadingMessage: "Loading performance data...",
+                    emptyMessage: "No matches found for analysis",
+                    retryAction: { Task { await loadData() } }
+                ) { matches in
+                    kpiListView(matches: matches)
                 }
             }
         }
@@ -175,8 +173,10 @@ struct PerformanceView: View {
             }
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
-            Task {
-                await calculateKPIs()
+            if case .loaded(let matches) = matchState {
+                Task {
+                    await calculateKPIs(matches: matches)
+                }
             }
         }
         .sheet(isPresented: $showRoleSelection) {
@@ -211,70 +211,7 @@ struct PerformanceView: View {
         )
     }
 
-    private var loadingView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
-            Text("Loading performance data...")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var errorView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.error)
-
-            Text("Error Loading Matches")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text(errorMessage ?? "Unknown error occurred")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Retry") {
-                Task {
-                    await loadData()
-                }
-            }
-            .claimbButton(variant: .primary, size: .medium)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyStateView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "chart.bar.fill")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-
-            Text("No Performance Data")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text("Your performance metrics will appear here")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Load Data") {
-                Task {
-                    await loadData()
-                }
-            }
-            .claimbButton(variant: .primary, size: .medium)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var kpiListView: some View {
+    private func kpiListView(matches: [Match]) -> some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.md) {
                 // KPI Cards
@@ -288,130 +225,67 @@ struct PerformanceView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: DataDragonService()
-            )
-
-            // Check if we have existing matches
-            let existingMatches = try await dataManager.getMatches(for: summoner)
-
-            if existingMatches.isEmpty {
-                // Load initial 40 matches
-                ClaimbLogger.info("No existing matches, loading initial 40", service: "PerformanceView")
-                try await dataManager.loadInitialMatches(for: summoner)
-            } else {
-                // Load any new matches incrementally
-                ClaimbLogger.info("Found existing matches, checking for new ones", service: "PerformanceView", metadata: [
-                    "count": String(existingMatches.count)
-                ])
-                try await dataManager.refreshMatches(for: summoner)
-            }
-
-            // Get all matches after loading
-            let loadedMatches = try await dataManager.getMatches(for: summoner)
-
+        guard let dataCoordinator = dataCoordinator else {
             await MainActor.run {
-                self.matches = loadedMatches
-                self.isLoading = false
-                self.calculateRoleStats()
+                self.matchState = .error(DataCoordinatorError.notAvailable)
             }
+            return
+        }
 
-            await calculateKPIs()
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
+        await MainActor.run {
+            self.matchState = .loading
+        }
+
+        let result = await dataCoordinator.loadMatches(for: summoner)
+
+        await MainActor.run {
+            self.matchState = result
+
+            // Update role stats and KPIs if we have matches
+            if case .loaded(let matches) = result {
+                self.roleStats = dataCoordinator.calculateRoleStats(
+                    from: matches, summoner: summoner)
+                Task { await calculateKPIs(matches: matches) }
             }
         }
     }
 
     private func refreshData() async {
-        isRefreshing = true
+        guard let dataCoordinator = dataCoordinator else { return }
 
-        do {
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: DataDragonService()
-            )
-            try await dataManager.refreshMatches(for: summoner)
-            let loadedMatches = try await dataManager.getMatches(for: summoner)
-
-            await MainActor.run {
-                self.matches = loadedMatches
-                self.isRefreshing = false
-                self.calculateRoleStats()
-            }
-
-            await calculateKPIs()
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isRefreshing = false
-            }
-        }
-    }
-
-    private func calculateRoleStats() {
-        guard !matches.isEmpty else {
-            roleStats = []
-            return
+        await MainActor.run {
+            self.isRefreshing = true
         }
 
-        let calculatedStats = calculateRoleWinRates(from: matches, summoner: summoner)
-        roleStats = calculatedStats
+        let result = await dataCoordinator.refreshMatches(for: summoner)
 
-        // Update primary role based on match data if needed
-        userSession.setPrimaryRoleFromMatchData(roleStats: calculatedStats)
-    }
+        await MainActor.run {
+            self.matchState = result
+            self.isRefreshing = false
 
-    private func calculateRoleWinRates(from matches: [Match], summoner: Summoner) -> [RoleStats] {
-        var roleStats: [String: (wins: Int, total: Int)] = [:]
-
-        // Initialize all 5 roles with 0 stats
-        let allRoles = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"]
-        for role in allRoles {
-            roleStats[role] = (wins: 0, total: 0)
-        }
-
-        // Filter matches to only include relevant games for role analysis
-        let filteredMatches = matches.filter { $0.isIncludedInRoleAnalysis }
-
-        for match in filteredMatches {
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
-            else {
-                continue
-            }
-
-            let normalizedRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
-            roleStats[normalizedRole]?.total += 1
-            if participant.win {
-                roleStats[normalizedRole]?.wins += 1
+            // Update role stats and KPIs if we have matches
+            if case .loaded(let matches) = result {
+                self.roleStats = dataCoordinator.calculateRoleStats(
+                    from: matches, summoner: summoner)
+                Task { await calculateKPIs(matches: matches) }
             }
         }
-
-        let finalStats = roleStats.map { role, stats in
-            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
-            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
-        }.sorted { $0.totalGames > $1.totalGames }
-
-        return finalStats
     }
 
     // MARK: - KPI Calculation
 
-    private func calculateKPIs() async {
+    private func calculateKPIs(matches: [Match]) async {
         do {
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "PerformanceView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             let dataManager = DataManager(
                 modelContext: userSession.modelContext,
                 riotClient: riotClient,
-                dataDragonService: DataDragonService()
+                dataDragonService: dataDragonService
             )
 
             let roleMatches = matches.filter { match in
@@ -433,7 +307,8 @@ struct PerformanceView: View {
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "Failed to calculate KPIs: \(error.localizedDescription)"
+                ClaimbLogger.error(
+                    "Failed to calculate KPIs", service: "PerformanceView", error: error)
             }
         }
     }
@@ -479,6 +354,7 @@ struct PerformanceView: View {
                 metric: "deaths_per_game",
                 value: deathsPerGame,
                 role: role,
+                matches: matches,
                 classMappingService: classMappingService,
                 modelContext: userSession.modelContext
             ))
@@ -488,6 +364,7 @@ struct PerformanceView: View {
                 metric: "vision_score_per_min",
                 value: visionScore,
                 role: role,
+                matches: matches,
                 classMappingService: classMappingService,
                 modelContext: userSession.modelContext
             ))
@@ -497,6 +374,7 @@ struct PerformanceView: View {
                 metric: "kill_participation_pct",
                 value: killParticipation,
                 role: role,
+                matches: matches,
                 classMappingService: classMappingService,
                 modelContext: userSession.modelContext
             ))
@@ -510,6 +388,7 @@ struct PerformanceView: View {
                     metric: "cs_per_min",
                     value: csPerMin,
                     role: role,
+                    matches: matches,
                     classMappingService: classMappingService,
                     modelContext: userSession.modelContext
                 ))
@@ -533,6 +412,7 @@ struct PerformanceView: View {
                     metric: "objective_participation_pct",
                     value: objectiveParticipation,
                     role: role,
+                    matches: matches,
                     classMappingService: classMappingService,
                     modelContext: userSession.modelContext
                 ))
@@ -556,6 +436,7 @@ struct PerformanceView: View {
                     metric: "team_damage_pct",
                     value: damageShare,
                     role: role,
+                    matches: matches,
                     classMappingService: classMappingService,
                     modelContext: userSession.modelContext
                 ))
@@ -576,6 +457,7 @@ struct PerformanceView: View {
                     metric: "damage_taken_share_pct",
                     value: damageTakenShare,
                     role: role,
+                    matches: matches,
                     classMappingService: classMappingService,
                     modelContext: userSession.modelContext
                 ))
@@ -590,11 +472,13 @@ struct PerformanceView: View {
         metric: String,
         value: Double,
         role: String,
+        matches: [Match],
         classMappingService: ChampionClassMappingService,
         modelContext: ModelContext
     ) -> KPIMetric {
         // Get the most common class for this role from the matches
-        let classTag = getMostCommonClassTag(for: role, classMappingService: classMappingService)
+        let classTag = getMostCommonClassTag(
+            for: role, matches: matches, classMappingService: classMappingService)
 
         // Look up baseline data
         let baseline = findBaseline(
@@ -613,7 +497,7 @@ struct PerformanceView: View {
     }
 
     private func getMostCommonClassTag(
-        for role: String, classMappingService: ChampionClassMappingService
+        for role: String, matches: [Match], classMappingService: ChampionClassMappingService
     ) -> String? {
         // Get all champions played in this role
         let roleMatches = matches.filter { match in
@@ -653,11 +537,13 @@ struct PerformanceView: View {
             let baselines = try modelContext.fetch(descriptor)
             return baselines.first
         } catch {
-            ClaimbLogger.error("Failed to fetch baseline", service: "PerformanceView", error: error, metadata: [
-                "role": role,
-                "classTag": classTag,
-                "metric": metric
-            ])
+            ClaimbLogger.error(
+                "Failed to fetch baseline", service: "PerformanceView", error: error,
+                metadata: [
+                    "role": role,
+                    "classTag": classTag,
+                    "metric": metric,
+                ])
             return nil
         }
     }

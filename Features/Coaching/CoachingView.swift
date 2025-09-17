@@ -11,13 +11,10 @@ import SwiftUI
 struct CoachingView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @State private var matches: [Match] = []
-    @State private var isLoading = false
+    @Environment(\.dataCoordinator) private var dataCoordinator
+    @State private var matchState: UIState<[Match]> = .idle
     @State private var isAnalyzing = false
-    @State private var errorMessage: String?
     @State private var coachingInsights: String = ""
-
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
 
     var body: some View {
         ZStack {
@@ -28,14 +25,13 @@ struct CoachingView: View {
                 headerView
 
                 // Content
-                if isLoading {
-                    loadingView
-                } else if !(errorMessage?.isEmpty ?? true) {
-                    errorView
-                } else if matches.isEmpty {
-                    emptyStateView
-                } else {
-                    coachingContentView
+                ClaimbContentWrapper(
+                    state: matchState,
+                    loadingMessage: "Loading coaching data...",
+                    emptyMessage: "No matches found for analysis",
+                    retryAction: { Task { await loadMatches() } }
+                ) { matches in
+                    coachingContentView(matches: matches)
                 }
             }
         }
@@ -55,7 +51,7 @@ struct CoachingView: View {
                 icon: "brain.head.profile",
                 action: { Task { await analyzePerformance() } },
                 isLoading: isAnalyzing,
-                isDisabled: matches.isEmpty
+                isDisabled: !matchState.isLoaded || matchState.data?.isEmpty != false
             ),
             onLogout: {
                 userSession.logout()
@@ -63,74 +59,11 @@ struct CoachingView: View {
         )
     }
 
-    private var loadingView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primary))
-            Text("Loading coaching data...")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var errorView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.error)
-
-            Text("Error Loading Data")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text(errorMessage ?? "Unknown error occurred")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Retry") {
-                Task {
-                    await loadMatches()
-                }
-            }
-            .claimbButton(variant: .primary, size: .medium)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyStateView: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "brain.head.profile")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-
-            Text("No Data Available")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text("Load your match history to get personalized coaching insights")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Load Matches") {
-                Task {
-                    await loadMatches()
-                }
-            }
-            .claimbButton(variant: .primary, size: .medium)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var coachingContentView: some View {
+    private func coachingContentView(matches: [Match]) -> some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.lg) {
                 // Recent Matches Summary
-                recentMatchesCard
+                recentMatchesCard(matches: matches)
 
                 // Coaching Insights
                 if !coachingInsights.isEmpty {
@@ -144,7 +77,7 @@ struct CoachingView: View {
         }
     }
 
-    private var recentMatchesCard: some View {
+    private func recentMatchesCard(matches: [Match]) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             Text("Recent Performance")
                 .font(DesignSystem.Typography.title3)
@@ -235,26 +168,21 @@ struct CoachingView: View {
     }
 
     private func loadMatches() async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: DataDragonService()
-            )
-            let loadedMatches = try await dataManager.getMatches(for: summoner)
-
+        guard let dataCoordinator = dataCoordinator else {
             await MainActor.run {
-                self.matches = loadedMatches
-                self.isLoading = false
+                self.matchState = .error(DataCoordinatorError.notAvailable)
             }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
-            }
+            return
+        }
+
+        await MainActor.run {
+            self.matchState = .loading
+        }
+
+        let result = await dataCoordinator.loadMatches(for: summoner)
+
+        await MainActor.run {
+            self.matchState = result
         }
     }
 
@@ -266,6 +194,7 @@ struct CoachingView: View {
         try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
 
         // Generate mock insights based on recent matches
+        guard let matches = matchState.data else { return }
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })?.win

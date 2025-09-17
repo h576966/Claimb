@@ -181,25 +181,26 @@ struct ChampionView: View {
             championState = .failure(DataCoordinatorError.notAvailable)
             return
         }
-        
+
         championState = .loading
 
         // Load champions using DataCoordinator
         let championResult = await dataCoordinator.loadChampions()
-        
+
         await MainActor.run {
             self.championState = championResult
         }
-        
+
         // Load matches and calculate role stats
         let matchResult = await dataCoordinator.loadMatches(for: summoner)
-        
+
         switch matchResult {
         case .loaded(let matches):
             await MainActor.run {
-                self.roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                self.roleStats = dataCoordinator.calculateRoleStats(
+                    from: matches, summoner: summoner)
             }
-            
+
             // Load champion stats after setting role stats
             await loadChampionStats()
         case .error(let error):
@@ -213,9 +214,9 @@ struct ChampionView: View {
 
     private func loadChampionStats() async {
         guard let dataCoordinator = dataCoordinator else { return }
-        
+
         let matchResult = await dataCoordinator.loadMatches(for: summoner)
-        
+
         switch matchResult {
         case .loaded(let matches):
             let stats = calculateChampionStats(

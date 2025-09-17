@@ -10,19 +10,14 @@ import SwiftUI
 
 struct MainAppView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dataCoordinator) private var dataCoordinator
     @State private var summoner: Summoner
-    @State private var matches: [Match] = []
-    @State private var isLoading = false
+    @State private var matchState: UIState<[Match]> = .idle
     @State private var isRefreshing = false
-    @State private var errorMessage: String?
-    @State private var lastRefreshTime: Date?
     @State private var showBaselineTest = false
     @State private var selectedRole: String = "TOP"
     @State private var roleStats: [RoleStats] = []
     @State private var showRoleSelection = false
-
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
-    private let dataDragonService = DataDragonService()
 
     init(summoner: Summoner) {
         self._summoner = State(initialValue: summoner)
@@ -52,12 +47,13 @@ struct MainAppView: View {
                     }
 
                     // Content
-                    if isLoading && matches.isEmpty {
-                        loadingView
-                    } else if matches.isEmpty {
-                        emptyStateView
-                    } else {
-                        matchListView
+                    ClaimbContentWrapper(
+                        state: matchState,
+                        loadingMessage: "Loading matches...",
+                        emptyMessage: "No matches found",
+                        retryAction: { Task { await loadMatches() } }
+                    ) { matches in
+                        matchListView(matches: matches)
                     }
                 }
             }
@@ -143,12 +139,6 @@ struct MainAppView: View {
 
                 Spacer()
 
-                // Last Refresh Time
-                if let lastRefresh = lastRefreshTime {
-                    Text("Updated \(lastRefresh, style: .relative) ago")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textTertiary)
-                }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
         }
@@ -211,7 +201,7 @@ struct MainAppView: View {
 
     // MARK: - Match List View
 
-    private var matchListView: some View {
+    private func matchListView(matches: [Match]) -> some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.md) {
                 ForEach(matches, id: \.matchId) { match in
@@ -237,161 +227,70 @@ struct MainAppView: View {
     // MARK: - Methods
 
     private func loadMatches() async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            // Ensure champion data is loaded first
-            try await dataManager.loadChampionData()
-
-            let loadedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-
+        guard let dataCoordinator = dataCoordinator else {
             await MainActor.run {
-                self.matches = loadedMatches
-                self.isLoading = false
+                self.matchState = .error(DataCoordinatorError.notAvailable)
             }
+            return
+        }
 
-            // Calculate role statistics
-            await calculateRoleStats()
+        await MainActor.run {
+            self.matchState = .loading
+        }
 
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to load matches: \(error.localizedDescription)"
-                self.isLoading = false
+        let result = await dataCoordinator.loadMatches(for: summoner, limit: 5)
+
+        await MainActor.run {
+            self.matchState = result
+
+            // Update role stats if we have matches
+            if case .loaded(let matches) = result {
+                self.roleStats = dataCoordinator.calculateRoleStats(
+                    from: matches, summoner: summoner)
             }
         }
     }
 
     private func refreshMatches() async {
-        isRefreshing = true
-        errorMessage = nil
+        guard let dataCoordinator = dataCoordinator else { return }
 
-        do {
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
+        await MainActor.run {
+            self.isRefreshing = true
+        }
 
-            // Ensure champion data is loaded first
-            try await dataManager.loadChampionData()
+        let result = await dataCoordinator.refreshMatches(for: summoner)
 
-            // Refresh matches from API
-            try await dataManager.refreshMatches(for: summoner)
+        await MainActor.run {
+            self.matchState = result
+            self.isRefreshing = false
 
-            // Reload matches from database
-            let refreshedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-
-            await MainActor.run {
-                self.matches = refreshedMatches
-                self.isRefreshing = false
-                self.lastRefreshTime = Date()
-            }
-
-            // Calculate role statistics
-            await calculateRoleStats()
-
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to refresh matches: \(error.localizedDescription)"
-                self.isRefreshing = false
+            // Update role stats if we have matches
+            if case .loaded(let matches) = result {
+                self.roleStats = dataCoordinator.calculateRoleStats(
+                    from: matches, summoner: summoner)
             }
         }
     }
 
     private func clearCache() async {
-        isRefreshing = true
-        errorMessage = nil
-
-        do {
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            // Clear all cached data
-            try await dataManager.clearAllCache()
-
-            // Refresh matches with fresh data
-            try await dataManager.refreshMatches(for: summoner)
-
-            // Reload matches from database
-            let refreshedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-
-            await MainActor.run {
-                self.matches = refreshedMatches
-                self.isRefreshing = false
-                self.lastRefreshTime = Date()
-            }
-
-            // Calculate role statistics
-            await calculateRoleStats()
-
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to clear cache: \(error.localizedDescription)"
-                self.isRefreshing = false
-            }
-        }
-    }
-
-    // MARK: - Role Statistics Methods
-
-    private func calculateRoleStats() async {
-        guard !matches.isEmpty else {
-            await MainActor.run {
-                self.roleStats = []
-            }
-            return
-        }
-
-        let roleWinRates = calculateRoleWinRates(from: matches, summoner: summoner)
+        guard let dataCoordinator = dataCoordinator else { return }
 
         await MainActor.run {
-            self.roleStats = roleWinRates
-            // Set default selected role to the one with most games
-            if let mostPlayedRole = roleWinRates.max(by: { $0.totalGames < $1.totalGames }) {
-                self.selectedRole = mostPlayedRole.role
+            self.isRefreshing = true
+        }
+
+        let result = await dataCoordinator.clearAllCache()
+
+        await MainActor.run {
+            self.isRefreshing = false
+
+            if case .loaded = result {
+                // Reload matches after clearing cache
+                Task { await loadMatches() }
             }
         }
     }
 
-    private func calculateRoleWinRates(from matches: [Match], summoner: Summoner) -> [RoleStats] {
-        var roleStats: [String: (wins: Int, total: Int)] = [:]
-
-        for match in matches {
-            // Find the summoner's participant in this match
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
-            else {
-                continue
-            }
-
-            let normalizedRole = RoleUtils.normalizeRole(participant.role)
-            let isWin = participant.win
-
-            if roleStats[normalizedRole] == nil {
-                roleStats[normalizedRole] = (wins: 0, total: 0)
-            }
-
-            roleStats[normalizedRole]?.total += 1
-            if isWin {
-                roleStats[normalizedRole]?.wins += 1
-            }
-        }
-
-        // Convert to RoleStats array
-        return roleStats.map { (role, stats) in
-            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
-            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
-        }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
-    }
 }
 
 #Preview {

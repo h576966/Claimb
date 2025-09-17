@@ -10,6 +10,8 @@ import SwiftUI
 
 struct LoginView: View {
     let userSession: UserSession
+    @Environment(\.riotClient) private var riotClient
+    @Environment(\.dataDragonService) private var dataDragonService
     @State private var gameName = ""
     @State private var tagLine = "8778"
     @State private var selectedRegion = "euw1"
@@ -21,9 +23,6 @@ struct LoginView: View {
         ("na1", "North America"),
         ("eun1", "Europe Nordic & East"),
     ]
-
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
-    private let dataDragonService = DataDragonService()
 
     var body: some View {
         NavigationStack {
@@ -188,6 +187,13 @@ struct LoginView: View {
         errorMessage = nil
 
         do {
+            // Ensure services are available
+            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
+                throw NSError(
+                    domain: "LoginView", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            }
+
             // Create DataManager
             let dataManager = DataManager(
                 modelContext: userSession.modelContext,
@@ -212,11 +218,14 @@ struct LoginView: View {
             await MainActor.run {
                 ClaimbLogger.debug("About to call userSession.login()", service: "LoginView")
                 userSession.login(summoner: summoner)
-                ClaimbLogger.debug("userSession.login() completed", service: "LoginView", metadata: [
-                    "isLoggedIn": String(userSession.isLoggedIn)
-                ])
+                ClaimbLogger.debug(
+                    "userSession.login() completed", service: "LoginView",
+                    metadata: [
+                        "isLoggedIn": String(userSession.isLoggedIn)
+                    ])
                 self.isLoading = false
-                ClaimbLogger.debug("Login process finished, isLoading set to false", service: "LoginView")
+                ClaimbLogger.debug(
+                    "Login process finished, isLoading set to false", service: "LoginView")
             }
 
         } catch {
