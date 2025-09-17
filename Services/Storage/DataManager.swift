@@ -130,15 +130,18 @@ public class DataManager {
             let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
             // Fetch more matches if we have less than the target
+            // Account for filtering: fetch 50% more to compensate for ARAM/Swiftplay/etc. that will be filtered out
             let targetCount = maxMatchesPerSummoner
-            let fetchCount = max(20, targetCount - existingMatches.count)  // At least 20 new matches
+            let baseFetchCount = max(20, targetCount - existingMatches.count)
+            let fetchCount = Int(Double(baseFetchCount) * 1.5)  // 50% buffer for filtering
 
             ClaimbLogger.debug(
-                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more",
+                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (with 50% buffer for filtering)",
                 service: "DataManager",
                 metadata: [
                     "existingCount": String(existingMatches.count),
                     "fetchCount": String(fetchCount),
+                    "baseFetchCount": String(baseFetchCount),
                 ]
             )
 
@@ -149,19 +152,34 @@ public class DataManager {
             )
 
             var newMatchesCount = 0
+            var skippedMatchesCount = 0
             for matchId in matchHistory.history {
                 // Skip if we already have this match
                 if existingMatchIds.contains(matchId) {
                     continue
                 }
 
-                try await processMatch(
-                    matchId: matchId, region: summoner.region, summoner: summoner)
-                newMatchesCount += 1
+                do {
+                    try await processMatch(
+                        matchId: matchId, region: summoner.region, summoner: summoner)
+                    newMatchesCount += 1
+                } catch MatchFilterError.irrelevantMatch {
+                    skippedMatchesCount += 1
+                    // Continue processing other matches
+                }
             }
 
             ClaimbLogger.dataOperation(
                 "Added new matches", count: newMatchesCount, service: "DataManager")
+            
+            if skippedMatchesCount > 0 {
+                ClaimbLogger.debug(
+                    "Skipped irrelevant matches", service: "DataManager",
+                    metadata: [
+                        "skippedCount": String(skippedMatchesCount),
+                        "addedCount": String(newMatchesCount)
+                    ])
+            }
 
             try await cleanupOldMatches(for: summoner)
             summoner.lastUpdated = Date()
@@ -186,18 +204,26 @@ public class DataManager {
                 "Loading initial matches", service: "DataManager",
                 metadata: [
                     "gameName": summoner.gameName,
-                    "count": "40",
+                    "count": "60",  // Fetch 60 to account for filtering
                 ])
 
             let matchHistory = try await riotClient.getMatchHistory(
                 puuid: summoner.puuid,
                 region: summoner.region,
-                count: 40
+                count: 60  // 50% buffer for filtering
             )
 
+            var addedMatchesCount = 0
+            var skippedMatchesCount = 0
             for matchId in matchHistory.history {
-                try await processMatch(
-                    matchId: matchId, region: summoner.region, summoner: summoner)
+                do {
+                    try await processMatch(
+                        matchId: matchId, region: summoner.region, summoner: summoner)
+                    addedMatchesCount += 1
+                } catch MatchFilterError.irrelevantMatch {
+                    skippedMatchesCount += 1
+                    // Continue processing other matches
+                }
             }
 
             summoner.lastUpdated = Date()
@@ -205,7 +231,16 @@ public class DataManager {
             try modelContext.save()
 
             ClaimbLogger.dataOperation(
-                "Loaded initial matches", count: matchHistory.history.count, service: "DataManager")
+                "Loaded initial matches", count: addedMatchesCount, service: "DataManager")
+            
+            if skippedMatchesCount > 0 {
+                ClaimbLogger.debug(
+                    "Skipped irrelevant matches during initial load", service: "DataManager",
+                    metadata: [
+                        "skippedCount": String(skippedMatchesCount),
+                        "addedCount": String(addedMatchesCount)
+                    ])
+            }
 
         } catch {
             errorMessage = "Failed to load initial matches: \(error.localizedDescription)"
@@ -234,17 +269,40 @@ public class DataManager {
                 "bytes": String(matchData.count),
             ])
 
-        let match = try await parseMatchData(matchData, matchId: matchId, summoner: summoner)
+        do {
+            let match = try await parseMatchData(matchData, matchId: matchId, summoner: summoner)
 
-        modelContext.insert(match)
-        ClaimbLogger.debug(
-            "Inserted match \(matchId) with \(match.participants.count) participants",
-            service: "DataManager",
-            metadata: [
-                "matchId": matchId,
-                "participantCount": String(match.participants.count),
-            ]
-        )
+            modelContext.insert(match)
+            ClaimbLogger.debug(
+                "Inserted match \(matchId) with \(match.participants.count) participants",
+                service: "DataManager",
+                metadata: [
+                    "matchId": matchId,
+                    "participantCount": String(match.participants.count),
+                ]
+            )
+        } catch MatchFilterError.irrelevantMatch {
+            // Skip irrelevant matches silently - this is expected behavior
+            ClaimbLogger.debug(
+                "Skipped irrelevant match", service: "DataManager",
+                metadata: ["matchId": matchId])
+            return
+        }
+    }
+
+    /// Checks if a match is relevant for analysis (Ranked, Draft, Summoner's Rift only)
+    private func isRelevantMatch(gameMode: String, gameType: String, queueId: Int, mapId: Int) -> Bool {
+        // Must be on Summoner's Rift (mapId 11)
+        guard mapId == 11 else { return false }
+        
+        // Must be a classic matched game
+        guard gameMode.uppercased() == "CLASSIC" && gameType.uppercased() == "MATCHED_GAME" else { return false }
+        
+        // Must be a relevant queue type
+        let relevantQueues = [420, 440, 400] // Ranked Solo/Duo, Ranked Flex, Normal Draft
+        guard relevantQueues.contains(queueId) else { return false }
+        
+        return true
     }
 
     /// Parses match data from Riot API response
@@ -277,6 +335,22 @@ public class DataManager {
         let mapId = info["mapId"] as? Int ?? 0
         let gameStartTimestamp = info["gameStartTimestamp"] as? Int ?? 0
         let gameEndTimestamp = info["gameEndTimestamp"] as? Int ?? 0
+
+        // Filter out irrelevant matches BEFORE creating Match object
+        // This prevents storing ARAM, Swiftplay, and other non-relevant game types
+        if !isRelevantMatch(gameMode: gameMode, gameType: gameType, queueId: queueId, mapId: mapId) {
+            ClaimbLogger.debug(
+                "Skipping irrelevant match", service: "DataManager",
+                metadata: [
+                    "matchId": matchId,
+                    "gameMode": gameMode,
+                    "gameType": gameType,
+                    "queueId": String(queueId),
+                    "mapId": String(mapId)
+                ])
+            // Throw a specific error that can be caught and handled gracefully
+            throw MatchFilterError.irrelevantMatch
+        }
 
         let match = Match(
             matchId: matchId,
@@ -887,6 +961,18 @@ public enum DataManagerError: Error, LocalizedError {
             return "Invalid data: \(message)"
         case .databaseError(let message):
             return "Database error: \(message)"
+        }
+    }
+}
+
+/// Errors for match filtering
+enum MatchFilterError: Error, LocalizedError {
+    case irrelevantMatch
+    
+    var errorDescription: String? {
+        switch self {
+        case .irrelevantMatch:
+            return "Match is not relevant for analysis (ARAM, Swiftplay, etc.)"
         }
     }
 }
