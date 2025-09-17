@@ -5,15 +5,15 @@
 //  Created by AI Assistant on 2025-09-10.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab = 2  // Default to CoachingView
     @State private var showLogoutConfirmation = false
     let summoner: Summoner
-    @ObservedObject var userSession: UserSession
-    
+    let userSession: UserSession
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // Champion View
@@ -23,7 +23,7 @@ struct MainTabView: View {
                     Text("Champion")
                 }
                 .tag(0)
-            
+
             // Performance View
             PerformanceView(summoner: summoner, userSession: userSession)
                 .tabItem {
@@ -31,7 +31,7 @@ struct MainTabView: View {
                     Text("Performance")
                 }
                 .tag(1)
-            
+
             // Coaching View
             CoachingView(summoner: summoner, userSession: userSession)
                 .tabItem {
@@ -50,14 +50,14 @@ struct MainTabView: View {
                         Text(summoner.gameName)
                             .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
+
                         Text("#\(summoner.tagLine)")
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
                 }
             }
-            
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Logout") {
                     showLogoutConfirmation = true
@@ -66,7 +66,7 @@ struct MainTabView: View {
             }
         }
         .alert("Logout", isPresented: $showLogoutConfirmation) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Logout", role: .destructive) {
                 logout()
             }
@@ -74,14 +74,15 @@ struct MainTabView: View {
             Text("Are you sure you want to logout?")
         }
     }
-    
+
     private func logout() {
         userSession.logout()
     }
 }
 
 #Preview {
-    let modelContainer = try! ModelContainer(for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
+    let modelContainer = try! ModelContainer(
+        for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
     let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",
@@ -89,7 +90,7 @@ struct MainTabView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    
+
     return MainTabView(summoner: summoner, userSession: userSession)
         .modelContainer(modelContainer)
         .onAppear {

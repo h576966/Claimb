@@ -5,8 +5,8 @@
 //  Created by AI Assistant on 2025-01-27.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct CacheManagementView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,15 +14,15 @@ struct CacheManagementView: View {
     @State private var clearMessage = ""
     @State private var showAlert = false
     @State private var alertMessage = ""
-    
+
     private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     private let dataDragonService = DataDragonService()
-    
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 DesignSystem.Colors.background.ignoresSafeArea()
-                
+
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // Header
@@ -30,63 +30,68 @@ struct CacheManagementView: View {
                             Text("Cache Management")
                                 .font(DesignSystem.Typography.title2)
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
-                            
+
                             Text("Clear cached data to free up space or resolve issues")
                                 .font(DesignSystem.Typography.body)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
                         .padding(.top, DesignSystem.Spacing.lg)
-                        
+
                         // Cache Options
                         VStack(spacing: DesignSystem.Spacing.md) {
                             // Clear All Cache
                             CacheOptionCard(
                                 title: "Clear All Cache",
-                                description: "Removes all cached data including matches, champions, and baselines",
+                                description:
+                                    "Removes all cached data including matches, champions, and baselines",
                                 icon: "trash.fill",
                                 color: DesignSystem.Colors.error,
                                 action: { await clearAllCache() }
                             )
-                            
+
                             // Clear Match Data
                             CacheOptionCard(
                                 title: "Clear Match Data",
-                                description: "Removes match history and participant data, keeps champions and baselines",
+                                description:
+                                    "Removes match history and participant data, keeps champions and baselines",
                                 icon: "gamecontroller.fill",
                                 color: DesignSystem.Colors.warning,
                                 action: { await clearMatchData() }
                             )
-                            
+
                             // Clear Champion Data
                             CacheOptionCard(
                                 title: "Clear Champion Data",
-                                description: "Removes champion information, will be reloaded on next launch",
+                                description:
+                                    "Removes champion information, will be reloaded on next launch",
                                 icon: "person.3.fill",
                                 color: DesignSystem.Colors.info,
                                 action: { await clearChampionData() }
                             )
-                            
+
                             // Clear Baseline Data
                             CacheOptionCard(
                                 title: "Clear Baseline Data",
-                                description: "Removes performance baseline data, will be reloaded on next launch",
+                                description:
+                                    "Removes performance baseline data, will be reloaded on next launch",
                                 icon: "chart.bar.fill",
                                 color: DesignSystem.Colors.accent,
                                 action: { await clearBaselineData() }
                             )
-                            
+
                             // Clear URL Cache
                             CacheOptionCard(
                                 title: "Clear URL Cache",
-                                description: "Clears network request cache, forces fresh data from Riot API",
+                                description:
+                                    "Clears network request cache, forces fresh data from Riot API",
                                 icon: "network",
                                 color: DesignSystem.Colors.primary,
                                 action: { clearURLCache() }
                             )
                         }
                         .padding(.horizontal, DesignSystem.Spacing.lg)
-                        
+
                         // Status Message
                         if !clearMessage.isEmpty {
                             Text(clearMessage)
@@ -95,7 +100,7 @@ struct CacheManagementView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, DesignSystem.Spacing.lg)
                         }
-                        
+
                         Spacer()
                     }
                 }
@@ -111,30 +116,31 @@ struct CacheManagementView: View {
             }
         }
         .alert("Cache Cleared", isPresented: $showAlert) {
-            Button("OK") { }
+            Button("OK") {}
         } message: {
             Text(alertMessage)
         }
     }
-    
+
     // MARK: - Cache Clearing Methods
-    
+
     private func clearAllCache() async {
         isClearing = true
         clearMessage = "Clearing all cache..."
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             try await dataManager.clearAllCache()
-            
+
             await MainActor.run {
                 self.clearMessage = "All cache cleared successfully"
-                self.alertMessage = "All cached data has been removed. The app will reload data on next use."
+                self.alertMessage =
+                    "All cached data has been removed. The app will reload data on next use."
                 self.showAlert = true
                 self.isClearing = false
             }
@@ -145,23 +151,24 @@ struct CacheManagementView: View {
             }
         }
     }
-    
+
     private func clearMatchData() async {
         isClearing = true
         clearMessage = "Clearing match data..."
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             try await dataManager.clearMatchData()
-            
+
             await MainActor.run {
                 self.clearMessage = "Match data cleared successfully"
-                self.alertMessage = "Match history has been cleared. Matches will be reloaded on next refresh."
+                self.alertMessage =
+                    "Match history has been cleared. Matches will be reloaded on next refresh."
                 self.showAlert = true
                 self.isClearing = false
             }
@@ -172,23 +179,24 @@ struct CacheManagementView: View {
             }
         }
     }
-    
+
     private func clearChampionData() async {
         isClearing = true
         clearMessage = "Clearing champion data..."
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             try await dataManager.clearChampionData()
-            
+
             await MainActor.run {
                 self.clearMessage = "Champion data cleared successfully"
-                self.alertMessage = "Champion data has been cleared. Champions will be reloaded on next launch."
+                self.alertMessage =
+                    "Champion data has been cleared. Champions will be reloaded on next launch."
                 self.showAlert = true
                 self.isClearing = false
             }
@@ -199,23 +207,24 @@ struct CacheManagementView: View {
             }
         }
     }
-    
+
     private func clearBaselineData() async {
         isClearing = true
         clearMessage = "Clearing baseline data..."
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             try await dataManager.clearBaselineData()
-            
+
             await MainActor.run {
                 self.clearMessage = "Baseline data cleared successfully"
-                self.alertMessage = "Baseline data has been cleared. Baselines will be reloaded on next launch."
+                self.alertMessage =
+                    "Baseline data has been cleared. Baselines will be reloaded on next launch."
                 self.showAlert = true
                 self.isClearing = false
             }
@@ -226,16 +235,16 @@ struct CacheManagementView: View {
             }
         }
     }
-    
+
     private func clearURLCache() {
         let dataManager = DataManager(
             modelContext: modelContext,
             riotClient: riotClient,
             dataDragonService: dataDragonService
         )
-        
+
         dataManager.clearURLCache()
-        
+
         clearMessage = "URL cache cleared successfully"
         alertMessage = "Network cache has been cleared. Fresh data will be fetched from Riot API."
         showAlert = true
@@ -250,9 +259,9 @@ struct CacheOptionCard: View {
     let icon: String
     let color: Color
     let action: () async -> Void
-    
+
     @State private var isExecuting = false
-    
+
     var body: some View {
         Button(action: {
             Task {
@@ -269,22 +278,22 @@ struct CacheOptionCard: View {
                     .frame(width: 40, height: 40)
                     .background(color.opacity(0.1))
                     .cornerRadius(DesignSystem.CornerRadius.small)
-                
+
                 // Content
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text(title)
                         .font(DesignSystem.Typography.title3)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .multilineTextAlignment(.leading)
-                    
+
                     Text(description)
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
-                
+
                 Spacer()
-                
+
                 // Loading indicator or chevron
                 if isExecuting {
                     ProgressView()
@@ -313,5 +322,7 @@ struct CacheOptionCard: View {
 
 #Preview {
     CacheManagementView()
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+        .modelContainer(for: [
+            Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
+        ])
 }

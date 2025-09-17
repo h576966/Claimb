@@ -5,8 +5,8 @@
 //  Created by Niklas Johansson on 2025-09-08.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct MainAppView: View {
     @Environment(\.modelContext) private var modelContext
@@ -20,24 +20,24 @@ struct MainAppView: View {
     @State private var selectedRole: String = "TOP"
     @State private var roleStats: [RoleStats] = []
     @State private var showRoleSelection = false
-    
+
     private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
     private let dataDragonService = DataDragonService()
-    
+
     init(summoner: Summoner) {
         self._summoner = State(initialValue: summoner)
     }
-    
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Black background
                 DesignSystem.Colors.background.ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
                     // Header
                     headerView
-                    
+
                     // Role Selector
                     if !roleStats.isEmpty {
                         RoleSelectorView(
@@ -50,7 +50,7 @@ struct MainAppView: View {
                         .padding(.horizontal, DesignSystem.Spacing.lg)
                         .padding(.bottom, DesignSystem.Spacing.md)
                     }
-                    
+
                     // Content
                     if isLoading && matches.isEmpty {
                         loadingView
@@ -73,9 +73,9 @@ struct MainAppView: View {
             BaselineTestView()
         }
     }
-    
+
     // MARK: - Header View
-    
+
     private var headerView: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             // Summoner Info
@@ -83,18 +83,18 @@ struct MainAppView: View {
                 Text(summoner.gameName)
                     .font(DesignSystem.Typography.title2)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                
+
                 Text("#\(summoner.tagLine) • \(regionDisplayName)")
                     .font(DesignSystem.Typography.subheadline)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
-                
+
                 if let level = summoner.summonerLevel {
                     Text("Level \(level)")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
             }
-            
+
             // Action Buttons
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Button(action: {
@@ -103,14 +103,14 @@ struct MainAppView: View {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 16, weight: .medium))
-                        
+
                         Text("Refresh")
                             .font(DesignSystem.Typography.callout)
                     }
                 }
                 .claimbButton(variant: .primary, size: .small)
                 .disabled(isRefreshing)
-                
+
                 // Clear Cache Button (for debugging)
                 Button(action: {
                     Task { await clearCache() }
@@ -118,14 +118,14 @@ struct MainAppView: View {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "trash")
                             .font(.system(size: 16, weight: .medium))
-                        
+
                         Text("Clear Cache")
                             .font(DesignSystem.Typography.callout)
                     }
                 }
                 .claimbButton(variant: .secondary, size: .small)
                 .disabled(isRefreshing)
-                
+
                 // Test Baselines Button
                 Button(action: {
                     showBaselineTest = true
@@ -133,16 +133,16 @@ struct MainAppView: View {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "chart.bar")
                             .font(.system(size: 16, weight: .medium))
-                        
+
                         Text("Test Baselines")
                             .font(DesignSystem.Typography.callout)
                     }
                 }
                 .claimbButton(variant: .secondary, size: .small)
                 .disabled(isRefreshing)
-                
+
                 Spacer()
-                
+
                 // Last Refresh Time
                 if let lastRefresh = lastRefreshTime {
                     Text("Updated \(lastRefresh, style: .relative) ago")
@@ -156,38 +156,38 @@ struct MainAppView: View {
         .padding(.bottom, DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.background)
     }
-    
+
     // MARK: - Loading View
-    
+
     private var loadingView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             GlowCSpinner(size: 80, speed: 1.5)
-            
+
             Text("Loading your matches...")
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .font(DesignSystem.Typography.title3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
+
     // MARK: - Empty State View
-    
+
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "gamecontroller")
                 .font(.system(size: 60))
                 .foregroundColor(DesignSystem.Colors.textTertiary)
-            
+
             Text("No matches found")
                 .font(DesignSystem.Typography.title2)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
-            
+
             Text("Play some games and come back to see your match history")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.xxl)
-            
+
             Button(action: {
                 Task { await refreshMatches() }
             }) {
@@ -208,9 +208,9 @@ struct MainAppView: View {
             )
         }
     }
-    
+
     // MARK: - Match List View
-    
+
     private var matchListView: some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.md) {
@@ -222,9 +222,9 @@ struct MainAppView: View {
             .padding(.bottom, DesignSystem.Spacing.lg)
         }
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var regionDisplayName: String {
         switch summoner.region {
         case "euw1": return "EUW"
@@ -233,33 +233,33 @@ struct MainAppView: View {
         default: return summoner.region.uppercased()
         }
     }
-    
+
     // MARK: - Methods
-    
+
     private func loadMatches() async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             // Ensure champion data is loaded first
             try await dataManager.loadChampionData()
-            
+
             let loadedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-            
+
             await MainActor.run {
                 self.matches = loadedMatches
                 self.isLoading = false
             }
-            
+
             // Calculate role statistics
             await calculateRoleStats()
-            
+
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to load matches: \(error.localizedDescription)"
@@ -267,36 +267,36 @@ struct MainAppView: View {
             }
         }
     }
-    
+
     private func refreshMatches() async {
         isRefreshing = true
         errorMessage = nil
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             // Ensure champion data is loaded first
             try await dataManager.loadChampionData()
-            
+
             // Refresh matches from API
             try await dataManager.refreshMatches(for: summoner)
-            
+
             // Reload matches from database
             let refreshedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-            
+
             await MainActor.run {
                 self.matches = refreshedMatches
                 self.isRefreshing = false
                 self.lastRefreshTime = Date()
             }
-            
+
             // Calculate role statistics
             await calculateRoleStats()
-            
+
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to refresh matches: \(error.localizedDescription)"
@@ -304,36 +304,36 @@ struct MainAppView: View {
             }
         }
     }
-    
+
     private func clearCache() async {
         isRefreshing = true
         errorMessage = nil
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: riotClient,
                 dataDragonService: dataDragonService
             )
-            
+
             // Clear all cached data
             try await dataManager.clearAllCache()
-            
+
             // Refresh matches with fresh data
             try await dataManager.refreshMatches(for: summoner)
-            
+
             // Reload matches from database
             let refreshedMatches = try await dataManager.getMatches(for: summoner, limit: 5)
-            
+
             await MainActor.run {
                 self.matches = refreshedMatches
                 self.isRefreshing = false
                 self.lastRefreshTime = Date()
             }
-            
+
             // Calculate role statistics
             await calculateRoleStats()
-            
+
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to clear cache: \(error.localizedDescription)"
@@ -341,9 +341,9 @@ struct MainAppView: View {
             }
         }
     }
-    
+
     // MARK: - Role Statistics Methods
-    
+
     private func calculateRoleStats() async {
         guard !matches.isEmpty else {
             await MainActor.run {
@@ -351,9 +351,9 @@ struct MainAppView: View {
             }
             return
         }
-        
+
         let roleWinRates = calculateRoleWinRates(from: matches, summoner: summoner)
-        
+
         await MainActor.run {
             self.roleStats = roleWinRates
             // Set default selected role to the one with most games
@@ -362,34 +362,35 @@ struct MainAppView: View {
             }
         }
     }
-    
+
     private func calculateRoleWinRates(from matches: [Match], summoner: Summoner) -> [RoleStats] {
         var roleStats: [String: (wins: Int, total: Int)] = [:]
-        
+
         for match in matches {
             // Find the summoner's participant in this match
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
                 continue
             }
-            
+
             let normalizedRole = RoleUtils.normalizeRole(participant.role)
             let isWin = participant.win
-            
+
             if roleStats[normalizedRole] == nil {
                 roleStats[normalizedRole] = (wins: 0, total: 0)
             }
-            
+
             roleStats[normalizedRole]?.total += 1
             if isWin {
                 roleStats[normalizedRole]?.wins += 1
             }
         }
-        
+
         // Convert to RoleStats array
         return roleStats.map { (role, stats) in
             let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
             return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
-        }.sorted { $0.totalGames > $1.totalGames } // Sort by most played
+        }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
 }
 
@@ -400,9 +401,11 @@ struct MainAppView: View {
         tagLine: "1234",
         region: "euw1"
     )
-    
+
     return MainAppView(summoner: summoner)
-        .modelContainer(for: [Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self])
+        .modelContainer(for: [
+            Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
+        ])
         .onAppear {
             summoner.summonerLevel = 100
         }
