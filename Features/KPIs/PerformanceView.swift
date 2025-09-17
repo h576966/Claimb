@@ -26,6 +26,8 @@ struct KPIMetric {
         case "objective_participation_pct": return "Objective Participation"
         case "team_damage_pct": return "Damage Share"
         case "damage_taken_share_pct": return "Damage Taken Share"
+        case "primary_role_consistency": return "Role Consistency"
+        case "champion_pool_size": return "Champion Pool Size"
         default: return metric
         }
     }
@@ -33,12 +35,14 @@ struct KPIMetric {
     var formattedValue: String {
         switch metric {
         case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
-            "damage_taken_share_pct":
-            return String(format: "%.1f%%", value * 100)
+            "damage_taken_share_pct", "primary_role_consistency":
+            return String(format: "%.1f%%", value)
         case "cs_per_min", "vision_score_per_min":
             return String(format: "%.1f", value)
         case "deaths_per_game":
             return String(format: "%.1f", value)
+        case "champion_pool_size":
+            return String(format: "%.0f", value)
         default:
             return String(format: "%.2f", value)
         }
@@ -85,6 +89,25 @@ struct KPICard: View {
                     Text("Average: \(String(format: "%.1f", baseline.mean))")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            } else {
+                // Custom targets for new KPIs without baseline data
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                    if kpi.metric == "primary_role_consistency" {
+                        Text("Target: 84%")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                        Text("Goal: Stay focused on your main role")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    } else if kpi.metric == "champion_pool_size" {
+                        Text("Target: 2-3 champions")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                        Text("Goal: Master a few champions")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
                 }
             }
 

@@ -240,6 +240,28 @@ public class KPIDataViewModel {
                     dataManager: dataManager
                 ))
         }
+        
+        // Add Primary Role Consistency KPI (last 20 games)
+        let primaryRoleConsistency = calculatePrimaryRoleConsistency(participants: participants, primaryRole: role, matches: matches)
+        kpis.append(
+            await createKPIMetric(
+                metric: "primary_role_consistency",
+                value: primaryRoleConsistency,
+                role: role,
+                matches: matches,
+                dataManager: dataManager
+            ))
+        
+        // Add Champion Pool Size KPI (last 20 games)
+        let championPoolSize = calculateChampionPoolSize(participants: participants)
+        kpis.append(
+            await createKPIMetric(
+                metric: "champion_pool_size",
+                value: championPoolSize,
+                role: role,
+                matches: matches,
+                dataManager: dataManager
+            ))
 
         return kpis
     }
@@ -309,8 +331,75 @@ public class KPIDataViewModel {
         }
     }
     
+    // MARK: - New KPI Calculations
+    
+    /// Calculate primary role consistency percentage (last 20 games)
+    private func calculatePrimaryRoleConsistency(participants: [Participant], primaryRole: String, matches: [Match]) -> Double {
+        // Get last 20 games
+        let recentParticipants = Array(participants.prefix(20))
+        
+        guard !recentParticipants.isEmpty else { return 0.0 }
+        
+        // Count games played in primary role
+        let primaryRoleGames = recentParticipants.filter { participant in
+            // Map participant role to our role format
+            let participantRole = mapParticipantRoleToOurFormat(participant.role)
+            return participantRole == primaryRole
+        }.count
+        
+        return Double(primaryRoleGames) / Double(recentParticipants.count) * 100.0
+    }
+    
+    /// Calculate champion pool size (unique champions in last 20 games)
+    private func calculateChampionPoolSize(participants: [Participant]) -> Double {
+        // Get last 20 games
+        let recentParticipants = Array(participants.prefix(20))
+        
+        // Count unique champions
+        let uniqueChampions = Set(recentParticipants.map { $0.championId }).count
+        
+        return Double(uniqueChampions)
+    }
+    
+    /// Map participant team position to our role format
+    private func mapParticipantRoleToOurFormat(_ teamPosition: String) -> String {
+        switch teamPosition {
+        case "MIDDLE":
+            return "MID"
+        case "BOTTOM":
+            return "ADC"
+        case "UTILITY":
+            return "SUPPORT"
+        case "JUNGLE", "TOP":
+            return teamPosition
+        default:
+            return teamPosition
+        }
+    }
+    
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?) -> (PerformanceLevel, Color) {
-        if let baseline = baseline {
+        // Custom logic for new KPIs that don't have baseline data
+        if metric == "primary_role_consistency" {
+            if value >= 84.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 70.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value >= 50.0 {
+                return (.belowMean, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        } else if metric == "champion_pool_size" {
+            if value >= 1.0 && value <= 3.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 4.0 && value <= 5.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value >= 6.0 && value <= 8.0 {
+                return (.belowMean, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        } else if let baseline = baseline {
             // Special handling for Deaths per Game - lower is better
             if metric == "deaths_per_game" {
                 if value <= baseline.p40 * 0.9 {
