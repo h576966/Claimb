@@ -11,14 +11,12 @@ import SwiftUI
 struct ChampionView: View {
     let summoner: Summoner
     let userSession: UserSession
+    @Environment(\.dataCoordinator) private var dataCoordinator
     @State private var championState: UIState<[Champion]> = .idle
     @State private var championStats: [ChampionStats] = []
     @State private var selectedFilter: ChampionFilter = .mostPlayed
     @State private var roleStats: [RoleStats] = []
     @State private var showRoleSelection = false
-
-    private let dataDragonService = DataDragonService()
-    private let riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
 
     enum ChampionFilter: String, CaseIterable {
         case mostPlayed = "Most Played"
@@ -179,75 +177,55 @@ struct ChampionView: View {
     }
 
     private func loadData() async {
+        guard let dataCoordinator = dataCoordinator else {
+            championState = .failure(DataCoordinatorError.notAvailable)
+            return
+        }
+        
         championState = .loading
 
-        do {
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            // Check if we have existing matches
-            let existingMatches = try await dataManager.getMatches(for: summoner)
-
-            if existingMatches.isEmpty {
-                // Load initial 40 matches
-                ClaimbLogger.info(
-                    "No existing matches, loading initial 40", service: "ChampionView")
-                try await dataManager.loadInitialMatches(for: summoner)
-            } else {
-                // Load any new matches incrementally
-                ClaimbLogger.info(
-                    "Found existing matches, checking for new ones", service: "ChampionView",
-                    metadata: [
-                        "count": String(existingMatches.count)
-                    ])
-                try await dataManager.refreshMatches(for: summoner)
-            }
-
-            // Load champions and matches
-            let loadedChampions = try await dataManager.getAllChampions()
-            let matches = try await dataManager.getMatches(for: summoner)
-
+        // Load champions using DataCoordinator
+        let championResult = await dataCoordinator.loadChampions()
+        
+        await MainActor.run {
+            self.championState = championResult
+        }
+        
+        // Load matches and calculate role stats
+        let matchResult = await dataCoordinator.loadMatches(for: summoner)
+        
+        switch matchResult {
+        case .loaded(let matches):
             await MainActor.run {
-                self.championState = .success(loadedChampions)
-                self.calculateRoleStats(from: matches)
+                self.roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
             }
-
+            
             // Load champion stats after setting role stats
             await loadChampionStats()
-
-        } catch {
+        case .error(let error):
             await MainActor.run {
-                self.championState = .failure(error)
-                ClaimbLogger.error(
-                    "Failed to load champions", service: "ChampionView", error: error)
+                self.championState = .error(error)
             }
+        case .loading, .idle, .empty:
+            break
         }
     }
 
     private func loadChampionStats() async {
-        do {
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            let matches = try await dataManager.getMatches(for: summoner)
+        guard let dataCoordinator = dataCoordinator else { return }
+        
+        let matchResult = await dataCoordinator.loadMatches(for: summoner)
+        
+        switch matchResult {
+        case .loaded(let matches):
             let stats = calculateChampionStats(
                 from: matches, role: userSession.selectedPrimaryRole, filter: selectedFilter)
 
             await MainActor.run {
                 self.championStats = stats
             }
-        } catch {
-            await MainActor.run {
-                self.championState = .failure(error)
-                ClaimbLogger.error(
-                    "Failed to load champion stats", service: "ChampionView", error: error)
-            }
+        case .error, .loading, .idle, .empty:
+            break
         }
     }
 

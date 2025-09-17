@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct ClaimbApp: App {
+    @State private var dataCoordinator: DataCoordinator?
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Summoner.self,
@@ -23,24 +25,29 @@ struct ClaimbApp: App {
         let currentVersion = "2.0" // Increment when making breaking model changes
         let lastVersion = UserDefaults.standard.string(forKey: "ClaimbDataVersion")
         
-        print("🗄️ [ClaimbApp] Database version check - Current: \(currentVersion), Last: \(lastVersion ?? "nil")")
+        ClaimbLogger.info("Database version check", service: "ClaimbApp", metadata: [
+            "current": currentVersion,
+            "last": lastVersion ?? "nil"
+        ])
         
         if lastVersion != currentVersion {
-            print("🗄️ [ClaimbApp] Version mismatch detected, clearing database...")
+            ClaimbLogger.warning("Version mismatch detected, clearing database", service: "ClaimbApp")
             // Check if we have existing data before clearing
             let hasExistingData = UserDefaults.standard.string(forKey: "summonerName") != nil
             if hasExistingData {
-                print("🗄️ [ClaimbApp] WARNING: Clearing database with existing user data!")
+                ClaimbLogger.warning("Clearing database with existing user data", service: "ClaimbApp")
             }
             // Clear the database for breaking changes
             clearDatabase()
             UserDefaults.standard.set(currentVersion, forKey: "ClaimbDataVersion")
         } else {
-            print("🗄️ [ClaimbApp] Database version matches, no clearing needed")
+            ClaimbLogger.debug("Database version matches, no clearing needed", service: "ClaimbApp")
             // Set the version if it doesn't exist (first run)
             if lastVersion == nil {
                 UserDefaults.standard.set(currentVersion, forKey: "ClaimbDataVersion")
-                print("🗄️ [ClaimbApp] Set initial database version: \(currentVersion)")
+                ClaimbLogger.info("Set initial database version", service: "ClaimbApp", metadata: [
+                    "version": currentVersion
+                ])
             }
         }
         
@@ -60,34 +67,38 @@ struct ClaimbApp: App {
     }()
     
     private static func clearDatabase() {
-        print("🗑️ [ClaimbApp] Starting database clear...")
+        ClaimbLogger.info("Starting database clear", service: "ClaimbApp")
         
         // Preserve login credentials before clearing database
         let savedGameName = UserDefaults.standard.string(forKey: "summonerName")
         let savedTagLine = UserDefaults.standard.string(forKey: "tagline")
         let savedRegion = UserDefaults.standard.string(forKey: "region")
         
-        print("🗑️ [ClaimbApp] Preserving credentials: \(savedGameName ?? "nil")#\(savedTagLine ?? "nil") (\(savedRegion ?? "nil"))")
+        ClaimbLogger.info("Preserving credentials", service: "ClaimbApp", metadata: [
+            "gameName": savedGameName ?? "nil",
+            "tagLine": savedTagLine ?? "nil",
+            "region": savedRegion ?? "nil"
+        ])
         
         // Clear all UserDefaults first
         let domain = Bundle.main.bundleIdentifier!
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
         
-        print("🗑️ [ClaimbApp] UserDefaults cleared")
+        ClaimbLogger.info("UserDefaults cleared", service: "ClaimbApp")
         
         // Restore login credentials after clearing
         if let gameName = savedGameName {
             UserDefaults.standard.set(gameName, forKey: "summonerName")
-            print("🗑️ [ClaimbApp] Restored gameName: \(gameName)")
+            ClaimbLogger.debug("Restored gameName", service: "ClaimbApp", metadata: ["gameName": gameName])
         }
         if let tagLine = savedTagLine {
             UserDefaults.standard.set(tagLine, forKey: "tagline")
-            print("🗑️ [ClaimbApp] Restored tagLine: \(tagLine)")
+            ClaimbLogger.debug("Restored tagLine", service: "ClaimbApp", metadata: ["tagLine": tagLine])
         }
         if let region = savedRegion {
             UserDefaults.standard.set(region, forKey: "region")
-            print("🗑️ [ClaimbApp] Restored region: \(region)")
+            ClaimbLogger.debug("Restored region", service: "ClaimbApp", metadata: ["region": region])
         }
         
         // Remove the database file to force recreation
@@ -107,12 +118,18 @@ struct ClaimbApp: App {
         try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("wal"))
         try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("shm"))
         
-        print("🗑️ [ClaimbApp] Database cleared for migration, login credentials preserved")
+        ClaimbLogger.info("Database cleared for migration, login credentials preserved", service: "ClaimbApp")
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.dataCoordinator, dataCoordinator)
+                .onAppear {
+                    if dataCoordinator == nil {
+                        dataCoordinator = DataCoordinator(modelContext: sharedModelContainer.mainContext)
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
     }

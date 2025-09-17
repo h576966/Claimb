@@ -19,12 +19,16 @@ struct ContentView: View {
                 if userSession.isLoggedIn, let summoner = userSession.currentSummoner {
                     MainTabView(summoner: summoner, userSession: userSession)
                         .onAppear {
-                            print("🏠 [ContentView] Showing MainTabView for \(summoner.gameName)")
+                            ClaimbLogger.info("Showing MainTabView", service: "ContentView", metadata: [
+                                "summoner": summoner.gameName
+                            ])
                         }
                 } else {
                     LoginView(userSession: userSession)
                         .onAppear {
-                            print("🔐 [ContentView] Showing LoginView - isLoggedIn: \(userSession.isLoggedIn)")
+                            ClaimbLogger.info("Showing LoginView", service: "ContentView", metadata: [
+                                "isLoggedIn": String(userSession.isLoggedIn)
+                            ])
                         }
                 }
             } else {
@@ -41,19 +45,19 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignSystem.Colors.background)
                 .onAppear {
-                    print("⏳ [ContentView] Showing loading state")
+                    ClaimbLogger.debug("Showing loading state", service: "ContentView")
                 }
             }
         }
         .id(refreshTrigger) // Force view refresh when trigger changes
         .onAppear {
             if userSession == nil {
-                print("🔄 [ContentView] Creating UserSession")
+                ClaimbLogger.debug("Creating UserSession", service: "ContentView")
                 userSession = UserSession(modelContext: modelContext)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("UserSessionDidChange"))) { _ in
-            print("🔄 [ContentView] Received UserSessionDidChange notification")
+            ClaimbLogger.debug("Received UserSessionDidChange notification", service: "ContentView")
             refreshTrigger.toggle()
         }
     }
