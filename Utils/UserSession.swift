@@ -33,19 +33,23 @@ public class UserSession {
 
     /// Checks if there's an existing login session
     private func checkExistingLogin() {
-        print("🔐 [UserSession] Starting login check...")
+        ClaimbLogger.debug("Starting login check", service: "UserSession")
 
         // Check if we have stored login credentials
         guard let gameName = UserDefaults.standard.string(forKey: "summonerName"),
             let tagLine = UserDefaults.standard.string(forKey: "tagline"),
             let region = UserDefaults.standard.string(forKey: "region")
         else {
-            print("🔐 [UserSession] No stored credentials found")
+            ClaimbLogger.debug("No stored credentials found", service: "UserSession")
             isLoggedIn = false
             return
         }
 
-        print("🔐 [UserSession] Found stored credentials: \(gameName)#\(tagLine) (\(region))")
+        ClaimbLogger.debug("Found stored credentials", service: "UserSession", metadata: [
+            "gameName": gameName,
+            "tagLine": tagLine,
+            "region": region
+        ])
 
         // Try to find the summoner in the database
         Task {
@@ -58,14 +62,14 @@ public class UserSession {
 
                 // Look for existing summoner by checking all summoners
                 let allSummoners = try await dataManager.getAllSummoners()
-                print("🔐 [UserSession] Found \(allSummoners.count) summoners in database")
+                ClaimbLogger.debug("Found summoners in database", service: "UserSession", metadata: [
+                    "count": String(allSummoners.count)
+                ])
 
                 if let summoner = allSummoners.first(where: {
                     $0.gameName == gameName && $0.tagLine == tagLine && $0.region == region
                 }) {
-                    print(
-                        "🔐 [UserSession] Found existing summoner in database: \(summoner.gameName)#\(summoner.tagLine)"
-                    )
+                    ClaimbLogger.userAction("Found existing summoner", service: "UserSession")
                     await MainActor.run {
                         self.currentSummoner = summoner
                         self.isLoggedIn = true
@@ -80,7 +84,7 @@ public class UserSession {
                         gameName: gameName, tagLine: tagLine, region: region)
                 }
             } catch {
-                print("🔐 [UserSession] Error during login check: \(error)")
+                ClaimbLogger.error("Error during login check", service: "UserSession", error: error)
                 // If there's an error, clear credentials and show login
                 clearStoredCredentials()
             }

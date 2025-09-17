@@ -183,7 +183,10 @@ public class RiotHTTPClient: RiotClient {
         case "ru":
             return "ru"
         default:
-            print("⚠️ [RiotAPI] Unknown region '\(region)', defaulting to 'na1'")
+            ClaimbLogger.warning("Unknown region, using default", service: "RiotAPI", metadata: [
+                "region": region,
+                "default": "na1"
+            ])
             return "na1"
         }
     }
@@ -197,7 +200,10 @@ public class RiotHTTPClient: RiotClient {
         case "asia", "kr", "jp1":
             return "asia"
         default:
-            print("⚠️ [RiotAPI] Unknown region '\(region)' for account endpoint, defaulting to 'americas'")
+            ClaimbLogger.warning("Unknown region for account endpoint, using default", service: "RiotAPI", metadata: [
+                "region": region,
+                "default": "americas"
+            ])
             return "americas"
         }
     }

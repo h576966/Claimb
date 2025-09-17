@@ -38,7 +38,11 @@ public class DataManager {
     public func createOrUpdateSummoner(gameName: String, tagLine: String, region: String)
         async throws -> Summoner
     {
-        print("📊 [DataManager] Creating/updating summoner: \(gameName)#\(tagLine) (\(region))")
+        ClaimbLogger.info("Creating/updating summoner", service: "DataManager", metadata: [
+            "gameName": gameName,
+            "tagLine": tagLine,
+            "region": region
+        ])
 
         // Get account data from Riot API
         let accountResponse = try await riotClient.getAccountByRiotId(
@@ -51,7 +55,7 @@ public class DataManager {
         let existingSummoner = try await getSummoner(by: accountResponse.puuid)
 
         if let existing = existingSummoner {
-            print("📊 [DataManager] Updating existing summoner")
+            ClaimbLogger.debug("Updating existing summoner", service: "DataManager")
             existing.gameName = gameName
             existing.tagLine = tagLine
             existing.region = region
@@ -71,7 +75,7 @@ public class DataManager {
             try modelContext.save()
             return existing
         } else {
-            print("📊 [DataManager] Creating new summoner")
+            ClaimbLogger.debug("Creating new summoner", service: "DataManager")
             let newSummoner = Summoner(
                 puuid: accountResponse.puuid,
                 gameName: gameName,
@@ -148,7 +152,7 @@ public class DataManager {
                 newMatchesCount += 1
             }
 
-            print("📊 [DataManager] Added \(newMatchesCount) new matches")
+            ClaimbLogger.dataOperation("Added new matches", count: newMatchesCount, service: "DataManager")
 
             try await cleanupOldMatches(for: summoner)
             summoner.lastUpdated = Date()
@@ -169,7 +173,10 @@ public class DataManager {
         errorMessage = nil
 
         do {
-            print("📊 [DataManager] Loading initial 40 matches for \(summoner.gameName)")
+            ClaimbLogger.info("Loading initial matches", service: "DataManager", metadata: [
+                "gameName": summoner.gameName,
+                "count": "40"
+            ])
 
             let matchHistory = try await riotClient.getMatchHistory(
                 puuid: summoner.puuid,
@@ -186,7 +193,7 @@ public class DataManager {
             lastRefreshTime = Date()
             try modelContext.save()
 
-            print("📊 [DataManager] Loaded \(matchHistory.history.count) initial matches")
+            ClaimbLogger.dataOperation("Loaded initial matches", count: matchHistory.history.count, service: "DataManager")
 
         } catch {
             errorMessage = "Failed to load initial matches: \(error.localizedDescription)"
@@ -201,13 +208,16 @@ public class DataManager {
         // Check if match already exists
         let existingMatch = try await getMatch(by: matchId)
         if existingMatch != nil {
-            print("📊 [DataManager] Match \(matchId) already exists, skipping")
+            ClaimbLogger.cache("Match already exists, skipping", key: matchId, service: "DataManager")
             return
         }
 
-        print("📊 [DataManager] Fetching match data for \(matchId)")
+        ClaimbLogger.apiRequest("match/\(matchId)", service: "DataManager")
         let matchData = try await riotClient.getMatch(matchId: matchId, region: region)
-        print("📊 [DataManager] Received \(matchData.count) bytes of match data for \(matchId)")
+        ClaimbLogger.debug("Received match data", service: "DataManager", metadata: [
+            "matchId": matchId,
+            "bytes": String(matchData.count)
+        ])
 
         let match = try await parseMatchData(matchData, matchId: matchId, summoner: summoner)
 
@@ -275,8 +285,10 @@ public class DataManager {
                 "📊 [DataManager] Successfully parsed \(match.participants.count) participants for match \(matchId)"
             )
         } else {
-            print("⚠️ [DataManager] No participants found in match \(matchId)")
-            print("📊 [DataManager] Available keys in info object: \(Array(info.keys))")
+            ClaimbLogger.warning("No participants found in match", service: "DataManager", metadata: [
+                "matchId": matchId,
+                "availableKeys": Array(info.keys).joined(separator: ",")
+            ])
         }
 
         return match
@@ -379,16 +391,17 @@ public class DataManager {
                     "📊 [DataManager] Found champion by key: \(champion.name) (ID: \(champion.id), Key: \(champion.key))"
                 )
             } else {
-                print("📊 [DataManager] ❌ Champion not found for ID \(participant.championId)")
-                // Log available champion IDs for debugging
                 let availableIds = allChampions.map { "\($0.id)" }.joined(separator: ", ")
-                print("📊 [DataManager] Available champion IDs: \(availableIds)")
+                ClaimbLogger.warning("Champion not found for participant", service: "DataManager", metadata: [
+                    "championId": String(participant.championId),
+                    "availableIds": availableIds
+                ])
             }
 
             // Save the context to ensure the relationship is persisted
             try modelContext.save()
         } catch {
-            print("📊 [DataManager] ❌ Error loading champion for participant: \(error)")
+            ClaimbLogger.error("Error loading champion for participant", service: "DataManager", error: error)
         }
     }
 
@@ -762,6 +775,7 @@ private struct ChampionClassMappingData: Codable {
 public enum DataManagerError: Error, LocalizedError {
     case missingResource(String)
     case invalidData(String)
+    case databaseError(String)
 
     public var errorDescription: String? {
         switch self {
@@ -769,6 +783,8 @@ public enum DataManagerError: Error, LocalizedError {
             return "Missing resource: \(resource)"
         case .invalidData(let message):
             return "Invalid data: \(message)"
+        case .databaseError(let message):
+            return "Database error: \(message)"
         }
     }
 }

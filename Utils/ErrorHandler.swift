@@ -25,15 +25,33 @@ enum ErrorHandler {
             }
         }
         
+        if let dataError = error as? DataManagerError {
+            switch dataError {
+            case .missingResource(let resource):
+                return "Missing resource: \(resource) not found"
+            case .databaseError(let message):
+                return "Database error: \(message)"
+            case .invalidData(let message):
+                return "Invalid data: \(message)"
+            }
+        }
+        
         // Generic error handling
         return "An unexpected error occurred: \(error.localizedDescription)"
     }
     
-    /// Logs errors for debugging
-    static func logError(_ error: Error, context: String) {
-        print("❌ [\(context)] Error: \(error)")
-        if let riotError = error as? RiotAPIError {
-            print("❌ [\(context)] Riot API Error details: \(riotError)")
-        }
+    /// Logs errors for debugging with structured logging
+    static func logError(_ error: Error, context: String, metadata: [String: String] = [:]) {
+        ClaimbLogger.error("Error occurred", service: context, error: error, metadata: metadata)
+    }
+    
+    /// Logs warnings with structured logging
+    static func logWarning(_ message: String, context: String, metadata: [String: String] = [:]) {
+        ClaimbLogger.warning(message, service: context, metadata: metadata)
+    }
+    
+    /// Logs info with structured logging
+    static func logInfo(_ message: String, context: String, metadata: [String: String] = [:]) {
+        ClaimbLogger.info(message, service: context, metadata: metadata)
     }
 }
