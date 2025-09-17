@@ -226,7 +226,11 @@ public class KPIDataViewModel {
             ))
         
         // Add CS per minute for relevant roles
-        if ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"].contains(role) {
+        // Check both original role and mapped role for CS per minute
+        let shouldIncludeCS = ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(role) || 
+                             ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(mapRoleToBaselineFormat(role))
+        
+        if shouldIncludeCS {
             kpis.append(
                 await createKPIMetric(
                     metric: "cs_per_min",
