@@ -136,6 +136,18 @@ public class ChampionDataViewModel {
                     "championId": String(championId)
                 ])
 
+            // Only include champions played in the selected role
+            if actualRole != role {
+                ClaimbLogger.debug(
+                    "Skipping champion - role mismatch", service: "ChampionDataViewModel",
+                    metadata: [
+                        "champion": champion.name,
+                        "actualRole": actualRole,
+                        "selectedRole": role
+                    ])
+                continue
+            }
+
             if championStats[champion.name] == nil {
                 championStats[champion.name] = ChampionStats(
                     champion: champion,
