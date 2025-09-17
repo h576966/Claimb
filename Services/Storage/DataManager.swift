@@ -364,11 +364,27 @@ public class DataManager {
         let hordeTakedowns = challenges["hordeTakedowns"] as? Int ?? 0
         let atakhanTakedowns = challenges["atakhanTakedowns"] as? Int ?? 0
 
-        // Challenge-based percentage metrics
-        let killParticipationFromChallenges = challenges["killParticipation"] as? Double
-        let teamDamagePercentageFromChallenges = challenges["teamDamagePercentage"] as? Double
-        let damageTakenSharePercentageFromChallenges =
-            challenges["damageTakenSharePercentage"] as? Double
+        // Debug logging for challenge data
+        ClaimbLogger.debug(
+            "Challenge data for participant", service: "DataManager",
+            metadata: [
+                "championId": String(championId),
+                "challengeKeys": Array(challenges.keys).joined(separator: ", "),
+                "teamDamagePercentage": String(challenges["teamDamagePercentage"] as? Double ?? -1),
+                "killParticipation": String(challenges["killParticipation"] as? Double ?? -1),
+                "damageTakenSharePercentage": String(challenges["damageTakenSharePercentage"] as? Double ?? -1)
+            ]
+        )
+
+        // Challenge-based percentage metrics - try different possible key names
+        let killParticipationFromChallenges = challenges["killParticipation"] as? Double ?? 
+                                            challenges["killParticipationFromChallenges"] as? Double
+        let teamDamagePercentageFromChallenges = challenges["teamDamagePercentage"] as? Double ?? 
+                                               challenges["teamDamagePercentageFromChallenges"] as? Double ??
+                                               challenges["teamDamageShare"] as? Double
+        let damageTakenSharePercentageFromChallenges = challenges["damageTakenSharePercentage"] as? Double ?? 
+                                                      challenges["damageTakenSharePercentageFromChallenges"] as? Double ??
+                                                      challenges["damageTakenShare"] as? Double
 
         let participant = Participant(
             puuid: puuid,
