@@ -35,8 +35,12 @@ struct KPIMetric {
     var formattedValue: String {
         switch metric {
         case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
-            "damage_taken_share_pct", "primary_role_consistency":
-            return String(format: "%.1f%%", value)
+            "damage_taken_share_pct":
+            // Convert decimal to percentage (0.5 -> 50%)
+            return String(format: "%.0f%%", value * 100)
+        case "primary_role_consistency":
+            // Already a percentage, no decimal needed
+            return String(format: "%.0f%%", value)
         case "cs_per_min", "vision_score_per_min":
             return String(format: "%.1f", value)
         case "deaths_per_game":
@@ -71,27 +75,20 @@ struct KPICard: View {
 
                 Spacer()
 
-                Text(kpi.formattedValue)
-                    .font(DesignSystem.Typography.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(kpi.color)
-            }
-
-            if let baseline = kpi.baseline {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    // For Deaths per Game, target is P40 (lower is better)
-                    // For other metrics, target is P60 (higher is better)
-                    let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
-                    Text("Target: \(String(format: "%.1f", targetValue))")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-            } else {
-                // Fallback for KPIs without baseline data (should not happen with hardcoded baselines)
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("No baseline data")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+                    Text(kpi.formattedValue)
+                        .font(DesignSystem.Typography.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(kpi.color)
+                    
+                    // Target value directly under the actual value
+                    if let baseline = kpi.baseline {
+                        let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
+                        let formattedTarget = formatTargetValue(targetValue, for: kpi.metric)
+                        Text("Target: \(formattedTarget)")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
                 }
             }
 
@@ -124,6 +121,26 @@ struct KPICard: View {
         case .good: return "Good"
         case .excellent: return "Excellent"
         case .unknown: return "Unknown"
+        }
+    }
+    
+    private func formatTargetValue(_ value: Double, for metric: String) -> String {
+        switch metric {
+        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
+            "damage_taken_share_pct":
+            // Convert decimal to percentage (0.45 -> 45%)
+            return String(format: "%.0f%%", value * 100)
+        case "primary_role_consistency":
+            // Already a percentage, no decimal needed
+            return String(format: "%.0f%%", value)
+        case "cs_per_min", "vision_score_per_min":
+            return String(format: "%.1f", value)
+        case "deaths_per_game":
+            return String(format: "%.1f", value)
+        case "champion_pool_size":
+            return String(format: "%.0f", value)
+        default:
+            return String(format: "%.1f", value)
         }
     }
 }
