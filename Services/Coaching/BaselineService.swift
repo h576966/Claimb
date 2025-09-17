@@ -166,7 +166,9 @@ public class BaselineService {
             return Double(participant.deaths)
             
         case "kill_participation_pct":
-            let teamTotalKills = match.participants.reduce(0) { $0 + $1.kills }
+            let teamTotalKills = match.participants
+                .filter { $0.teamId == participant.teamId }
+                .reduce(0) { $0 + $1.kills }
             return teamTotalKills > 0 ? Double(participant.kills + participant.assists) / Double(teamTotalKills) : 0.0
             
         case "vision_score_per_min":

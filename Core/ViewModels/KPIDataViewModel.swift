@@ -170,7 +170,9 @@ public class KPIDataViewModel {
         let killParticipation =
             participants.map { participant in
                 let match = matches.first { $0.participants.contains(participant) }
-                let teamKills = match?.participants.reduce(0) { $0 + $1.kills } ?? 0
+                let teamKills = match?.participants
+                    .filter { $0.teamId == participant.teamId }
+                    .reduce(0) { $0 + $1.kills } ?? 0
                 return teamKills > 0
                     ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
             }.reduce(0, +) / Double(participants.count)
