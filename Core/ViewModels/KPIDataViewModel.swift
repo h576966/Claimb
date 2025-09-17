@@ -192,6 +192,8 @@ public class KPIDataViewModel {
             "csPerMinute": String(format: "%.2f", csPerMinute),
             "participantCount": String(participants.count)
         ])
+        
+        // Note: For deaths_per_game, lower values are better (reversed logic)
 
         var kpis: [KPIMetric] = []
 
@@ -305,16 +307,29 @@ public class KPIDataViewModel {
     
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?) -> (PerformanceLevel, Color) {
         if let baseline = baseline {
-            // Use baseline data for performance evaluation
-            // More conservative thresholds for realistic performance assessment
-            if value >= baseline.p60 * 1.1 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= baseline.p60 {
-                return (.good, DesignSystem.Colors.white)
-            } else if value >= baseline.p40 {
-                return (.belowMean, DesignSystem.Colors.warning)
+            // Special handling for Deaths per Game - lower is better
+            if metric == "deaths_per_game" {
+                if value <= baseline.p40 * 0.9 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value <= baseline.p40 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value <= baseline.p60 {
+                    return (.belowMean, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
             } else {
-                return (.poor, DesignSystem.Colors.secondary)
+                // Standard logic for other metrics - higher is better
+                // More conservative thresholds for realistic performance assessment
+                if value >= baseline.p60 * 1.1 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value >= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value >= baseline.p40 {
+                    return (.belowMean, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
             }
         } else {
             // Fallback to basic performance levels
