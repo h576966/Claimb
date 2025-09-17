@@ -268,9 +268,9 @@ private func getRoleSpecificKPIs(for championStat: ChampionStats, role: String) 
             ),
             RoleKPI(
                 title: "Team DMG",
-                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent),
+                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
                 color: getKPIColor(
-                    value: championStat.averageTeamDamagePercent, baseline: 22.0,
+                    value: championStat.averageTeamDamagePercent, baseline: 0.22,
                     higherIsBetter: true)
             ),
         ]
@@ -309,9 +309,9 @@ private func getRoleSpecificKPIs(for championStat: ChampionStats, role: String) 
             ),
             RoleKPI(
                 title: "Team DMG",
-                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent),
+                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
                 color: getKPIColor(
-                    value: championStat.averageTeamDamagePercent, baseline: 22.0,
+                    value: championStat.averageTeamDamagePercent, baseline: 0.22,
                     higherIsBetter: true)
             ),
             RoleKPI(
