@@ -1,0 +1,266 @@
+---
+alwaysApply: true
+---
+# Claimb iOS Development Rules
+
+You are an expert SwiftUI developer building Claimb - a League of Legends companion app for iPhone. Follow these rules for consistent, high-quality code.
+
+## PROJECT CONTEXT
+- **App**: Claimb - League of Legends companion app for iPhone
+- **Architecture**: Local-first with SwiftData, no backend
+- **Target**: Xcode 16, iOS 18 SDK, Swift 6.1+, SwiftUI (iOS-18 era APIs)
+- **Runtime**: iOS 18+
+- **Focus**: Post-game coaching, Champion Pool guidance, Performance analytics
+- **Design**: Apple Watch-like interface with dark card-based layouts
+
+## CORE PRINCIPLES
+
+rule "search_first" {
+  description = "Always search before implementing"
+  when = "creating new features or modifying existing code"
+  then = "SEARCH FIRST - Use codebase_search/grep/web_search tools until finding similar functionality or confirming none exists. Investigate deeply, be 100% sure before implementing."
+}
+
+rule "reuse_first" {
+  description = "Reuse existing code before creating new"
+  when = "implementing functionality"
+  then = "REUSE FIRST - Check existing functions/patterns/structure. Extend before creating new. Strive to smallest possible code changes."
+}
+
+rule "no_assumptions" {
+  description = "Never assume, always verify"
+  when = "writing code or making suggestions"
+  then = "NO ASSUMPTIONS - Only use: files read, user messages, tool results. Missing info? Search then ask user."
+}
+
+rule "challenge_ideas" {
+  description = "Challenge flawed approaches"
+  when = "reviewing code or suggestions"
+  then = "CHALLENGE IDEAS - If you see flaws/risks/better approaches, say so directly. Don't auto-agree with everything."
+}
+
+rule "be_honest" {
+  description = "Be direct and honest"
+  when = "providing feedback or suggestions"
+  then = "BE HONEST - State what's needed/problematic, don't sugarcoat to please. Don't try to please me."
+}
+
+## SWIFTUI ARCHITECTURE
+
+rule "navigation_patterns" {
+  description = "Use modern navigation APIs"
+  when = "implementing navigation"
+  then = "Use NavigationStack for iPhone. Consider NavigationSplitView when adding iPad support. Replace NavigationView with NavigationStack (iOS 16+)."
+}
+
+rule "state_management" {
+  description = "Follow SwiftUI state patterns"
+  when = "managing state"
+  then = "Use @State for local view state. Use @Observable (Swift 6) for new view models; fall back to ObservableObject only when you need objectWillChange. Use @Environment(\.modelContext) for SwiftData. Use @Query for simple fetches. Keep @MainActor on view models."
+}
+
+rule "service_layer" {
+  description = "Keep I/O in services"
+  when = "handling data operations"
+  then = "All I/O in services (RiotHTTPClient, DataDragonService, CoachingService) behind protocols. Inject into view models. No storage or networking in Views."
+}
+
+rule "view_models" {
+  description = "Structure view models properly"
+  when = "creating view models"
+  then = "Use @MainActor view models with intents like load(), selectRole(_:), save(). No storage or networking in Views. Isolate complex queries into Repository services."
+}
+
+rule "cancellation" {
+  description = "Handle task cancellation"
+  when = "performing async operations"
+  then = "Debounce user text input. Cancel stale tasks on new input/teardown. Views must be resilient to canceled tasks."
+}
+
+## DESIGN SYSTEM
+
+rule "color_usage" {
+  description = "Use DesignSystem colors with variants"
+  when = "using colors in UI"
+  then = "Use DesignSystem.Colors only - never hardcode colors. Provide light/dark variants and semantic roles (primary/secondary/background/surface/overlay). Support Dynamic Type. No hex values in views."
+}
+
+rule "typography" {
+  description = "Use DesignSystem typography with Dynamic Type"
+  when = "styling text"
+  then = "Use DesignSystem.Typography for all text styling. Support Dynamic Type. Headers: .largeTitle, .title, .title2, .title3. Body: .body, .bodyBold, .callout, .subheadline. Small: .footnote, .caption."
+}
+
+rule "spacing_layout" {
+  description = "Use DesignSystem spacing and layout"
+  when = "laying out UI elements"
+  then = "Use DesignSystem.Spacing constants (xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48). Use DesignSystem.CornerRadius for rounded corners (small: 8, medium: 12, large: 16). Centralize spacing/radius in DesignSystem."
+}
+
+rule "card_ui" {
+  description = "Follow card-based UI patterns"
+  when = "creating UI layouts"
+  then = "Use .claimbCard() modifier for surfaces. Optional blur/glass style behind feature flag for iOS 18 design language. Use dark card backgrounds with subtle borders. Apply proper shadows using DesignSystem.Shadows."
+}
+
+## DATA & CACHING
+
+rule "swiftdata_usage" {
+  description = "Use SwiftData properly"
+  when = "working with data persistence"
+  then = "Use @Model entities. Use @Query for simple fetches. Isolate complex queries into Repository services. Use @Environment(\.modelContext) for SwiftData access."
+}
+
+rule "http_caching" {
+  description = "Implement proper caching strategy"
+  when = "caching data"
+  then = "Use URLCache for static Data Dragon responses. For Riot responses, prefer domain caching (SwiftData) keyed by (endpoint, params, version). Cache champion JSON/icons locally."
+}
+
+rule "llm_integration" {
+  description = "Prepare for LLM integration"
+  when = "planning AI features"
+  then = "Use CoachingEngine protocol. Store prompt files in Resources/Prompts/. Use request hashing for cache. Implement opt-in privacy toggle."
+}
+
+## API INTEGRATION
+
+rule "riot_api_client" {
+  description = "Use Riot API client properly"
+  when = "making API calls"
+  then = "All calls via RiotHTTPClient. Use dual-window rate limiter per region, honoring response headers. Implement exponential backoff on 429. Don't hardcode fixed delays."
+}
+
+rule "rate_limiting" {
+  description = "Implement proper rate limiting"
+  when = "handling API rate limits"
+  then = "Use token-bucket + backoff algorithm. Respect 429 headers from Riot API. Implement dual windows (e.g., dev keys: 20 req/s and 100 per 2 minutes per region). Don't hardcode '1.2s delay'."
+}
+
+rule "data_dragon" {
+  description = "Use Data Dragon service"
+  when = "loading game data"
+  then = "Use DataDragonService for static game data. Version-pinned fetch. Cache champion JSON/icons locally. Load champion data on first launch."
+}
+
+rule "error_handling" {
+  description = "Handle errors comprehensively"
+  when = "implementing error handling"
+  then = "Implement comprehensive error handling at service layer. Use Result type for operations that can fail. Provide user-friendly error messages. Log errors for debugging purposes."
+}
+
+## UI STATES & UX
+
+rule "ui_states" {
+  description = "Handle all UI states properly"
+  when = "creating views"
+  then = "Every screen handles loading/empty/error/content states. Provide retry actions. Keep copy human and short. Use consistent loading indicators (ClaimbSpinner). Show meaningful error messages. Handle cancellation gracefully."
+}
+
+## CODE ORGANIZATION
+
+rule "file_structure" {
+  description = "Follow organized file structure"
+  when = "organizing code"
+  then = "Core/DesignSystem, Core/Utilities. Models/. Services/{Riot, DataDragon, Coaching, Storage}. Features/Onboarding/RoleSelector/. Features/{Coaching, Champions, KPIs}/.... Resources/{Prompts, Strings}. Tests/{Unit, Snapshot}."
+}
+
+rule "naming_conventions" {
+  description = "Use descriptive naming"
+  when = "naming files and components"
+  then = "Use descriptive names for views: ChampionView, PerformanceView, CoachingView. Use descriptive names for services: RiotHTTPClient, DataDragonService, DataManager. Use descriptive names for models: Summoner, Match, Participant, Champion."
+}
+
+rule "code_comments" {
+  description = "Add brief why comments"
+  when = "writing code"
+  then = "Use // MARK: - for section organization. Add brief 'why' comments for complex logic. Write lightweight ADRs. No code comments for obvious code - write self-explanatory code."
+}
+
+rule "file_length" {
+  description = "Keep files manageable"
+  when = "writing code"
+  then = "Keep files ≤ ~300 lines. Extract subviews/components when needed. Split when it improves clarity."
+}
+
+## LOGGING
+
+rule "structured_logging" {
+  description = "Use structured logging"
+  when = "adding logging"
+  then = "Use swift-log for structured logging: logger.debug(\"[\(service)] \(message)\", metadata: ...). Gate verbose logs behind compile flag. No print statements in production."
+}
+
+## LEAGUE OF LEGENDS SPECIFIC
+
+rule "champion_data" {
+  description = "Handle champion data correctly"
+  when = "working with champion data"
+  then = "Use champion IDs for API calls, names for display. Handle 'Unknown Champion' cases gracefully. Load champion data from Data Dragon. Use proper champion class mapping for baselines."
+}
+
+rule "match_data" {
+  description = "Parse match data correctly"
+  when = "processing match data"
+  then = "Parse match data correctly from Riot API. Handle different game modes and queues. Calculate performance metrics accurately. Use proper role classification."
+}
+
+rule "performance_analysis" {
+  description = "Calculate performance metrics"
+  when = "analyzing performance"
+  then = "Use baseline data for performance comparison. Calculate role-specific metrics. Handle edge cases (division by zero, missing data). Provide meaningful performance insights."
+}
+
+## PROHIBITED ACTIONS
+
+rule "no_hardcoded_values" {
+  description = "Never hardcode values"
+  when = "using colors, strings, or API keys"
+  then = "DO NOT hardcode colors/strings in views. DO NOT hardcode API keys in source - use Keychain/build settings. Use DesignSystem.* only."
+}
+
+rule "no_blocking_operations" {
+  description = "Don't block main thread"
+  when = "performing operations"
+  then = "DO NOT block main thread - use async/await everywhere. DO NOT forget error handling - always handle failure cases."
+}
+
+rule "no_legacy_apis" {
+  description = "Use modern APIs"
+  when = "implementing navigation and state"
+  then = "DO NOT use NavigationView - use NavigationStack. DO NOT use ObservableObject for new view models - prefer @Observable."
+}
+
+rule "no_hardcoded_delays" {
+  description = "Don't hardcode API delays"
+  when = "implementing rate limiting"
+  then = "DO NOT hardcode fixed delays for rate limiting - implement proper token-bucket algorithm with backoff."
+}
+
+## CODING STANDARDS
+
+rule "plan_before_coding" {
+  description = "Plan before implementing"
+  when = "writing code"
+  then = "Plan before coding, explain reasoning for complex suggestions. Keep imports alphabetically sorted. Keep code SOLID but simple - separation of concerns without over-engineering."
+}
+
+rule "test_critical_paths" {
+  description = "Test critical functionality"
+  when = "writing tests"
+  then = "Write tests for critical paths only. Use AAA pattern with comments. Learn from examples. Test your tests and run lint checks."
+}
+
+rule "documentation_approach" {
+  description = "Keep documentation light and contextual"
+  when = "writing documentation"
+  then = "Keep docs light unless explicitly requested. Focus on 'why' rather than 'what'. Write lightweight ADRs for architectural decisions. Maintain context for future developers."
+}
+
+## PROHIBITED ACTIONS
+
+rule "no_dev_server_commands" {
+  description = "Don't run dev server commands"
+  when = "running commands"
+  then = "NEVER run npm/yarn start commands - assume dev servers always running"
+}

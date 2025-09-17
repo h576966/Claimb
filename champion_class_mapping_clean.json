@@ -1,0 +1,857 @@
+[
+  {
+    "champion_id": "Aatrox",
+    "champion_name": "Aatrox",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Ahri",
+    "champion_name": "Ahri",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Akali",
+    "champion_name": "Akali",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Akshan",
+    "champion_name": "Akshan",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Alistar",
+    "champion_name": "Alistar",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Ambessa",
+    "champion_name": "Ambessa",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Amumu",
+    "champion_name": "Amumu",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Anivia",
+    "champion_name": "Anivia",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Annie",
+    "champion_name": "Annie",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Aphelios",
+    "champion_name": "Aphelios",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Ashe",
+    "champion_name": "Ashe",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "AurelionSol",
+    "champion_name": "Aurelion Sol",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Aurora",
+    "champion_name": "Aurora",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Azir",
+    "champion_name": "Azir",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Bard",
+    "champion_name": "Bard",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Belveth",
+    "champion_name": "Bel'Veth",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Blitzcrank",
+    "champion_name": "Blitzcrank",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Brand",
+    "champion_name": "Brand",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Braum",
+    "champion_name": "Braum",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Briar",
+    "champion_name": "Briar",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Caitlyn",
+    "champion_name": "Caitlyn",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Camille",
+    "champion_name": "Camille",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Cassiopeia",
+    "champion_name": "Cassiopeia",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Chogath",
+    "champion_name": "Cho'Gath",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Corki",
+    "champion_name": "Corki",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Darius",
+    "champion_name": "Darius",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Diana",
+    "champion_name": "Diana",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "DrMundo",
+    "champion_name": "Dr. Mundo",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Draven",
+    "champion_name": "Draven",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Ekko",
+    "champion_name": "Ekko",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Elise",
+    "champion_name": "Elise",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Evelynn",
+    "champion_name": "Evelynn",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Ezreal",
+    "champion_name": "Ezreal",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Fiddlesticks",
+    "champion_name": "Fiddlesticks",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Fiora",
+    "champion_name": "Fiora",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Fizz",
+    "champion_name": "Fizz",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Galio",
+    "champion_name": "Galio",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Gangplank",
+    "champion_name": "Gangplank",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Garen",
+    "champion_name": "Garen",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Gnar",
+    "champion_name": "Gnar",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Gragas",
+    "champion_name": "Gragas",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Graves",
+    "champion_name": "Graves",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Gwen",
+    "champion_name": "Gwen",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Hecarim",
+    "champion_name": "Hecarim",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Heimerdinger",
+    "champion_name": "Heimerdinger",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Hwei",
+    "champion_name": "Hwei",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Illaoi",
+    "champion_name": "Illaoi",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Irelia",
+    "champion_name": "Irelia",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Ivern",
+    "champion_name": "Ivern",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Janna",
+    "champion_name": "Janna",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "JarvanIV",
+    "champion_name": "Jarvan IV",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Jax",
+    "champion_name": "Jax",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Jayce",
+    "champion_name": "Jayce",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Jhin",
+    "champion_name": "Jhin",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Jinx",
+    "champion_name": "Jinx",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "KSante",
+    "champion_name": "K'Sante",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Kaisa",
+    "champion_name": "Kai'Sa",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Kalista",
+    "champion_name": "Kalista",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Karma",
+    "champion_name": "Karma",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Karthus",
+    "champion_name": "Karthus",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Kassadin",
+    "champion_name": "Kassadin",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Katarina",
+    "champion_name": "Katarina",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Kayle",
+    "champion_name": "Kayle",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Kayn",
+    "champion_name": "Kayn",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Kennen",
+    "champion_name": "Kennen",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Khazix",
+    "champion_name": "Kha'Zix",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Kindred",
+    "champion_name": "Kindred",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Kled",
+    "champion_name": "Kled",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "KogMaw",
+    "champion_name": "Kog'Maw",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Leblanc",
+    "champion_name": "LeBlanc",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "LeeSin",
+    "champion_name": "Lee Sin",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Leona",
+    "champion_name": "Leona",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Lillia",
+    "champion_name": "Lillia",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Lissandra",
+    "champion_name": "Lissandra",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Lucian",
+    "champion_name": "Lucian",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Lulu",
+    "champion_name": "Lulu",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Lux",
+    "champion_name": "Lux",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Malphite",
+    "champion_name": "Malphite",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Malzahar",
+    "champion_name": "Malzahar",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Maokai",
+    "champion_name": "Maokai",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "MasterYi",
+    "champion_name": "Master Yi",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Mel",
+    "champion_name": "Mel",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Milio",
+    "champion_name": "Milio",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "MissFortune",
+    "champion_name": "Miss Fortune",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Mordekaiser",
+    "champion_name": "Mordekaiser",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Morgana",
+    "champion_name": "Morgana",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Naafiri",
+    "champion_name": "Naafiri",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Nami",
+    "champion_name": "Nami",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Nasus",
+    "champion_name": "Nasus",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Nautilus",
+    "champion_name": "Nautilus",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Neeko",
+    "champion_name": "Neeko",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Nidalee",
+    "champion_name": "Nidalee",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Nilah",
+    "champion_name": "Nilah",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Nocturne",
+    "champion_name": "Nocturne",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Nunu",
+    "champion_name": "Nunu & Willump",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Olaf",
+    "champion_name": "Olaf",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Orianna",
+    "champion_name": "Orianna",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Ornn",
+    "champion_name": "Ornn",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Pantheon",
+    "champion_name": "Pantheon",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Poppy",
+    "champion_name": "Poppy",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Pyke",
+    "champion_name": "Pyke",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Qiyana",
+    "champion_name": "Qiyana",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Quinn",
+    "champion_name": "Quinn",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Rakan",
+    "champion_name": "Rakan",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Rammus",
+    "champion_name": "Rammus",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "RekSai",
+    "champion_name": "Rek'Sai",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Rell",
+    "champion_name": "Rell",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Renata",
+    "champion_name": "Renata Glasc",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Renekton",
+    "champion_name": "Renekton",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Rengar",
+    "champion_name": "Rengar",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Riven",
+    "champion_name": "Riven",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Rumble",
+    "champion_name": "Rumble",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Ryze",
+    "champion_name": "Ryze",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Samira",
+    "champion_name": "Samira",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Sejuani",
+    "champion_name": "Sejuani",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Senna",
+    "champion_name": "Senna",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Seraphine",
+    "champion_name": "Seraphine",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Sett",
+    "champion_name": "Sett",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Shaco",
+    "champion_name": "Shaco",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Shen",
+    "champion_name": "Shen",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Shyvana",
+    "champion_name": "Shyvana",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Singed",
+    "champion_name": "Singed",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Sion",
+    "champion_name": "Sion",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Sivir",
+    "champion_name": "Sivir",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Skarner",
+    "champion_name": "Skarner",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Smolder",
+    "champion_name": "Smolder",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Sona",
+    "champion_name": "Sona",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Soraka",
+    "champion_name": "Soraka",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Swain",
+    "champion_name": "Swain",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Sylas",
+    "champion_name": "Sylas",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Syndra",
+    "champion_name": "Syndra",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "TahmKench",
+    "champion_name": "Tahm Kench",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Taliyah",
+    "champion_name": "Taliyah",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Talon",
+    "champion_name": "Talon",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Taric",
+    "champion_name": "Taric",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Teemo",
+    "champion_name": "Teemo",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Thresh",
+    "champion_name": "Thresh",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Tristana",
+    "champion_name": "Tristana",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Trundle",
+    "champion_name": "Trundle",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Tryndamere",
+    "champion_name": "Tryndamere",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "TwistedFate",
+    "champion_name": "Twisted Fate",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Twitch",
+    "champion_name": "Twitch",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Udyr",
+    "champion_name": "Udyr",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Urgot",
+    "champion_name": "Urgot",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Varus",
+    "champion_name": "Varus",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Vayne",
+    "champion_name": "Vayne",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Veigar",
+    "champion_name": "Veigar",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Velkoz",
+    "champion_name": "Vel'Koz",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Vex",
+    "champion_name": "Vex",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Vi",
+    "champion_name": "Vi",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Viego",
+    "champion_name": "Viego",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Viktor",
+    "champion_name": "Viktor",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Vladimir",
+    "champion_name": "Vladimir",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Volibear",
+    "champion_name": "Volibear",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Warwick",
+    "champion_name": "Warwick",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "MonkeyKing",
+    "champion_name": "Wukong",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Xayah",
+    "champion_name": "Xayah",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Xerath",
+    "champion_name": "Xerath",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "XinZhao",
+    "champion_name": "Xin Zhao",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Yasuo",
+    "champion_name": "Yasuo",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Yone",
+    "champion_name": "Yone",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Yorick",
+    "champion_name": "Yorick",
+    "primary_class": "Fighter"
+  },
+  {
+    "champion_id": "Yunara",
+    "champion_name": "Yunara",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Yuumi",
+    "champion_name": "Yuumi",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Zac",
+    "champion_name": "Zac",
+    "primary_class": "Tank"
+  },
+  {
+    "champion_id": "Zed",
+    "champion_name": "Zed",
+    "primary_class": "Assassin"
+  },
+  {
+    "champion_id": "Zeri",
+    "champion_name": "Zeri",
+    "primary_class": "Marksman"
+  },
+  {
+    "champion_id": "Ziggs",
+    "champion_name": "Ziggs",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Zilean",
+    "champion_name": "Zilean",
+    "primary_class": "Support"
+  },
+  {
+    "champion_id": "Zoe",
+    "champion_name": "Zoe",
+    "primary_class": "Mage"
+  },
+  {
+    "champion_id": "Zyra",
+    "champion_name": "Zyra",
+    "primary_class": "Mage"
+  }
+]
