@@ -75,7 +75,10 @@ struct KPICard: View {
 
             if let baseline = kpi.baseline {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("Target: \(String(format: "%.1f", baseline.p60))")
+                    // For Deaths per Game, target is P40 (lower is better)
+                    // For other metrics, target is P60 (higher is better)
+                    let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
+                    Text("Target: \(String(format: "%.1f", targetValue))")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
 

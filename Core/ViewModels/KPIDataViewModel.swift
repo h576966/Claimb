@@ -315,9 +315,9 @@ public class KPIDataViewModel {
             if metric == "deaths_per_game" {
                 if value <= baseline.p40 * 0.9 {
                     return (.excellent, DesignSystem.Colors.accent)
-                } else if value <= baseline.p40 {
-                    return (.good, DesignSystem.Colors.white)
                 } else if value <= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value <= baseline.p60 * 1.2 {
                     return (.belowMean, DesignSystem.Colors.warning)
                 } else {
                     return (.poor, DesignSystem.Colors.secondary)
