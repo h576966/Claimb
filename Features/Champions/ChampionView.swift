@@ -57,7 +57,7 @@ struct ChampionView: View {
                     state: championState,
                     loadingMessage: "Loading champions...",
                     emptyMessage: "No champions found",
-                    retryAction: { 
+                    retryAction: {
                         Task { await loadData() }
                     }
                 ) { champions in
@@ -108,7 +108,6 @@ struct ChampionView: View {
             }
         )
     }
-
 
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
@@ -194,13 +193,16 @@ struct ChampionView: View {
 
             if existingMatches.isEmpty {
                 // Load initial 40 matches
-                ClaimbLogger.info("No existing matches, loading initial 40", service: "ChampionView")
+                ClaimbLogger.info(
+                    "No existing matches, loading initial 40", service: "ChampionView")
                 try await dataManager.loadInitialMatches(for: summoner)
             } else {
                 // Load any new matches incrementally
-                ClaimbLogger.info("Found existing matches, checking for new ones", service: "ChampionView", metadata: [
-                    "count": String(existingMatches.count)
-                ])
+                ClaimbLogger.info(
+                    "Found existing matches, checking for new ones", service: "ChampionView",
+                    metadata: [
+                        "count": String(existingMatches.count)
+                    ])
                 try await dataManager.refreshMatches(for: summoner)
             }
 
@@ -219,7 +221,8 @@ struct ChampionView: View {
         } catch {
             await MainActor.run {
                 self.championState = .failure(error)
-                ClaimbLogger.error("Failed to load champions", service: "ChampionView", error: error)
+                ClaimbLogger.error(
+                    "Failed to load champions", service: "ChampionView", error: error)
             }
         }
     }
@@ -242,7 +245,8 @@ struct ChampionView: View {
         } catch {
             await MainActor.run {
                 self.championState = .failure(error)
-                ClaimbLogger.error("Failed to load champion stats", service: "ChampionView", error: error)
+                ClaimbLogger.error(
+                    "Failed to load champion stats", service: "ChampionView", error: error)
             }
         }
     }
