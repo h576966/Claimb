@@ -364,6 +364,12 @@ public class DataManager {
         let hordeTakedowns = challenges["hordeTakedowns"] as? Int ?? 0
         let atakhanTakedowns = challenges["atakhanTakedowns"] as? Int ?? 0
 
+        // Challenge-based percentage metrics
+        let killParticipationFromChallenges = challenges["killParticipation"] as? Double
+        let teamDamagePercentageFromChallenges = challenges["teamDamagePercentage"] as? Double
+        let damageTakenSharePercentageFromChallenges =
+            challenges["damageTakenSharePercentage"] as? Double
+
         let participant = Participant(
             puuid: puuid,
             championId: championId,
@@ -391,6 +397,12 @@ public class DataManager {
             hordeTakedowns: hordeTakedowns,
             atakhanTakedowns: atakhanTakedowns
         )
+
+        // Set challenge-based metrics after initialization
+        participant.killParticipationFromChallenges = killParticipationFromChallenges
+        participant.teamDamagePercentageFromChallenges = teamDamagePercentageFromChallenges
+        participant.damageTakenSharePercentageFromChallenges =
+            damageTakenSharePercentageFromChallenges
 
         participant.match = match
 

@@ -134,7 +134,13 @@ public class ChampionDataViewModel {
                     winRate: 0.0,
                     averageKDA: 0.0,
                     averageCS: 0.0,
-                    averageVisionScore: 0.0
+                    averageVisionScore: 0.0,
+                    averageDeaths: 0.0,
+                    averageGoldPerMin: 0.0,
+                    averageKillParticipation: 0.0,
+                    averageObjectiveParticipation: 0.0,
+                    averageTeamDamagePercent: 0.0,
+                    averageDamageTakenShare: 0.0
                 )
             }
 
@@ -154,10 +160,37 @@ public class ChampionDataViewModel {
             let newVision =
                 (current.averageVisionScore * Double(current.gamesPlayed - 1)
                     + participant.visionScorePerMinute) / Double(current.gamesPlayed)
+            let newDeaths =
+                (current.averageDeaths * Double(current.gamesPlayed - 1)
+                    + Double(participant.deaths))
+                / Double(current.gamesPlayed)
+
+            // Calculate role-specific KPIs
+            let newGoldPerMin =
+                (current.averageGoldPerMin * Double(current.gamesPlayed - 1)
+                    + participant.goldPerMinute) / Double(current.gamesPlayed)
+            let newKillParticipation =
+                (current.averageKillParticipation * Double(current.gamesPlayed - 1)
+                    + participant.killParticipation) / Double(current.gamesPlayed)
+            let newObjectiveParticipation =
+                (current.averageObjectiveParticipation * Double(current.gamesPlayed - 1)
+                    + participant.objectiveParticipationPercentage) / Double(current.gamesPlayed)
+            let newTeamDamagePercent =
+                (current.averageTeamDamagePercent * Double(current.gamesPlayed - 1)
+                    + participant.teamDamagePercentage) / Double(current.gamesPlayed)
+            let newDamageTakenShare =
+                (current.averageDamageTakenShare * Double(current.gamesPlayed - 1)
+                    + participant.damageTakenSharePercentage) / Double(current.gamesPlayed)
 
             championStats[champion.name]?.averageKDA = newKDA
             championStats[champion.name]?.averageCS = newCS
             championStats[champion.name]?.averageVisionScore = newVision
+            championStats[champion.name]?.averageDeaths = newDeaths
+            championStats[champion.name]?.averageGoldPerMin = newGoldPerMin
+            championStats[champion.name]?.averageKillParticipation = newKillParticipation
+            championStats[champion.name]?.averageObjectiveParticipation = newObjectiveParticipation
+            championStats[champion.name]?.averageTeamDamagePercent = newTeamDamagePercent
+            championStats[champion.name]?.averageDamageTakenShare = newDamageTakenShare
         }
 
         // Filter champions with at least 3 games and calculate win rates
@@ -174,7 +207,13 @@ public class ChampionDataViewModel {
                 winRate: winRate,
                 averageKDA: stats.averageKDA,
                 averageCS: stats.averageCS,
-                averageVisionScore: stats.averageVisionScore
+                averageVisionScore: stats.averageVisionScore,
+                averageDeaths: stats.averageDeaths,
+                averageGoldPerMin: stats.averageGoldPerMin,
+                averageKillParticipation: stats.averageKillParticipation,
+                averageObjectiveParticipation: stats.averageObjectiveParticipation,
+                averageTeamDamagePercent: stats.averageTeamDamagePercent,
+                averageDamageTakenShare: stats.averageDamageTakenShare
             )
         }
 
