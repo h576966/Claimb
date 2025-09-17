@@ -22,7 +22,7 @@ struct BaselineTestView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                DesignSystem.Colors.background.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -90,7 +90,7 @@ struct BaselineTestView: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.orange)
+                                .background(DesignSystem.Colors.warning)
                                 .cornerRadius(12)
                             }
                             .disabled(isLoading || baselineCount == 0)
@@ -105,7 +105,7 @@ struct BaselineTestView: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.red)
+                                .background(DesignSystem.Colors.error)
                                 .cornerRadius(12)
                             }
                             .disabled(isLoading)
@@ -122,7 +122,7 @@ struct BaselineTestView: View {
                                     .foregroundColor(.black)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color.purple)
+                                    .background(DesignSystem.Colors.accent)
                                     .cornerRadius(12)
                                 }
                                 .disabled(isLoading)
@@ -137,7 +137,7 @@ struct BaselineTestView: View {
                                     .foregroundColor(.black)
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color.blue)
+                                    .background(DesignSystem.Colors.info)
                                     .cornerRadius(12)
                                 }
                                 .disabled(isLoading)
@@ -151,7 +151,7 @@ struct BaselineTestView: View {
                                 .font(.caption)
                                 .multilineTextAlignment(.center)
                                 .padding()
-                                .background(Color.red.opacity(0.1))
+                                .background(DesignSystem.Colors.error.opacity(0.1))
                                 .cornerRadius(8)
                         }
 
@@ -170,13 +170,13 @@ struct BaselineTestView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(Color.gray.opacity(0.1))
+                            .background(DesignSystem.Colors.textSecondary.opacity(0.1))
                             .cornerRadius(8)
                         }
 
                         Spacer()
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
                 }
             }
             .navigationBarHidden(true)
@@ -458,7 +458,7 @@ struct StatusCard: View {
                 .frame(width: 12, height: 12)
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(DesignSystem.Colors.textSecondary.opacity(0.1))
         .cornerRadius(12)
     }
 }

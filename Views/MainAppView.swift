@@ -102,7 +102,7 @@ struct MainAppView: View {
                 }) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
 
                         Text("Refresh")
                             .font(DesignSystem.Typography.callout)
@@ -117,7 +117,7 @@ struct MainAppView: View {
                 }) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "trash")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
 
                         Text("Clear Cache")
                             .font(DesignSystem.Typography.callout)
@@ -132,7 +132,7 @@ struct MainAppView: View {
                 }) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "chart.bar")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
 
                         Text("Test Baselines")
                             .font(DesignSystem.Typography.callout)
@@ -175,7 +175,7 @@ struct MainAppView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "gamecontroller")
-                .font(.system(size: 60))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.textTertiary)
 
             Text("No matches found")

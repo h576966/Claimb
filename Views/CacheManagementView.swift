@@ -273,7 +273,7 @@ struct CacheOptionCard: View {
             HStack(spacing: DesignSystem.Spacing.md) {
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(DesignSystem.Typography.title2)
                     .foregroundColor(color)
                     .frame(width: 40, height: 40)
                     .background(color.opacity(0.1))

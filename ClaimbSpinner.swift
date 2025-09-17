@@ -32,7 +32,7 @@ public struct GlowCSpinner: View {
     public var body: some View {
         ZStack {
             // Optional soft vignette (subtle)
-            RadialGradient(colors: [Color.black.opacity(0.18), .clear],
+            RadialGradient(colors: [DesignSystem.Colors.background.opacity(0.18), .clear],
                            center: .center, startRadius: 0, endRadius: size * 0.9)
                 .blendMode(.multiply)
             
@@ -75,7 +75,7 @@ public struct GlowCSpinner: View {
 // MARK: - Preview
 #Preview {
     ZStack {
-        Color.black.ignoresSafeArea()
+        DesignSystem.Colors.background.ignoresSafeArea()
         GlowCSpinner(size: 140)
     }
 }

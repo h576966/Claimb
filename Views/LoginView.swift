@@ -36,7 +36,7 @@ struct LoginView: View {
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // App Icon
                         Image(systemName: "gamecontroller.fill")
-                            .font(.system(size: 60))
+                            .font(DesignSystem.Typography.largeTitle)
                             .foregroundColor(DesignSystem.Colors.primary)
                             .frame(width: 80, height: 80)
                             .background(DesignSystem.Colors.cardBackground)

@@ -114,7 +114,7 @@ struct ChampionView: View {
     private var errorView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.error)
 
             Text("Error Loading Champions")
@@ -140,7 +140,7 @@ struct ChampionView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
 
             Text("No Champions Found")
@@ -414,7 +414,7 @@ struct ChampionStatsCard: View {
                     .fill(DesignSystem.Colors.cardBorder)
                     .overlay(
                         Image(systemName: "person.circle")
-                            .font(.system(size: 20))
+                            .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     )
             }
@@ -490,7 +490,7 @@ struct ChampionCard: View {
                 .frame(width: 60, height: 60)
                 .overlay(
                     Image(systemName: "person.circle")
-                        .font(.system(size: 24))
+                        .font(DesignSystem.Typography.title2)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 )
 

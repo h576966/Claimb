@@ -67,7 +67,7 @@ struct CustomNavigationBar: View {
                                     .frame(width: 14, height: 14)
                             } else {
                                 Image(systemName: actionButton.icon)
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(DesignSystem.Typography.caption)
                             }
                             
                             Text(actionButton.title)
@@ -82,7 +82,7 @@ struct CustomNavigationBar: View {
                 if let onLogout = onLogout {
                     Button(action: onLogout) {
                         Image(systemName: "person.circle")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())

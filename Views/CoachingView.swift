@@ -77,7 +77,7 @@ struct CoachingView: View {
     private var errorView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.error)
 
             Text("Error Loading Data")
@@ -103,7 +103,7 @@ struct CoachingView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
 
             Text("No Data Available")
@@ -215,7 +215,7 @@ struct CoachingView: View {
     private var generateInsightsCard: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 32))
+                .font(DesignSystem.Typography.title)
                 .foregroundColor(DesignSystem.Colors.primary)
 
             Text("Get Personalized Insights")

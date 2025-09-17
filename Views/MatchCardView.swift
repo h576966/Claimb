@@ -235,7 +235,7 @@ struct MatchCardView: View {
     
     MatchCardView(match: match, summoner: summoner)
         .padding()
-        .background(Color.black)
+        .background(DesignSystem.Colors.background)
         .onAppear {
             match.participants = [participant]
         }

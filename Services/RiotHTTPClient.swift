@@ -14,7 +14,7 @@ public class RiotHTTPClient: RiotClient {
     
     public init(apiKey: String) {
         self.apiKey = apiKey
-        self.rateLimiter = RateLimiter(delay: 1.2)
+        self.rateLimiter = RateLimiter(requestsPerSecond: 20, requestsPerTwoMinutes: 100)
         
         // Configure URLSession with URLCache for automatic disk caching
         let config = URLSessionConfiguration.default
@@ -54,7 +54,7 @@ public class RiotHTTPClient: RiotClient {
     // MARK: - Private Methods
     
     private func performRequest(url: URL) async throws -> Data {
-        await rateLimiter.waitIfNeeded()
+        try await rateLimiter.waitIfNeeded()
         
         var request = URLRequest(url: url)
         request.setValue(apiKey, forHTTPHeaderField: "X-Riot-Token")
@@ -72,6 +72,9 @@ public class RiotHTTPClient: RiotClient {
                 case 404:
                     throw RiotAPIError.notFound
                 case 429:
+                    // Handle rate limit with exponential backoff
+                    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                    await rateLimiter.handleRateLimit(retryAfter: retryAfter)
                     throw RiotAPIError.rateLimitExceeded
                 default:
                     throw RiotAPIError.serverError(httpResponse.statusCode)
@@ -94,6 +97,9 @@ public class RiotHTTPClient: RiotClient {
                 case 404:
                     throw RiotAPIError.notFound
                 case 429:
+                    // Handle rate limit with exponential backoff
+                    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                    await rateLimiter.handleRateLimit(retryAfter: retryAfter)
                     throw RiotAPIError.rateLimitExceeded
                 default:
                     throw RiotAPIError.serverError(httpResponse.statusCode)

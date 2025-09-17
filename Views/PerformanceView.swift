@@ -219,7 +219,7 @@ struct PerformanceView: View {
     private var errorView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.error)
 
             Text("Error Loading Matches")
@@ -245,7 +245,7 @@ struct PerformanceView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "chart.bar.fill")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
 
             Text("No Performance Data")
