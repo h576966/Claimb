@@ -30,6 +30,7 @@
 		F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -106,6 +107,11 @@
 			sourceTree = "<group>";
 		};
 		F3E629842E7AAA6700DF2F2D /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3F8AB6E2E7B11B1008E9E48 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -228,6 +234,10 @@
 				{
 					ProductGroup = F3E629842E7AAA6700DF2F2D /* Products */;
 					ProjectRef = F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F3F8AB6E2E7B11B1008E9E48 /* Products */;
+					ProjectRef = F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";

@@ -1,0 +1,444 @@
+//
+//  KPICalculationService.swift
+//  Claimb
+//
+//  Created by AI Assistant on 2025-09-17.
+//
+
+import Foundation
+import SwiftData
+import SwiftUI
+
+/// Service responsible for calculating KPI metrics and performance levels
+@MainActor
+public class KPICalculationService {
+    private let dataManager: DataManager
+
+    public init(dataManager: DataManager) {
+        self.dataManager = dataManager
+    }
+
+    // MARK: - Public Methods
+
+    /// Calculates all KPIs for a specific role and matches
+    func calculateRoleKPIs(
+        matches: [Match],
+        role: String,
+        summoner: Summoner
+    ) async throws -> [KPIMetric] {
+        guard !matches.isEmpty else { return [] }
+
+        // Get role-specific participants
+        let participants = matches.compactMap { match in
+            match.participants.first(where: {
+                $0.puuid == summoner.puuid
+                    && RoleUtils.normalizeRole($0.role, lane: $0.lane) == role
+            })
+        }
+
+        guard !participants.isEmpty else { return [] }
+
+        // Calculate basic KPIs
+        let deathsPerGame = calculateDeathsPerGame(participants: participants)
+        let visionScore = calculateVisionScore(participants: participants)
+        let killParticipation = calculateKillParticipation(
+            participants: participants, matches: matches)
+        let csPerMinute = calculateCSPerMinute(participants: participants, matches: matches)
+
+        // Debug logging for KPI calculations
+        ClaimbLogger.debug(
+            "KPI Calculations for \(role)", service: "KPICalculationService",
+            metadata: [
+                "deathsPerGame": String(format: "%.2f", deathsPerGame),
+                "visionScore": String(format: "%.2f", visionScore),
+                "killParticipation": String(format: "%.2f", killParticipation),
+                "csPerMinute": String(format: "%.2f", csPerMinute),
+                "participantCount": String(participants.count),
+            ])
+
+        var kpis: [KPIMetric] = []
+
+        // Create KPIs with baseline comparison
+        kpis.append(
+            await createKPIMetric(
+                metric: "deaths_per_game",
+                value: deathsPerGame,
+                role: role,
+                matches: matches
+            ))
+
+        kpis.append(
+            await createKPIMetric(
+                metric: "vision_score_per_min",
+                value: visionScore,
+                role: role,
+                matches: matches
+            ))
+
+        kpis.append(
+            await createKPIMetric(
+                metric: "kill_participation_pct",
+                value: killParticipation,
+                role: role,
+                matches: matches
+            ))
+
+        // Add CS per minute for relevant roles
+        let shouldIncludeCS = shouldIncludeCSPerMinute(for: role)
+        if shouldIncludeCS {
+            kpis.append(
+                await createKPIMetric(
+                    metric: "cs_per_min",
+                    value: csPerMinute,
+                    role: role,
+                    matches: matches
+                ))
+        }
+
+        // Add Primary Role Consistency KPI (last 20 games)
+        let primaryRoleConsistency = calculatePrimaryRoleConsistency(
+            matches: matches, primaryRole: role, summoner: summoner)
+        kpis.append(
+            await createKPIMetric(
+                metric: "primary_role_consistency",
+                value: primaryRoleConsistency,
+                role: role,
+                matches: matches
+            ))
+
+        // Add Champion Pool Size KPI (last 20 games) - role independent
+        let championPoolSize = calculateChampionPoolSize(matches: matches, summoner: summoner)
+        kpis.append(
+            await createKPIMetric(
+                metric: "champion_pool_size",
+                value: championPoolSize,
+                role: role,
+                matches: matches
+            ))
+
+        return kpis
+    }
+
+    // MARK: - Private Calculation Methods
+
+    private func calculateDeathsPerGame(participants: [Participant]) -> Double {
+        return participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
+    }
+
+    private func calculateVisionScore(participants: [Participant]) -> Double {
+        return participants.map { $0.visionScorePerMinute }.reduce(0, +)
+            / Double(participants.count)
+    }
+
+    private func calculateKillParticipation(participants: [Participant], matches: [Match]) -> Double
+    {
+        return participants.map { participant in
+            let match = matches.first { $0.participants.contains(participant) }
+            let teamKills =
+                match?.participants
+                .filter { $0.teamId == participant.teamId }
+                .reduce(0) { $0 + $1.kills } ?? 0
+            return teamKills > 0
+                ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
+        }.reduce(0, +) / Double(participants.count)
+    }
+
+    private func calculateCSPerMinute(participants: [Participant], matches: [Match]) -> Double {
+        return participants.map { participant in
+            let match = matches.first { $0.participants.contains(participant) }
+            let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
+            return gameDurationMinutes > 0
+                ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
+        }.reduce(0, +) / Double(participants.count)
+    }
+
+    private func calculatePrimaryRoleConsistency(
+        matches: [Match], primaryRole: String, summoner: Summoner
+    ) -> Double {
+        // Get last 20 games
+        let recentMatches = Array(matches.prefix(20))
+
+        guard !recentMatches.isEmpty else { return 0.0 }
+
+        // Count games played in primary role
+        let primaryRoleGames = recentMatches.compactMap { match in
+            match.participants.first(where: {
+                $0.puuid == summoner.puuid
+                    && RoleUtils.normalizeRole($0.role, lane: $0.lane) == primaryRole
+            })
+        }.count
+
+        let consistency = Double(primaryRoleGames) / Double(recentMatches.count) * 100.0
+
+        // Debug logging for role consistency calculation
+        ClaimbLogger.debug(
+            "Role Consistency Calculation", service: "KPICalculationService",
+            metadata: [
+                "primaryRole": primaryRole,
+                "totalGames": String(recentMatches.count),
+                "primaryRoleGames": String(primaryRoleGames),
+                "consistency": String(format: "%.1f", consistency),
+            ])
+
+        return consistency
+    }
+
+    private func calculateChampionPoolSize(matches: [Match], summoner: Summoner) -> Double {
+        // Get last 20 games
+        let recentMatches = Array(matches.prefix(20))
+
+        // Get all participants for the summoner across all roles
+        let allParticipants = recentMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })
+        }
+
+        // Count unique champions
+        let uniqueChampions = Set(allParticipants.map { $0.championId }).count
+
+        // Debug logging for champion pool size calculation
+        ClaimbLogger.debug(
+            "Champion Pool Size Calculation", service: "KPICalculationService",
+            metadata: [
+                "totalGames": String(recentMatches.count),
+                "participantCount": String(allParticipants.count),
+                "uniqueChampions": String(uniqueChampions),
+                "championIds": allParticipants.map { String($0.championId) }.joined(separator: ","),
+            ])
+
+        return Double(uniqueChampions)
+    }
+
+    // MARK: - Helper Methods
+
+    private func shouldIncludeCSPerMinute(for role: String) -> Bool {
+        let csEligibleRoles = ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"]
+        return csEligibleRoles.contains(role)
+            || csEligibleRoles.contains(mapRoleToBaselineFormat(role))
+    }
+
+    private func createKPIMetric(
+        metric: String,
+        value: Double,
+        role: String,
+        matches: [Match]
+    ) async -> KPIMetric {
+        // Try to get baseline data for this metric and role
+        let baseline = await getBaselineForMetric(metric: metric, role: role)
+
+        let (performanceLevel, color) = getPerformanceLevelWithBaseline(
+            value: value,
+            metric: metric,
+            baseline: baseline
+        )
+
+        return KPIMetric(
+            metric: metric,
+            value: value,
+            baseline: baseline,
+            performanceLevel: performanceLevel,
+            color: color
+        )
+    }
+
+    private func getBaselineForMetric(metric: String, role: String) async -> Baseline? {
+        do {
+            // Map role names to match baseline data format
+            let baselineRole = mapRoleToBaselineFormat(role)
+
+            // First try to get baseline for "ALL" class tag
+            if let baseline = try await dataManager.getBaseline(
+                role: baselineRole, classTag: "ALL", metric: metric)
+            {
+                ClaimbLogger.debug(
+                    "Found baseline for \(metric) in \(baselineRole)",
+                    service: "KPICalculationService",
+                    metadata: [
+                        "mean": String(format: "%.3f", baseline.mean),
+                        "p40": String(format: "%.3f", baseline.p40),
+                        "p60": String(format: "%.3f", baseline.p60),
+                    ])
+                return baseline
+            }
+
+            // For custom KPIs that don't have baseline data, create hardcoded baselines
+            if metric == "primary_role_consistency" {
+                return createCustomBaseline(
+                    role: baselineRole,
+                    metric: metric,
+                    mean: 75.0,
+                    median: 75.0,
+                    p40: 60.0,
+                    p60: 84.0
+                )
+            } else if metric == "champion_pool_size" {
+                return createCustomBaseline(
+                    role: baselineRole,
+                    metric: metric,
+                    mean: 4.0,
+                    median: 4.0,
+                    p40: 2.0,
+                    p60: 5.0
+                )
+            }
+
+            ClaimbLogger.warning(
+                "No baseline found for \(metric) in \(baselineRole)",
+                service: "KPICalculationService")
+            return nil
+        } catch {
+            ClaimbLogger.error(
+                "Failed to get baseline for \(metric) in \(role)", service: "KPICalculationService",
+                error: error)
+            return nil
+        }
+    }
+
+    private func createCustomBaseline(
+        role: String,
+        metric: String,
+        mean: Double,
+        median: Double,
+        p40: Double,
+        p60: Double
+    ) -> Baseline {
+        let customBaseline = Baseline(
+            role: role,
+            classTag: "ALL",
+            metric: metric,
+            mean: mean,
+            median: median,
+            p40: p40,
+            p60: p60
+        )
+        ClaimbLogger.debug(
+            "Using hardcoded baseline for \(metric)", service: "KPICalculationService",
+            metadata: [
+                "mean": String(format: "%.1f", customBaseline.mean),
+                "p40": String(format: "%.1f", customBaseline.p40),
+                "p60": String(format: "%.1f", customBaseline.p60),
+            ])
+        return customBaseline
+    }
+
+    private func mapRoleToBaselineFormat(_ role: String) -> String {
+        switch role.uppercased() {
+        case "MID":
+            return "MIDDLE"
+        case "ADC":
+            return "BOTTOM"
+        case "SUPPORT":
+            return "UTILITY"
+        case "JUNGLE":
+            return "JUNGLE"
+        case "TOP":
+            return "TOP"
+        default:
+            return role.uppercased()
+        }
+    }
+
+    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
+        -> (PerformanceLevel, Color)
+    {
+        // Custom logic for new KPIs that don't have baseline data
+        if metric == "primary_role_consistency" {
+            if value >= 84.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 75.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value >= 60.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        } else if metric == "champion_pool_size" {
+            if value >= 1.0 && value <= 3.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 4.0 && value <= 5.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value >= 6.0 && value <= 7.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        } else if let baseline = baseline {
+            // Special handling for Deaths per Game - lower is better
+            if metric == "deaths_per_game" {
+                if value <= baseline.p40 * 0.9 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value <= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value <= baseline.p60 * 1.2 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
+            } else {
+                // Standard logic for other metrics - higher is better
+                // More conservative thresholds for realistic performance assessment
+                if value >= baseline.p60 * 1.1 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value >= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value >= baseline.p40 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
+            }
+        } else {
+            // Fallback to basic performance levels
+            return getBasicPerformanceLevel(value: value, metric: metric)
+        }
+    }
+
+    private func getBasicPerformanceLevel(value: Double, metric: String) -> (
+        PerformanceLevel, Color
+    ) {
+        // Basic performance levels without baseline data
+        switch metric {
+        case "deaths_per_game":
+            if value < 3.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value < 5.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value < 7.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        case "vision_score_per_min", "vision_score_per_minute":
+            if value > 2.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 1.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value > 1.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        case "kill_participation_pct", "kill_participation":
+            if value > 0.7 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 0.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value > 0.3 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        case "cs_per_min":
+            if value > 8.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 6.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value > 5.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
+            }
+        default:
+            return (.unknown, DesignSystem.Colors.textSecondary)
+        }
+    }
+}

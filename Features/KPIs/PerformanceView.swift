@@ -61,51 +61,74 @@ enum PerformanceLevel {
     case unknown
 }
 
+// MARK: - PerformanceLevel Extensions
+
+extension PerformanceLevel: Comparable {
+    /// Sorting priority: Poor (0) > Needs Improvement (1) > Good (2) > Excellent (3) > Unknown (4)
+    var sortPriority: Int {
+        switch self {
+        case .poor: return 0
+        case .needsImprovement: return 1
+        case .good: return 2
+        case .excellent: return 3
+        case .unknown: return 4
+        }
+    }
+
+    static func < (lhs: PerformanceLevel, rhs: PerformanceLevel) -> Bool {
+        return lhs.sortPriority < rhs.sortPriority
+    }
+}
+
 // MARK: - KPI Card View
 
 struct KPICard: View {
     let kpi: KPIMetric
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            HStack {
+        HStack(spacing: DesignSystem.Spacing.md) {
+            // Left side: Title and performance indicator
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(kpi.displayName)
-                    .font(DesignSystem.Typography.bodyBold)
+                    .font(DesignSystem.Typography.subheadline)
+                    .fontWeight(.medium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
 
-                Spacer()
+                // Performance indicator - more compact
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Circle()
+                        .fill(kpi.color)
+                        .frame(width: 6, height: 6)
 
-                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
-                    Text(kpi.formattedValue)
-                        .font(DesignSystem.Typography.title3)
-                        .fontWeight(.bold)
+                    Text(performanceLevelText(kpi.performanceLevel))
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(kpi.color)
-                    
-                    // Target value directly under the actual value
-                    if let baseline = kpi.baseline {
-                        let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
-                        let formattedTarget = formatTargetValue(targetValue, for: kpi.metric)
-                        Text("Target: \(formattedTarget)")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    }
                 }
             }
 
-            // Performance indicator
-            HStack {
-                Circle()
-                    .fill(kpi.color)
-                    .frame(width: 8, height: 8)
+            Spacer()
 
-                Text(performanceLevelText(kpi.performanceLevel))
-                    .font(DesignSystem.Typography.caption)
+            // Right side: Values - more compact vertical layout
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(kpi.formattedValue)
+                    .font(DesignSystem.Typography.title2)
+                    .fontWeight(.bold)
                     .foregroundColor(kpi.color)
 
-                Spacer()
+                // Target value with reduced spacing
+                if let baseline = kpi.baseline {
+                    let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
+                    let formattedTarget = formatTargetValue(targetValue, for: kpi.metric)
+                    Text("Target: \(formattedTarget)")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
             }
         }
-        .padding(DesignSystem.Spacing.lg)
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.sm + 2)  // Slightly more than sm for better touch target
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
         .overlay(
@@ -123,7 +146,7 @@ struct KPICard: View {
         case .unknown: return "Unknown"
         }
     }
-    
+
     private func formatTargetValue(_ value: Double, for metric: String) -> String {
         switch metric {
         case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
@@ -240,7 +263,7 @@ struct PerformanceView: View {
 
     private func kpiListView(matches: [Match]) -> some View {
         ScrollView {
-            LazyVStack(spacing: DesignSystem.Spacing.md) {
+            LazyVStack(spacing: DesignSystem.Spacing.sm) {
                 // KPI Cards
                 if let viewModel = kpiDataViewModel {
                     ForEach(viewModel.kpiMetrics, id: \.metric) { kpi in
@@ -248,7 +271,7 @@ struct PerformanceView: View {
                     }
                 }
             }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
     }

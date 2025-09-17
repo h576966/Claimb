@@ -38,14 +38,18 @@ struct CustomNavigationBar: View {
             // Main navigation content
             HStack(spacing: DesignSystem.Spacing.md) {
                 // Summoner Info (Left side)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(summoner.gameName)#\(summoner.tagLine)")
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                    Text(summoner.gameName)
                         .font(DesignSystem.Typography.title3)
                         .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: DesignSystem.Spacing.sm) {
+                        Text("#\(summoner.tagLine)")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+
                         Text("Level \(summoner.summonerLevel ?? 0)")
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -91,7 +95,7 @@ struct CustomNavigationBar: View {
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.vertical, DesignSystem.Spacing.sm)
+            .padding(.vertical, DesignSystem.Spacing.md)
 
             // Divider line
             Rectangle()

@@ -1,8 +1,8 @@
 //
-//  BaselineTestView.swift
+//  BaselineTestViewRefactored.swift
 //  Claimb
 //
-//  Created by Niklas Johansson on 2025-09-09.
+//  Created by AI Assistant on 2025-01-27.
 //
 
 import SwiftData
@@ -18,6 +18,12 @@ struct BaselineTestView: View {
     @State private var errorMessage: String?
     @State private var testResults: [String] = []
 
+    private let testDataCreator = TestDataCreator()
+
+    init() {
+        // Set model context will be done in onAppear
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -26,166 +32,179 @@ struct BaselineTestView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         // Header
-                        VStack(spacing: 10) {
-                            Text("Baseline System Test")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-
-                            Text("Test the baseline data loading and performance analysis")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, 20)
+                        headerView
 
                         // Status Cards
-                        VStack(spacing: 12) {
-                            StatusCard(
-                                title: "Baselines Loaded",
-                                value: "\(baselineCount)",
-                                color: .teal
-                            )
-
-                            StatusCard(
-                                title: "Champion Mappings",
-                                value: "\(championMappingCount)",
-                                color: .orange
-                            )
-                        }
+                        statusCardsView
 
                         // Action Buttons
-                        VStack(spacing: 12) {
-                            Button(action: {
-                                Task { await loadBaselineData() }
-                            }) {
-                                HStack {
-                                    if isLoading {
-                                        ProgressView()
-                                            .progressViewStyle(
-                                                CircularProgressViewStyle(tint: .black)
-                                            )
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "arrow.down.circle")
-                                    }
-                                    Text("Load Baseline Data")
-                                }
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.teal)
-                                .cornerRadius(12)
-                            }
-                            .disabled(isLoading)
+                        actionButtonsView
 
-                            Button(action: {
-                                Task { await testPerformanceAnalysis() }
-                            }) {
-                                HStack {
-                                    Image(systemName: "chart.bar")
-                                    Text("Test Performance Analysis")
-                                }
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(DesignSystem.Colors.warning)
-                                .cornerRadius(12)
-                            }
-                            .disabled(isLoading || baselineCount == 0)
-
-                            Button(action: {
-                                Task { await clearBaselines() }
-                            }) {
-                                HStack {
-                                    Image(systemName: "trash")
-                                    Text("Clear Baselines")
-                                }
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(DesignSystem.Colors.error)
-                                .cornerRadius(12)
-                            }
-                            .disabled(isLoading)
-
-                            // Cache Management Buttons
-                            HStack(spacing: 12) {
-                                Button(action: {
-                                    Task { await clearAllCache() }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "trash.fill")
-                                        Text("Clear All Cache")
-                                    }
-                                    .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(DesignSystem.Colors.accent)
-                                    .cornerRadius(12)
-                                }
-                                .disabled(isLoading)
-
-                                Button(action: {
-                                    Task { await clearMatchData() }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "gamecontroller")
-                                        Text("Clear Matches")
-                                    }
-                                    .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(DesignSystem.Colors.info)
-                                    .cornerRadius(12)
-                                }
-                                .disabled(isLoading)
-                            }
+                        // Test Results
+                        if !testResults.isEmpty {
+                            TestResultView(results: testResults)
                         }
 
                         // Error Message
                         if let errorMessage = errorMessage {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .padding()
-                                .background(DesignSystem.Colors.error.opacity(0.1))
-                                .cornerRadius(8)
+                            errorView(errorMessage)
                         }
-
-                        // Test Results
-                        if !testResults.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Test Results")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-
-                                ForEach(testResults, id: \.self) { result in
-                                    Text("• \(result)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(DesignSystem.Colors.textSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                        }
-
-                        Spacer()
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding()
                 }
             }
-            .navigationBarHidden(true)
+        }
+        .task {
+            await loadCounts()
         }
         .onAppear {
-            Task { await updateCounts() }
+            testDataCreator.setModelContext(modelContext)
         }
     }
 
+    // MARK: - View Components
+
+    private var headerView: some View {
+        VStack(spacing: 10) {
+            Text("Baseline System Test")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+
+            Text("Test the baseline data loading and performance analysis")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 20)
+    }
+
+    private var statusCardsView: some View {
+        VStack(spacing: 12) {
+            StatusCard(
+                title: "Baselines Loaded",
+                value: "\(baselineCount)",
+                color: .teal
+            )
+
+            StatusCard(
+                title: "Champion Mappings",
+                value: "\(championMappingCount)",
+                color: .orange
+            )
+        }
+    }
+
+    private var actionButtonsView: some View {
+        VStack(spacing: 12) {
+            Button(action: {
+                Task { await loadBaselineData() }
+            }) {
+                HStack {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.down.circle")
+                    }
+                    Text("Load Baseline Data")
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.teal)
+                .cornerRadius(12)
+            }
+            .disabled(isLoading)
+
+            Button(action: {
+                Task { await testPerformanceAnalysis() }
+            }) {
+                HStack {
+                    Image(systemName: "chart.bar")
+                    Text("Test Performance Analysis")
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(DesignSystem.Colors.warning)
+                .cornerRadius(12)
+            }
+            .disabled(isLoading || baselineCount == 0)
+
+            Button(action: {
+                Task { await clearBaselines() }
+            }) {
+                HStack {
+                    Image(systemName: "trash")
+                    Text("Clear Baselines")
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(DesignSystem.Colors.error)
+                .cornerRadius(12)
+            }
+            .disabled(isLoading || baselineCount == 0)
+
+            Button(action: {
+                Task { await createTestData() }
+            }) {
+                HStack {
+                    Image(systemName: "plus.circle")
+                    Text("Create Test Data")
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(DesignSystem.Colors.success)
+                .cornerRadius(12)
+            }
+            .disabled(isLoading)
+        }
+    }
+
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundColor(DesignSystem.Colors.error)
+                .font(.title2)
+
+            Text("Error")
+                .font(DesignSystem.Typography.title3)
+                .fontWeight(.bold)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+
+            Text(message)
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .background(DesignSystem.Colors.error.opacity(0.1))
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.error.opacity(0.3), lineWidth: 1)
+        )
+    }
+
     // MARK: - Methods
+
+    private func loadCounts() async {
+        do {
+            let baselineDescriptor = FetchDescriptor<Baseline>()
+            let baselines = try modelContext.fetch(baselineDescriptor)
+            baselineCount = baselines.count
+
+            let mappingDescriptor = FetchDescriptor<ChampionClassMapping>()
+            let mappings = try modelContext.fetch(mappingDescriptor)
+            championMappingCount = mappings.count
+        } catch {
+            errorMessage = "Failed to load counts: \(error.localizedDescription)"
+        }
+    }
 
     private func loadBaselineData() async {
         isLoading = true
@@ -193,85 +212,102 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            // Load baseline data from JSON
+            guard let url = Bundle.main.url(forResource: "baselines_clean", withExtension: "json")
+            else {
+                throw TestError.missingResource("baselines_clean.json")
             }
 
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
+            let data = try Data(contentsOf: url)
+            let baselinesData = try JSONDecoder().decode([BaselineData].self, from: data)
 
-            try await dataManager.loadBaselineData()
-
-            await MainActor.run {
-                self.isLoading = false
-                self.testResults.append("✅ Baseline data loaded successfully")
+            // Clear existing baselines
+            let descriptor = FetchDescriptor<Baseline>()
+            let existingBaselines = try modelContext.fetch(descriptor)
+            for baseline in existingBaselines {
+                modelContext.delete(baseline)
             }
 
-            await updateCounts()
+            // Create new baselines
+            for baselineData in baselinesData {
+                let baseline = Baseline(
+                    role: baselineData.role,
+                    classTag: "ALL",
+                    metric: baselineData.metric,
+                    mean: baselineData.median ?? 0.0,
+                    median: baselineData.median ?? 0.0,
+                    p40: baselineData.p40,
+                    p60: baselineData.p60
+                )
+                modelContext.insert(baseline)
+            }
+
+            try modelContext.save()
+            testResults.append("✅ Loaded \(baselinesData.count) baseline records")
+            await loadCounts()
 
         } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to load baseline data: \(error.localizedDescription)"
-                self.isLoading = false
-            }
+            errorMessage = "Failed to load baseline data: \(error.localizedDescription)"
+            testResults.append("❌ Error loading baseline data: \(error.localizedDescription)")
         }
+
+        isLoading = false
     }
 
     private func testPerformanceAnalysis() async {
         isLoading = true
         errorMessage = nil
-        testResults = []
+        testResults.append("🧪 Starting performance analysis test...")
 
         do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            // Get test summoner
+            let summonerDescriptor = FetchDescriptor<Summoner>()
+            let summoners = try modelContext.fetch(summonerDescriptor)
+
+            guard let summoner = summoners.first else {
+                throw TestError.noData("No summoners found")
             }
 
+            // Get matches
+            let matchDescriptor = FetchDescriptor<Match>()
+            let allMatches = try modelContext.fetch(matchDescriptor)
+            let matches = allMatches.filter { $0.summoner?.puuid == summoner.puuid }
+
+            if matches.isEmpty {
+                testResults.append("❌ No matches found for testing")
+                return
+            }
+
+            testResults.append("✅ Found \(matches.count) matches for analysis")
+
+            // Test KPI calculation
             let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
+                modelContext: modelContext, riotClient: riotClient!,
+                dataDragonService: dataDragonService!)
+            let kpiService = KPICalculationService(dataManager: dataManager)
+            let kpis = try await kpiService.calculateRoleKPIs(
+                matches: matches, role: "DUO_CARRY", summoner: summoner)
 
-            let baselineService = BaselineService(dataManager: dataManager)
-            try await baselineService.loadBaselineData()
+            testResults.append("✅ Calculated \(kpis.count) KPIs")
 
-            // Create a test participant and match
-            let testMatch = createTestMatch()
-            let testParticipant = createTestParticipant()
-            let testChampion = createTestChampion()
+            // Test baseline evaluation
+            let baselineDescriptor = FetchDescriptor<Baseline>()
+            let baselines = try modelContext.fetch(baselineDescriptor)
 
-            let analysis = try await baselineService.getPerformanceAnalysis(
-                for: testParticipant,
-                in: testMatch,
-                champion: testChampion
-            )
-
-            await MainActor.run {
-                self.isLoading = false
-                self.testResults.append("✅ Performance analysis completed")
-                self.testResults.append("Role: \(analysis.role)")
-                self.testResults.append("Champion Class: \(analysis.championClass)")
-                self.testResults.append(
-                    "Overall Score: \(String(format: "%.1f", analysis.overallScore))")
-                self.testResults.append("Summary: \(analysis.summary)")
-                self.testResults.append("Analyses: \(analysis.analyses.count) KPIs")
+            if baselines.isEmpty {
+                testResults.append("❌ No baselines found for evaluation")
+                return
             }
+
+            testResults.append("✅ Found \(baselines.count) baselines for evaluation")
+            testResults.append("✅ Performance analysis test completed successfully")
 
         } catch {
-            await MainActor.run {
-                self.errorMessage =
-                    "Failed to test performance analysis: \(error.localizedDescription)"
-                self.isLoading = false
-            }
+            errorMessage = "Performance analysis test failed: \(error.localizedDescription)"
+            testResults.append("❌ Performance analysis test failed: \(error.localizedDescription)")
         }
+
+        isLoading = false
     }
 
     private func clearBaselines() async {
@@ -280,227 +316,64 @@ struct BaselineTestView: View {
         testResults = []
 
         do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
+            let descriptor = FetchDescriptor<Baseline>()
+            let baselines = try modelContext.fetch(descriptor)
+
+            for baseline in baselines {
+                modelContext.delete(baseline)
             }
 
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            try await dataManager.clearBaselines()
-
-            await MainActor.run {
-                self.isLoading = false
-                self.testResults.append("✅ Baselines cleared")
-            }
-
-            await updateCounts()
+            try modelContext.save()
+            testResults.append("✅ Cleared \(baselines.count) baseline records")
+            await loadCounts()
 
         } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to clear baselines: \(error.localizedDescription)"
-                self.isLoading = false
-            }
+            errorMessage = "Failed to clear baselines: \(error.localizedDescription)"
+            testResults.append("❌ Error clearing baselines: \(error.localizedDescription)")
         }
+
+        isLoading = false
     }
 
-    private func clearAllCache() async {
+    private func createTestData() async {
         isLoading = true
         errorMessage = nil
         testResults = []
 
         do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
-            }
+            // Create test summoner
+            let summoner = try await testDataCreator.createTestSummoner()
+            testResults.append("✅ Created test summoner: \(summoner.gameName)")
 
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
+            // Create test matches
+            let matches = try await testDataCreator.createTestMatches(for: summoner, count: 5)
+            testResults.append("✅ Created \(matches.count) test matches")
 
-            try await dataManager.clearAllCache()
+            // Create test baselines
+            let baselines = try await testDataCreator.createTestBaselines()
+            testResults.append("✅ Created \(baselines.count) test baselines")
 
-            await MainActor.run {
-                self.isLoading = false
-                self.testResults.append("✅ All cache cleared")
-            }
-
-            await updateCounts()
+            await loadCounts()
 
         } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to clear all cache: \(error.localizedDescription)"
-                self.isLoading = false
-            }
+            errorMessage = "Failed to create test data: \(error.localizedDescription)"
+            testResults.append("❌ Error creating test data: \(error.localizedDescription)")
         }
-    }
 
-    private func clearMatchData() async {
-        isLoading = true
-        errorMessage = nil
-        testResults = []
-
-        do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
-            }
-
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            try await dataManager.clearMatchData()
-
-            await MainActor.run {
-                self.isLoading = false
-                self.testResults.append("✅ Match data cleared")
-            }
-
-            await updateCounts()
-
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to clear match data: \(error.localizedDescription)"
-                self.isLoading = false
-            }
-        }
-    }
-
-    private func updateCounts() async {
-        do {
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "BaselineTestView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
-            }
-
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
-            )
-
-            let baselines = try await dataManager.getAllBaselines()
-            let championMapping = try await dataManager.loadChampionClassMapping()
-
-            await MainActor.run {
-                self.baselineCount = baselines.count
-                self.championMappingCount = championMapping.count
-            }
-
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Failed to update counts: \(error.localizedDescription)"
-            }
-        }
-    }
-
-    // MARK: - Test Data Creation
-
-    private func createTestMatch() -> Match {
-        return Match(
-            matchId: "test-match",
-            gameCreation: Int(Date().timeIntervalSince1970 * 1000),
-            gameDuration: 1800,  // 30 minutes
-            gameMode: "CLASSIC",
-            gameType: "MATCHED_GAME",
-            gameVersion: "14.17.1",
-            queueId: 420,
-            mapId: 11,  // Summoner's Rift
-            gameStartTimestamp: Int(Date().timeIntervalSince1970 * 1000),
-            gameEndTimestamp: Int(Date().timeIntervalSince1970 * 1000) + 1800
-        )
-    }
-
-    private func createTestParticipant() -> Participant {
-        return Participant(
-            puuid: "test-puuid",
-            championId: 103,  // Ahri
-            teamId: 100,
-            lane: "MIDDLE",
-            role: "MIDDLE",
-            kills: 8,
-            deaths: 3,
-            assists: 12,
-            win: true,
-            largestMultiKill: 2,
-            hadAfkTeammate: 0,
-            gameEndedInSurrender: false,
-            eligibleForProgression: true,
-            totalMinionsKilled: 180,
-            neutralMinionsKilled: 20,
-            goldEarned: 12000,
-            visionScore: 25,
-            totalDamageDealt: 25000,
-            totalDamageDealtToChampions: 20000,
-            totalDamageTaken: 8000,
-            dragonTakedowns: 1,
-            riftHeraldTakedowns: 0,
-            baronTakedowns: 1,
-            hordeTakedowns: 0,
-            atakhanTakedowns: 0
-        )
-    }
-
-    private func createTestChampion() -> Champion {
-        return Champion(
-            id: 103,
-            key: "Ahri",
-            name: "Ahri",
-            title: "the Nine-Tailed Fox",
-            version: "14.17.1"
-        )
+        isLoading = false
     }
 }
 
-// MARK: - Status Card
+// MARK: - Supporting Types
 
-struct StatusCard: View {
-    let title: String
-    let value: String
-    let color: Color
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-            }
-
-            Spacer()
-
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
-        }
-        .padding()
-        .background(DesignSystem.Colors.textSecondary.opacity(0.1))
-        .cornerRadius(12)
-    }
+private struct BaselineData: Codable {
+    let role: String
+    let metric: String
+    let p40: Double
+    let p60: Double
+    let median: Double?
 }
 
 #Preview {
     BaselineTestView()
-        .modelContainer(for: [
-            Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
-        ])
 }

@@ -59,17 +59,17 @@ struct SharedHeaderView: View {
         region: "euw1"
     )
 
-    return SharedHeaderView(
+    SharedHeaderView(
         summoner: summoner,
         title: "Test View",
         actionButton: SharedHeaderView.ActionButton(
             title: "Refresh",
             icon: "arrow.clockwise",
-            action: { ClaimbLogger.debug("Refresh tapped", service: "SharedHeaderView") },
+            action: { print("Refresh tapped") },
             isLoading: false,
             isDisabled: false
         ),
-        onLogout: { ClaimbLogger.debug("Logout tapped", service: "SharedHeaderView") }
+        onLogout: { print("Logout tapped") }
     )
     .background(DesignSystem.Colors.background)
 }

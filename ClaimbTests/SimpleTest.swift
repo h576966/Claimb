@@ -38,9 +38,9 @@ final class SimpleTest {
         results.append("✅ ClaimbLogger basic functionality works")
 
         // Test DesignSystem basic functionality
-        let primaryColor = DesignSystem.Colors.primary
-        let bodyFont = DesignSystem.Typography.body
-        let mediumSpacing = DesignSystem.Spacing.md
+        _ = DesignSystem.Colors.primary
+        _ = DesignSystem.Typography.body
+        _ = DesignSystem.Spacing.md
         results.append("✅ DesignSystem basic functionality works")
 
         return results

@@ -138,7 +138,7 @@ public class DataManager {
                 service: "DataManager",
                 metadata: [
                     "existingCount": String(existingMatches.count),
-                    "fetchCount": String(fetchCount)
+                    "fetchCount": String(fetchCount),
                 ]
             )
 
@@ -242,7 +242,7 @@ public class DataManager {
             service: "DataManager",
             metadata: [
                 "matchId": matchId,
-                "participantCount": String(match.participants.count)
+                "participantCount": String(match.participants.count),
             ]
         )
     }
@@ -300,7 +300,7 @@ public class DataManager {
                 service: "DataManager",
                 metadata: [
                     "matchId": matchId,
-                    "participantCount": String(participantsJson.count)
+                    "participantCount": String(participantsJson.count),
                 ]
             )
             for participantJson in participantsJson {
@@ -312,7 +312,7 @@ public class DataManager {
                 service: "DataManager",
                 metadata: [
                     "matchId": matchId,
-                    "parsedCount": String(match.participants.count)
+                    "parsedCount": String(match.participants.count),
                 ]
             )
         } else {
@@ -411,7 +411,7 @@ public class DataManager {
                 service: "DataManager",
                 metadata: [
                     "championId": String(participant.championId),
-                    "totalChampions": String(allChampions.count)
+                    "totalChampions": String(allChampions.count),
                 ]
             )
 
@@ -424,7 +424,7 @@ public class DataManager {
                     metadata: [
                         "championName": champion.name,
                         "championId": String(champion.id),
-                        "championKey": champion.key
+                        "championKey": champion.key,
                     ]
                 )
             } else if let champion = allChampions.first(where: {
@@ -437,7 +437,7 @@ public class DataManager {
                     metadata: [
                         "championName": champion.name,
                         "championId": String(champion.id),
-                        "championKey": champion.key
+                        "championKey": champion.key,
                     ]
                 )
             } else {
@@ -508,7 +508,8 @@ public class DataManager {
         // Check if we already have champion data
         let existingChampions = try await getAllChampions()
         if !existingChampions.isEmpty {
-            ClaimbLogger.debug("Champion data already exists, skipping load", service: "DataManager")
+            ClaimbLogger.debug(
+                "Champion data already exists, skipping load", service: "DataManager")
             return
         }
 
@@ -521,7 +522,7 @@ public class DataManager {
             service: "DataManager",
             metadata: [
                 "championCount": String(champions.count),
-                "version": version
+                "version": version,
             ]
         )
 
@@ -537,7 +538,7 @@ public class DataManager {
                         "championName": champion.name,
                         "championId": String(champion.id),
                         "championKey": champion.key,
-                        "iconURL": champion.iconURL
+                        "iconURL": champion.iconURL,
                     ]
                 )
                 modelContext.insert(champion)
