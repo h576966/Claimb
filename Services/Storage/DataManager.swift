@@ -436,9 +436,9 @@ public class DataManager {
         )
         let allMatches = try modelContext.fetch(descriptor)
 
-        // Filter matches for this summoner
+        // Filter matches for this summoner and apply role analysis filter
         let filteredMatches = allMatches.filter { match in
-            match.summoner?.puuid == summoner.puuid
+            match.summoner?.puuid == summoner.puuid && match.isIncludedInRoleAnalysis
         }
 
         return Array(filteredMatches.prefix(limit))

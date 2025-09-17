@@ -86,10 +86,11 @@ public class Match {
     
     /// Checks if this is a relevant game mode for role analysis
     public var isRelevantGameMode: Bool {
-        // Include Ranked Solo/Duo, Ranked Flex, and Draft/Normal games
+        // Include Ranked Solo/Duo, Ranked Flex, and Normal/Draft games
         return queueId == 420 || // Ranked Solo/Duo
                queueId == 440 || // Ranked Flex
-               queueId == 400    // Normal Draft
+               queueId == 400 || // Normal Draft
+               queueId == 430    // Normal Blind
     }
     
     // Helper method to calculate team objectives
