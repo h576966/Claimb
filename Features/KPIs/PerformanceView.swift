@@ -85,10 +85,6 @@ struct KPICard: View {
                     Text("Target: \(String(format: "%.1f", targetValue))")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Text("Average: \(String(format: "%.1f", baseline.mean))")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             } else {
                 // Fallback for KPIs without baseline data (should not happen with hardcoded baselines)

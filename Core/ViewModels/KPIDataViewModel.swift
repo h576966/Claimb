@@ -250,7 +250,7 @@ public class KPIDataViewModel {
 
         // Add Primary Role Consistency KPI (last 20 games)
         let primaryRoleConsistency = calculatePrimaryRoleConsistency(
-            participants: participants, primaryRole: role, matches: matches)
+            matches: matches, primaryRole: role)
         kpis.append(
             await createKPIMetric(
                 metric: "primary_role_consistency",
@@ -260,8 +260,8 @@ public class KPIDataViewModel {
                 dataManager: dataManager
             ))
 
-        // Add Champion Pool Size KPI (last 20 games)
-        let championPoolSize = calculateChampionPoolSize(participants: participants)
+        // Add Champion Pool Size KPI (last 20 games) - role independent
+        let championPoolSize = calculateChampionPoolSize(matches: matches)
         kpis.append(
             await createKPIMetric(
                 metric: "champion_pool_size",
@@ -392,30 +392,36 @@ public class KPIDataViewModel {
 
     /// Calculate primary role consistency percentage (last 20 games)
     private func calculatePrimaryRoleConsistency(
-        participants: [Participant], primaryRole: String, matches: [Match]
+        matches: [Match], primaryRole: String
     ) -> Double {
         // Get last 20 games
-        let recentParticipants = Array(participants.prefix(20))
-
-        guard !recentParticipants.isEmpty else { return 0.0 }
+        let recentMatches = Array(matches.prefix(20))
+        
+        guard !recentMatches.isEmpty else { return 0.0 }
 
         // Count games played in primary role
-        let primaryRoleGames = recentParticipants.filter { participant in
-            // Map participant role to our role format
-            let participantRole = mapParticipantRoleToOurFormat(participant.role)
-            return participantRole == primaryRole
+        let primaryRoleGames = recentMatches.compactMap { match in
+            match.participants.first(where: {
+                $0.puuid == summoner.puuid
+                    && mapParticipantRoleToOurFormat($0.role) == primaryRole
+            })
         }.count
 
-        return Double(primaryRoleGames) / Double(recentParticipants.count) * 100.0
+        return Double(primaryRoleGames) / Double(recentMatches.count) * 100.0
     }
 
-    /// Calculate champion pool size (unique champions in last 20 games)
-    private func calculateChampionPoolSize(participants: [Participant]) -> Double {
+    /// Calculate champion pool size (unique champions in last 20 games) - role independent
+    private func calculateChampionPoolSize(matches: [Match]) -> Double {
         // Get last 20 games
-        let recentParticipants = Array(participants.prefix(20))
+        let recentMatches = Array(matches.prefix(20))
+        
+        // Get all participants for the summoner across all roles
+        let allParticipants = recentMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })
+        }
 
         // Count unique champions
-        let uniqueChampions = Set(recentParticipants.map { $0.championId }).count
+        let uniqueChampions = Set(allParticipants.map { $0.championId }).count
 
         return Double(uniqueChampions)
     }
