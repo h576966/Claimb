@@ -51,7 +51,7 @@ struct KPIMetric {
 
 enum PerformanceLevel {
     case poor
-    case belowMean
+    case needsImprovement
     case good
     case excellent
     case unknown
@@ -124,7 +124,7 @@ struct KPICard: View {
     private func performanceLevelText(_ level: PerformanceLevel) -> String {
         switch level {
         case .poor: return "Poor"
-        case .belowMean: return "Below Average"
+        case .needsImprovement: return "Needs Improvement"
         case .good: return "Good"
         case .excellent: return "Excellent"
         case .unknown: return "Unknown"

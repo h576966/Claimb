@@ -170,29 +170,34 @@ public class KPIDataViewModel {
         let killParticipation =
             participants.map { participant in
                 let match = matches.first { $0.participants.contains(participant) }
-                let teamKills = match?.participants
+                let teamKills =
+                    match?.participants
                     .filter { $0.teamId == participant.teamId }
                     .reduce(0) { $0 + $1.kills } ?? 0
                 return teamKills > 0
                     ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
             }.reduce(0, +) / Double(participants.count)
-        
+
         // Calculate CS per minute
-        let csPerMinute = participants.map { participant in
-            let match = matches.first { $0.participants.contains(participant) }
-            let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
-            return gameDurationMinutes > 0 ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
-        }.reduce(0, +) / Double(participants.count)
-        
+        let csPerMinute =
+            participants.map { participant in
+                let match = matches.first { $0.participants.contains(participant) }
+                let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
+                return gameDurationMinutes > 0
+                    ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
+            }.reduce(0, +) / Double(participants.count)
+
         // Debug logging for KPI calculations
-        ClaimbLogger.debug("KPI Calculations for \(role)", service: "KPIDataViewModel", metadata: [
-            "deathsPerGame": String(format: "%.2f", deathsPerGame),
-            "visionScore": String(format: "%.2f", visionScore),
-            "killParticipation": String(format: "%.2f", killParticipation),
-            "csPerMinute": String(format: "%.2f", csPerMinute),
-            "participantCount": String(participants.count)
-        ])
-        
+        ClaimbLogger.debug(
+            "KPI Calculations for \(role)", service: "KPIDataViewModel",
+            metadata: [
+                "deathsPerGame": String(format: "%.2f", deathsPerGame),
+                "visionScore": String(format: "%.2f", visionScore),
+                "killParticipation": String(format: "%.2f", killParticipation),
+                "csPerMinute": String(format: "%.2f", csPerMinute),
+                "participantCount": String(participants.count),
+            ])
+
         // Note: For deaths_per_game, lower values are better (reversed logic)
 
         var kpis: [KPIMetric] = []
@@ -224,12 +229,14 @@ public class KPIDataViewModel {
                 matches: matches,
                 dataManager: dataManager
             ))
-        
+
         // Add CS per minute for relevant roles
         // Check both original role and mapped role for CS per minute
-        let shouldIncludeCS = ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(role) || 
-                             ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(mapRoleToBaselineFormat(role))
-        
+        let shouldIncludeCS =
+            ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(role)
+            || ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"].contains(
+                mapRoleToBaselineFormat(role))
+
         if shouldIncludeCS {
             kpis.append(
                 await createKPIMetric(
@@ -240,9 +247,10 @@ public class KPIDataViewModel {
                     dataManager: dataManager
                 ))
         }
-        
+
         // Add Primary Role Consistency KPI (last 20 games)
-        let primaryRoleConsistency = calculatePrimaryRoleConsistency(participants: participants, primaryRole: role, matches: matches)
+        let primaryRoleConsistency = calculatePrimaryRoleConsistency(
+            participants: participants, primaryRole: role, matches: matches)
         kpis.append(
             await createKPIMetric(
                 metric: "primary_role_consistency",
@@ -251,7 +259,7 @@ public class KPIDataViewModel {
                 matches: matches,
                 dataManager: dataManager
             ))
-        
+
         // Add Champion Pool Size KPI (last 20 games)
         let championPoolSize = calculateChampionPoolSize(participants: participants)
         kpis.append(
@@ -274,11 +282,12 @@ public class KPIDataViewModel {
         dataManager: DataManager
     ) async -> KPIMetric {
         // Try to get baseline data for this metric and role
-        let baseline = await getBaselineForMetric(metric: metric, role: role, dataManager: dataManager)
-        
+        let baseline = await getBaselineForMetric(
+            metric: metric, role: role, dataManager: dataManager)
+
         let (performanceLevel, color) = getPerformanceLevelWithBaseline(
-            value: value, 
-            metric: metric, 
+            value: value,
+            metric: metric,
             baseline: baseline
         )
 
@@ -290,22 +299,28 @@ public class KPIDataViewModel {
             color: color
         )
     }
-    
-    private func getBaselineForMetric(metric: String, role: String, dataManager: DataManager) async -> Baseline? {
+
+    private func getBaselineForMetric(metric: String, role: String, dataManager: DataManager) async
+        -> Baseline?
+    {
         do {
             // Map role names to match baseline data format
             let baselineRole = mapRoleToBaselineFormat(role)
-            
+
             // First try to get baseline for "ALL" class tag
-            if let baseline = try await dataManager.getBaseline(role: baselineRole, classTag: "ALL", metric: metric) {
-                ClaimbLogger.debug("Found baseline for \(metric) in \(baselineRole)", service: "KPIDataViewModel", metadata: [
-                    "mean": String(format: "%.3f", baseline.mean),
-                    "p40": String(format: "%.3f", baseline.p40),
-                    "p60": String(format: "%.3f", baseline.p60)
-                ])
+            if let baseline = try await dataManager.getBaseline(
+                role: baselineRole, classTag: "ALL", metric: metric)
+            {
+                ClaimbLogger.debug(
+                    "Found baseline for \(metric) in \(baselineRole)", service: "KPIDataViewModel",
+                    metadata: [
+                        "mean": String(format: "%.3f", baseline.mean),
+                        "p40": String(format: "%.3f", baseline.p40),
+                        "p60": String(format: "%.3f", baseline.p60),
+                    ])
                 return baseline
             }
-            
+
             // For custom KPIs that don't have baseline data, create hardcoded baselines
             if metric == "primary_role_consistency" {
                 let customBaseline = Baseline(
@@ -313,42 +328,49 @@ public class KPIDataViewModel {
                     classTag: "ALL",
                     metric: metric,
                     mean: 75.0,  // 75% average role consistency
-                    median: 75.0, // 75% median role consistency
-                    p40: 60.0,   // 60% for P40 (Below Average threshold)
-                    p60: 84.0    // 84% for P60 (Excellent threshold)
+                    median: 75.0,  // 75% median role consistency
+                    p40: 60.0,  // 60% for P40 (Below Average threshold)
+                    p60: 84.0  // 84% for P60 (Excellent threshold)
                 )
-                ClaimbLogger.debug("Using hardcoded baseline for \(metric)", service: "KPIDataViewModel", metadata: [
-                    "mean": String(format: "%.1f", customBaseline.mean),
-                    "p40": String(format: "%.1f", customBaseline.p40),
-                    "p60": String(format: "%.1f", customBaseline.p60)
-                ])
+                ClaimbLogger.debug(
+                    "Using hardcoded baseline for \(metric)", service: "KPIDataViewModel",
+                    metadata: [
+                        "mean": String(format: "%.1f", customBaseline.mean),
+                        "p40": String(format: "%.1f", customBaseline.p40),
+                        "p60": String(format: "%.1f", customBaseline.p60),
+                    ])
                 return customBaseline
             } else if metric == "champion_pool_size" {
                 let customBaseline = Baseline(
                     role: baselineRole,
                     classTag: "ALL",
                     metric: metric,
-                    mean: 4.0,   // 4 champions average
-                    median: 4.0, // 4 champions median
-                    p40: 2.0,    // 2 champions for P40 (Below Average threshold)
-                    p60: 5.0     // 5 champions for P60 (Good threshold)
+                    mean: 4.0,  // 4 champions average
+                    median: 4.0,  // 4 champions median
+                    p40: 2.0,  // 2 champions for P40 (Below Average threshold)
+                    p60: 5.0  // 5 champions for P60 (Good threshold)
                 )
-                ClaimbLogger.debug("Using hardcoded baseline for \(metric)", service: "KPIDataViewModel", metadata: [
-                    "mean": String(format: "%.1f", customBaseline.mean),
-                    "p40": String(format: "%.1f", customBaseline.p40),
-                    "p60": String(format: "%.1f", customBaseline.p60)
-                ])
+                ClaimbLogger.debug(
+                    "Using hardcoded baseline for \(metric)", service: "KPIDataViewModel",
+                    metadata: [
+                        "mean": String(format: "%.1f", customBaseline.mean),
+                        "p40": String(format: "%.1f", customBaseline.p40),
+                        "p60": String(format: "%.1f", customBaseline.p60),
+                    ])
                 return customBaseline
             }
-            
-            ClaimbLogger.warning("No baseline found for \(metric) in \(baselineRole)", service: "KPIDataViewModel")
+
+            ClaimbLogger.warning(
+                "No baseline found for \(metric) in \(baselineRole)", service: "KPIDataViewModel")
             return nil
         } catch {
-            ClaimbLogger.error("Failed to get baseline for \(metric) in \(role)", service: "KPIDataViewModel", error: error)
+            ClaimbLogger.error(
+                "Failed to get baseline for \(metric) in \(role)", service: "KPIDataViewModel",
+                error: error)
             return nil
         }
     }
-    
+
     private func mapRoleToBaselineFormat(_ role: String) -> String {
         switch role.uppercased() {
         case "MID":
@@ -365,37 +387,39 @@ public class KPIDataViewModel {
             return role.uppercased()
         }
     }
-    
+
     // MARK: - New KPI Calculations
-    
+
     /// Calculate primary role consistency percentage (last 20 games)
-    private func calculatePrimaryRoleConsistency(participants: [Participant], primaryRole: String, matches: [Match]) -> Double {
+    private func calculatePrimaryRoleConsistency(
+        participants: [Participant], primaryRole: String, matches: [Match]
+    ) -> Double {
         // Get last 20 games
         let recentParticipants = Array(participants.prefix(20))
-        
+
         guard !recentParticipants.isEmpty else { return 0.0 }
-        
+
         // Count games played in primary role
         let primaryRoleGames = recentParticipants.filter { participant in
             // Map participant role to our role format
             let participantRole = mapParticipantRoleToOurFormat(participant.role)
             return participantRole == primaryRole
         }.count
-        
+
         return Double(primaryRoleGames) / Double(recentParticipants.count) * 100.0
     }
-    
+
     /// Calculate champion pool size (unique champions in last 20 games)
     private func calculateChampionPoolSize(participants: [Participant]) -> Double {
         // Get last 20 games
         let recentParticipants = Array(participants.prefix(20))
-        
+
         // Count unique champions
         let uniqueChampions = Set(recentParticipants.map { $0.championId }).count
-        
+
         return Double(uniqueChampions)
     }
-    
+
     /// Map participant team position to our role format
     private func mapParticipantRoleToOurFormat(_ teamPosition: String) -> String {
         switch teamPosition {
@@ -411,8 +435,10 @@ public class KPIDataViewModel {
             return teamPosition
         }
     }
-    
-    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?) -> (PerformanceLevel, Color) {
+
+    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
+        -> (PerformanceLevel, Color)
+    {
         // Custom logic for new KPIs that don't have baseline data
         if metric == "primary_role_consistency" {
             if value >= 84.0 {
@@ -420,7 +446,7 @@ public class KPIDataViewModel {
             } else if value >= 75.0 {
                 return (.good, DesignSystem.Colors.white)
             } else if value >= 60.0 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
@@ -430,7 +456,7 @@ public class KPIDataViewModel {
             } else if value >= 4.0 && value <= 5.0 {
                 return (.good, DesignSystem.Colors.white)
             } else if value >= 6.0 && value <= 7.0 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
@@ -442,7 +468,7 @@ public class KPIDataViewModel {
                 } else if value <= baseline.p60 {
                     return (.good, DesignSystem.Colors.white)
                 } else if value <= baseline.p60 * 1.2 {
-                    return (.belowMean, DesignSystem.Colors.warning)
+                    return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
                     return (.poor, DesignSystem.Colors.secondary)
                 }
@@ -454,7 +480,7 @@ public class KPIDataViewModel {
                 } else if value >= baseline.p60 {
                     return (.good, DesignSystem.Colors.white)
                 } else if value >= baseline.p40 {
-                    return (.belowMean, DesignSystem.Colors.warning)
+                    return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
                     return (.poor, DesignSystem.Colors.secondary)
                 }
@@ -476,7 +502,7 @@ public class KPIDataViewModel {
             } else if value < 5.0 {
                 return (.good, DesignSystem.Colors.white)
             } else if value < 7.0 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
@@ -486,7 +512,7 @@ public class KPIDataViewModel {
             } else if value > 1.5 {
                 return (.good, DesignSystem.Colors.white)
             } else if value > 1.0 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
@@ -496,7 +522,7 @@ public class KPIDataViewModel {
             } else if value > 0.5 {
                 return (.good, DesignSystem.Colors.white)
             } else if value > 0.3 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
@@ -506,7 +532,7 @@ public class KPIDataViewModel {
             } else if value > 6.5 {
                 return (.good, DesignSystem.Colors.white)
             } else if value > 5.0 {
-                return (.belowMean, DesignSystem.Colors.warning)
+                return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
             }
