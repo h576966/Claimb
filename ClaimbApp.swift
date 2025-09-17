@@ -137,6 +137,26 @@ struct ClaimbApp: App {
         ClaimbLogger.info(
             "Database cleared for migration, login credentials preserved", service: "ClaimbApp")
     }
+    
+    /// Clears cache programmatically for Team DMG fix
+    private func clearCacheForTeamDMGFix() async {
+        ClaimbLogger.info("Clearing cache for Team DMG fix", service: "ClaimbApp")
+        
+        do {
+            let dataManager = DataManager(
+                modelContext: sharedModelContainer.mainContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
+            )
+            
+            // Clear match data to force fresh fetch with correct Team DMG values
+            try await dataManager.clearMatchData()
+            
+            ClaimbLogger.info("Cache cleared successfully for Team DMG fix", service: "ClaimbApp")
+        } catch {
+            ClaimbLogger.error("Failed to clear cache for Team DMG fix", service: "ClaimbApp", error: error)
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -157,6 +177,11 @@ struct ClaimbApp: App {
                             riotClient: riotClient,
                             dataDragonService: dataDragonService
                         )
+                    }
+                    
+                    // Clear cache programmatically for Team DMG fix
+                    Task {
+                        await clearCacheForTeamDMGFix()
                     }
                 }
         }

@@ -28,6 +28,7 @@
 		F35E2E802E6E0C0C009DDF39 /* ClaimbTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3867B262E7B25AD00B2ECF4 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -97,6 +98,11 @@
 			sourceTree = "<group>";
 		};
 		F36F09B92E7AADC000B06E02 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3867B2A2E7B25AD00B2ECF4 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -238,6 +244,10 @@
 				{
 					ProductGroup = F3F8AB6E2E7B11B1008E9E48 /* Products */;
 					ProjectRef = F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F3867B2A2E7B25AD00B2ECF4 /* Products */;
+					ProjectRef = F3867B262E7B25AD00B2ECF4 /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";
