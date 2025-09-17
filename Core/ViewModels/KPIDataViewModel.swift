@@ -382,9 +382,9 @@ public class KPIDataViewModel {
         if metric == "primary_role_consistency" {
             if value >= 84.0 {
                 return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= 70.0 {
+            } else if value >= 75.0 {
                 return (.good, DesignSystem.Colors.white)
-            } else if value >= 50.0 {
+            } else if value >= 60.0 {
                 return (.belowMean, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
@@ -394,7 +394,7 @@ public class KPIDataViewModel {
                 return (.excellent, DesignSystem.Colors.accent)
             } else if value >= 4.0 && value <= 5.0 {
                 return (.good, DesignSystem.Colors.white)
-            } else if value >= 6.0 && value <= 8.0 {
+            } else if value >= 6.0 && value <= 7.0 {
                 return (.belowMean, DesignSystem.Colors.warning)
             } else {
                 return (.poor, DesignSystem.Colors.secondary)
