@@ -183,6 +183,15 @@ public class KPIDataViewModel {
             let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
             return gameDurationMinutes > 0 ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
         }.reduce(0, +) / Double(participants.count)
+        
+        // Debug logging for KPI calculations
+        ClaimbLogger.debug("KPI Calculations for \(role)", service: "KPIDataViewModel", metadata: [
+            "deathsPerGame": String(format: "%.2f", deathsPerGame),
+            "visionScore": String(format: "%.2f", visionScore),
+            "killParticipation": String(format: "%.2f", killParticipation),
+            "csPerMinute": String(format: "%.2f", csPerMinute),
+            "participantCount": String(participants.count)
+        ])
 
         var kpis: [KPIMetric] = []
 
@@ -258,11 +267,15 @@ public class KPIDataViewModel {
         do {
             // First try to get baseline for "ALL" class tag
             if let baseline = try await dataManager.getBaseline(role: role, classTag: "ALL", metric: metric) {
+                ClaimbLogger.debug("Found baseline for \(metric) in \(role)", service: "KPIDataViewModel", metadata: [
+                    "mean": String(format: "%.3f", baseline.mean),
+                    "p40": String(format: "%.3f", baseline.p40),
+                    "p60": String(format: "%.3f", baseline.p60)
+                ])
                 return baseline
             }
             
-            // If no "ALL" baseline, try to get the most common champion class for this role
-            // For now, we'll use "ALL" as fallback, but this could be enhanced to use actual champion class
+            ClaimbLogger.warning("No baseline found for \(metric) in \(role)", service: "KPIDataViewModel")
             return nil
         } catch {
             ClaimbLogger.error("Failed to get baseline for \(metric) in \(role)", service: "KPIDataViewModel", error: error)
@@ -273,12 +286,15 @@ public class KPIDataViewModel {
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?) -> (PerformanceLevel, Color) {
         if let baseline = baseline {
             // Use baseline data for performance evaluation
-            if baseline.isExcellentPerformance(value) {
+            // More conservative thresholds for realistic performance assessment
+            if value >= baseline.p60 * 1.1 {
                 return (.excellent, DesignSystem.Colors.accent)
-            } else if baseline.isGoodPerformance(value) {
+            } else if value >= baseline.p60 {
                 return (.good, DesignSystem.Colors.white)
-            } else {
+            } else if value >= baseline.p40 {
                 return (.belowMean, DesignSystem.Colors.warning)
+            } else {
+                return (.poor, DesignSystem.Colors.secondary)
             }
         } else {
             // Fallback to basic performance levels
