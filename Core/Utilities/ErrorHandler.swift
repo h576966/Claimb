@@ -22,12 +22,13 @@ enum ErrorHandler {
                 return "Summoner not found: Please check your username and region"
             case .serverError(let code):
                 if code == 400 {
-                    return "API configuration error: Please check your API key at https://developer.riotgames.com/"
+                    return
+                        "API configuration error: Please check your API key at https://developer.riotgames.com/"
                 }
                 return "Server error (\(code)): Please try again later"
             }
         }
-        
+
         if let dataError = error as? DataManagerError {
             switch dataError {
             case .missingResource(let resource):
@@ -38,21 +39,21 @@ enum ErrorHandler {
                 return "Invalid data: \(message)"
             }
         }
-        
+
         // Generic error handling
         return "An unexpected error occurred: \(error.localizedDescription)"
     }
-    
+
     /// Logs errors for debugging with structured logging
     static func logError(_ error: Error, context: String, metadata: [String: String] = [:]) {
         ClaimbLogger.error("Error occurred", service: context, error: error, metadata: metadata)
     }
-    
+
     /// Logs warnings with structured logging
     static func logWarning(_ message: String, context: String, metadata: [String: String] = [:]) {
         ClaimbLogger.warning(message, service: context, metadata: metadata)
     }
-    
+
     /// Logs info with structured logging
     static func logInfo(_ message: String, context: String, metadata: [String: String] = [:]) {
         ClaimbLogger.info(message, service: context, metadata: metadata)
