@@ -60,6 +60,13 @@ public class RiotHTTPClient: RiotClient {
         request.setValue(apiKey, forHTTPHeaderField: "X-Riot-Token")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
+        // Debug logging for API requests
+        ClaimbLogger.debug("Making API request", service: "RiotHTTPClient", metadata: [
+            "url": url.absoluteString,
+            "apiKey": String(apiKey.prefix(10)) + "...",
+            "method": request.httpMethod ?? "GET"
+        ])
+        
         do {
             let (data, response) = try await session.data(for: request)
             

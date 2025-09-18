@@ -21,6 +21,9 @@ enum ErrorHandler {
             case .notFound:
                 return "Summoner not found: Please check your username and region"
             case .serverError(let code):
+                if code == 400 {
+                    return "API configuration error: Please check your API key at https://developer.riotgames.com/"
+                }
                 return "Server error (\(code)): Please try again later"
             }
         }
