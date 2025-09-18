@@ -21,12 +21,8 @@ enum APIKeyManager {
             return key
         }
 
-        // Fallback to hardcoded key for development
-        // TODO: Remove this when proper build configuration is set up
-        // This is a placeholder key - you need to get a real API key from https://developer.riotgames.com/
-        print(
-            "⚠️ WARNING: Using placeholder API key. Get a real key from https://developer.riotgames.com/"
-        )
+        // Fallback to placeholder key for development
+        // Set your API key programmatically using APIKeyManager.setRiotAPIKey() or environment variables
         return "RGAPI-PLACEHOLDER-KEY-REPLACE-WITH-REAL-KEY"
     }
 

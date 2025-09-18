@@ -37,12 +37,6 @@ struct CacheManagementView: View {
                         }
                         .padding(.top, DesignSystem.Spacing.lg)
 
-                        // API Key Configuration
-                        VStack(spacing: DesignSystem.Spacing.md) {
-                            // API Key Status
-                            APIConfigurationCard()
-                        }
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
 
                         // Cache Options
                         VStack(spacing: DesignSystem.Spacing.md) {
@@ -353,118 +347,6 @@ struct CacheOptionCard: View {
     }
 }
 
-// MARK: - API Configuration Card
-
-struct APIConfigurationCard: View {
-    @State private var apiKey = ""
-    @State private var showAPIKeyInput = false
-    @State private var showAlert = false
-    @State private var alertMessage = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            // Header
-            HStack {
-                Image(systemName: "key.fill")
-                    .font(DesignSystem.Typography.title2)
-                    .foregroundColor(DesignSystem.Colors.accent)
-                    .frame(width: 40, height: 40)
-                    .background(DesignSystem.Colors.accent.opacity(0.1))
-                    .cornerRadius(DesignSystem.CornerRadius.small)
-
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text("API Key Configuration")
-                        .font(DesignSystem.Typography.title3)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-
-                    Text("Configure your Riot API key for data access")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-
-                Spacer()
-            }
-
-            // Current API Key Status
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                Text("Current Status:")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                HStack {
-                    Image(systemName: isAPIKeyValid ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundColor(isAPIKeyValid ? DesignSystem.Colors.success : DesignSystem.Colors.warning)
-
-                    Text(isAPIKeyValid ? "Valid API key configured" : "Using placeholder API key")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(isAPIKeyValid ? DesignSystem.Colors.success : DesignSystem.Colors.warning)
-                }
-            }
-
-            // API Key Input
-            if showAPIKeyInput {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Enter your Riot API key:")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    TextField("RGAPI-...", text: $apiKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-
-                    HStack {
-                        Button("Cancel") {
-                            showAPIKeyInput = false
-                            apiKey = ""
-                        }
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                        Spacer()
-
-                        Button("Save") {
-                            saveAPIKey()
-                        }
-                        .foregroundColor(DesignSystem.Colors.primary)
-                        .disabled(apiKey.isEmpty)
-                    }
-                }
-            } else {
-                Button("Configure API Key") {
-                    showAPIKeyInput = true
-                }
-                .foregroundColor(DesignSystem.Colors.primary)
-            }
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.medium)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-        )
-        .alert("API Key", isPresented: $showAlert) {
-            Button("OK") {}
-        } message: {
-            Text(alertMessage)
-        }
-    }
-
-    private var isAPIKeyValid: Bool {
-        let currentKey = APIKeyManager.riotAPIKey
-        return !currentKey.contains("PLACEHOLDER")
-    }
-
-    private func saveAPIKey() {
-        guard !apiKey.isEmpty else { return }
-
-        APIKeyManager.setRiotAPIKey(apiKey)
-        showAPIKeyInput = false
-        apiKey = ""
-        alertMessage = "API key saved successfully! Restart the app to use the new key."
-        showAlert = true
-    }
-}
 
 // MARK: - Preview
 
