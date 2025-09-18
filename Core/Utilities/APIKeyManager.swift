@@ -11,6 +11,16 @@ enum APIKeyManager {
             return key
         }
 
+        // Try to get from environment variables
+        if let key = ProcessInfo.processInfo.environment["RIOT_API_KEY"], !key.isEmpty {
+            return key
+        }
+
+        // Try to get from UserDefaults (for development/testing)
+        if let key = UserDefaults.standard.string(forKey: "RIOT_API_KEY"), !key.isEmpty {
+            return key
+        }
+
         // Fallback to hardcoded key for development
         // TODO: Remove this when proper build configuration is set up
         // This is a placeholder key - you need to get a real API key from https://developer.riotgames.com/
@@ -18,5 +28,11 @@ enum APIKeyManager {
             "⚠️ WARNING: Using placeholder API key. Get a real key from https://developer.riotgames.com/"
         )
         return "RGAPI-PLACEHOLDER-KEY-REPLACE-WITH-REAL-KEY"
+    }
+
+    /// Sets the Riot API key for development/testing
+    static func setRiotAPIKey(_ key: String) {
+        UserDefaults.standard.set(key, forKey: "RIOT_API_KEY")
+        print("✅ API key set successfully")
     }
 }
