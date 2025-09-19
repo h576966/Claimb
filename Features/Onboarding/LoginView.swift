@@ -10,8 +10,6 @@ import SwiftUI
 
 struct LoginView: View {
     let userSession: UserSession
-    @Environment(\.riotClient) private var riotClient
-    @Environment(\.dataDragonService) private var dataDragonService
     @State private var gameName = ""
     @State private var tagLine = "8778"
     @State private var selectedRegion = "euw1"
@@ -187,18 +185,11 @@ struct LoginView: View {
         errorMessage = nil
 
         do {
-            // Ensure services are available
-            guard let riotClient = riotClient, let dataDragonService = dataDragonService else {
-                throw NSError(
-                    domain: "LoginView", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Services not available"])
-            }
-
             // Create DataManager
             let dataManager = DataManager(
                 modelContext: userSession.modelContext,
-                riotClient: riotClient,
-                dataDragonService: dataDragonService
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
             )
 
             // Create or update summoner
@@ -211,8 +202,18 @@ struct LoginView: View {
             // Load champion data if needed
             try await dataManager.loadChampionData()
 
-            // Refresh matches
-            try await dataManager.refreshMatches(for: summoner)
+            // Refresh matches - continue even if some matches fail
+            do {
+                try await dataManager.refreshMatches(for: summoner)
+            } catch {
+                // Log the error but don't fail login if only match loading fails
+                ClaimbLogger.error(
+                    "Failed to load some matches during login, continuing anyway",
+                    service: "LoginView",
+                    error: error
+                )
+                // Still allow login to proceed
+            }
 
             // Login the user
             await MainActor.run {

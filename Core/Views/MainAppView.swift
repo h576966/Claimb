@@ -10,7 +10,6 @@ import SwiftUI
 
 struct MainAppView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dataCoordinator) private var dataCoordinator
     @State private var summoner: Summoner
     @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showBaselineTest = false
@@ -233,6 +232,7 @@ struct MainAppView: View {
 
     private func initializeViewModel() {
         if matchDataViewModel == nil {
+            let dataCoordinator = DataCoordinator(modelContext: modelContext)
             matchDataViewModel = MatchDataViewModel(
                 dataCoordinator: dataCoordinator,
                 summoner: summoner

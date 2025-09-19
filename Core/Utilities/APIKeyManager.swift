@@ -22,7 +22,6 @@ enum APIKeyManager {
         }
 
         // Fallback to placeholder key for development
-        // Set your API key programmatically using APIKeyManager.setRiotAPIKey() or environment variables
         return "RGAPI-PLACEHOLDER-KEY-REPLACE-WITH-REAL-KEY"
     }
 

@@ -11,7 +11,7 @@ import SwiftUI
 struct ChampionView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @Environment(\.dataCoordinator) private var dataCoordinator
+    @Environment(\.modelContext) private var modelContext
     @State private var championDataViewModel: ChampionDataViewModel?
     @State private var selectedFilter: ChampionFilter = .all
     @State private var showRoleSelection = false
@@ -204,6 +204,7 @@ struct ChampionView: View {
 
     private func initializeViewModel() {
         if championDataViewModel == nil {
+            let dataCoordinator = DataCoordinator(modelContext: modelContext)
             championDataViewModel = ChampionDataViewModel(
                 dataCoordinator: dataCoordinator,
                 summoner: summoner,

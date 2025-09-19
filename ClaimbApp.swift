@@ -10,9 +10,6 @@ import SwiftUI
 
 @main
 struct ClaimbApp: App {
-    @State private var dataCoordinator: DataCoordinator?
-    @State private var riotClient: RiotClient?
-    @State private var dataDragonService: DataDragonServiceProtocol?
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -137,48 +134,32 @@ struct ClaimbApp: App {
         ClaimbLogger.info(
             "Database cleared for migration, login credentials preserved", service: "ClaimbApp")
     }
-    
+
     /// Clears cache programmatically for Team DMG fix
     private func clearCacheForTeamDMGFix() async {
         ClaimbLogger.info("Clearing cache for Team DMG fix", service: "ClaimbApp")
-        
+
         do {
             let dataManager = DataManager(
                 modelContext: sharedModelContainer.mainContext,
                 riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
                 dataDragonService: DataDragonService()
             )
-            
+
             // Clear match data to force fresh fetch with correct Team DMG values
             try await dataManager.clearMatchData()
-            
+
             ClaimbLogger.info("Cache cleared successfully for Team DMG fix", service: "ClaimbApp")
         } catch {
-            ClaimbLogger.error("Failed to clear cache for Team DMG fix", service: "ClaimbApp", error: error)
+            ClaimbLogger.error(
+                "Failed to clear cache for Team DMG fix", service: "ClaimbApp", error: error)
         }
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.dataCoordinator, dataCoordinator)
-                .environment(\.riotClient, riotClient)
-                .environment(\.dataDragonService, dataDragonService)
                 .onAppear {
-                    if riotClient == nil {
-                        riotClient = RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey)
-                    }
-                    if dataDragonService == nil {
-                        dataDragonService = DataDragonService()
-                    }
-                    if dataCoordinator == nil {
-                        dataCoordinator = DataCoordinator(
-                            modelContext: sharedModelContainer.mainContext,
-                            riotClient: riotClient,
-                            dataDragonService: dataDragonService
-                        )
-                    }
-                    
                     // Clear cache programmatically for Team DMG fix
                     Task {
                         await clearCacheForTeamDMGFix()
