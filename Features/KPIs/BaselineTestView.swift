@@ -10,8 +10,6 @@ import SwiftUI
 
 struct BaselineTestView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.riotClient) private var riotClient
-    @Environment(\.dataDragonService) private var dataDragonService
     @State private var baselineCount = 0
     @State private var championMappingCount = 0
     @State private var isLoading = false
@@ -282,8 +280,9 @@ struct BaselineTestView: View {
 
             // Test KPI calculation
             let dataManager = DataManager(
-                modelContext: modelContext, riotClient: riotClient!,
-                dataDragonService: dataDragonService!)
+                modelContext: modelContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService())
             let kpiService = KPICalculationService(dataManager: dataManager)
             let kpis = try await kpiService.calculateRoleKPIs(
                 matches: matches, role: "DUO_CARRY", summoner: summoner)

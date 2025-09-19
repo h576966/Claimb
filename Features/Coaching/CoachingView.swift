@@ -11,7 +11,7 @@ import SwiftUI
 struct CoachingView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @Environment(\.dataCoordinator) private var dataCoordinator
+    @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
     @State private var isAnalyzing = false
     @State private var coachingInsights: String = ""
@@ -206,6 +206,7 @@ struct CoachingView: View {
 
     private func initializeViewModel() {
         if matchDataViewModel == nil {
+            let dataCoordinator = DataCoordinator(modelContext: modelContext)
             matchDataViewModel = MatchDataViewModel(
                 dataCoordinator: dataCoordinator,
                 summoner: summoner

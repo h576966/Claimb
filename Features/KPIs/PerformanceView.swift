@@ -173,7 +173,7 @@ struct KPICard: View {
 struct PerformanceView: View {
     let summoner: Summoner
     let userSession: UserSession
-    @Environment(\.dataCoordinator) private var dataCoordinator
+    @Environment(\.modelContext) private var modelContext
     @State private var kpiDataViewModel: KPIDataViewModel?
     @State private var showRoleSelection = false
 
@@ -278,6 +278,7 @@ struct PerformanceView: View {
 
     private func initializeViewModel() {
         if kpiDataViewModel == nil {
+            let dataCoordinator = DataCoordinator(modelContext: modelContext)
             kpiDataViewModel = KPIDataViewModel(
                 dataCoordinator: dataCoordinator,
                 summoner: summoner,

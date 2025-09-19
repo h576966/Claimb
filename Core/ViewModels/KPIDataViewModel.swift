@@ -42,13 +42,14 @@ public class KPIDataViewModel {
         self.summoner = summoner
         self.userSession = userSession
 
-        // Initialize KPI calculation service
-        let tempDataManager = DataManager(
+        // Initialize KPI calculation service with a new DataManager instance
+        // This is acceptable since it's only used for baseline lookups
+        let dataManager = DataManager(
             modelContext: userSession.modelContext,
             riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
             dataDragonService: DataDragonService()
         )
-        self.kpiCalculationService = KPICalculationService(dataManager: tempDataManager)
+        self.kpiCalculationService = KPICalculationService(dataManager: dataManager)
     }
 
     // MARK: - Public Methods

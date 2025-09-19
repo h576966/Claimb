@@ -245,7 +245,7 @@ public class KPICalculationService {
             // Map role names to match baseline data format
             let baselineRole = mapRoleToBaselineFormat(role)
 
-            // First try to get baseline for "ALL" class tag
+            // Try to get baseline for "ALL" class tag
             if let baseline = try await dataManager.getBaseline(
                 role: baselineRole, classTag: "ALL", metric: metric)
             {
@@ -260,27 +260,6 @@ public class KPICalculationService {
                 return baseline
             }
 
-            // For custom KPIs that don't have baseline data, create hardcoded baselines
-            if metric == "primary_role_consistency" {
-                return createCustomBaseline(
-                    role: baselineRole,
-                    metric: metric,
-                    mean: 75.0,
-                    median: 75.0,
-                    p40: 60.0,
-                    p60: 84.0
-                )
-            } else if metric == "champion_pool_size" {
-                return createCustomBaseline(
-                    role: baselineRole,
-                    metric: metric,
-                    mean: 4.0,
-                    median: 4.0,
-                    p40: 2.0,
-                    p60: 5.0
-                )
-            }
-
             ClaimbLogger.warning(
                 "No baseline found for \(metric) in \(baselineRole)",
                 service: "KPICalculationService")
@@ -293,32 +272,6 @@ public class KPICalculationService {
         }
     }
 
-    private func createCustomBaseline(
-        role: String,
-        metric: String,
-        mean: Double,
-        median: Double,
-        p40: Double,
-        p60: Double
-    ) -> Baseline {
-        let customBaseline = Baseline(
-            role: role,
-            classTag: "ALL",
-            metric: metric,
-            mean: mean,
-            median: median,
-            p40: p40,
-            p60: p60
-        )
-        ClaimbLogger.debug(
-            "Using hardcoded baseline for \(metric)", service: "KPICalculationService",
-            metadata: [
-                "mean": String(format: "%.1f", customBaseline.mean),
-                "p40": String(format: "%.1f", customBaseline.p40),
-                "p60": String(format: "%.1f", customBaseline.p60),
-            ])
-        return customBaseline
-    }
 
     private func mapRoleToBaselineFormat(_ role: String) -> String {
         switch role.uppercased() {
@@ -340,28 +293,7 @@ public class KPICalculationService {
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
         -> (PerformanceLevel, Color)
     {
-        // Custom logic for new KPIs that don't have baseline data
-        if metric == "primary_role_consistency" {
-            if value >= 84.0 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= 75.0 {
-                return (.good, DesignSystem.Colors.white)
-            } else if value >= 60.0 {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            } else {
-                return (.poor, DesignSystem.Colors.secondary)
-            }
-        } else if metric == "champion_pool_size" {
-            if value >= 1.0 && value <= 3.0 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= 4.0 && value <= 5.0 {
-                return (.good, DesignSystem.Colors.white)
-            } else if value >= 6.0 && value <= 7.0 {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            } else {
-                return (.poor, DesignSystem.Colors.secondary)
-            }
-        } else if let baseline = baseline {
+        if let baseline = baseline {
             // Special handling for Deaths per Game - lower is better
             if metric == "deaths_per_game" {
                 if value <= baseline.p40 * 0.9 {
@@ -375,7 +307,6 @@ public class KPICalculationService {
                 }
             } else {
                 // Standard logic for other metrics - higher is better
-                // More conservative thresholds for realistic performance assessment
                 if value >= baseline.p60 * 1.1 {
                     return (.excellent, DesignSystem.Colors.accent)
                 } else if value >= baseline.p60 {
