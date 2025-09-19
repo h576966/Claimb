@@ -5,19 +5,19 @@ import SwiftUI
 // Clean typography, data visualization, and minimalistic design
 
 struct DesignSystem {
-    
+
     // MARK: - Colors
     struct Colors {
         // Primary brand colors
-        static let primary = Color(red: 240/255, green: 160/255, blue: 10/255)    // Orange
-        static let secondary = Color(red: 220/255, green: 100/255, blue: 70/255)  // Red-orange
-        static let accent = Color(red: 100/255, green: 210/255, blue: 155/255)    // Teal
-        
+        static let primary = Color(red: 240 / 255, green: 160 / 255, blue: 10 / 255)  // Orange
+        static let secondary = Color(red: 220 / 255, green: 100 / 255, blue: 70 / 255)  // Red-orange
+        static let accent = Color(red: 100 / 255, green: 210 / 255, blue: 155 / 255)  // Teal
+
         // Standard colors
         static let black = Color.black
         static let white = Color.white
         static let gray = Color.gray
-        
+
         // Semantic colors
         static let background = Color.black
         static let cardBackground = Color(red: 0.1, green: 0.1, blue: 0.1)
@@ -25,14 +25,14 @@ struct DesignSystem {
         static let textPrimary = Color.white
         static let textSecondary = Color(red: 0.8, green: 0.8, blue: 0.8)
         static let textTertiary = Color(red: 0.6, green: 0.6, blue: 0.6)
-        
-        // Status colors
-        static let success = Color.green
-        static let warning = Color.orange
-        static let error = Color.red
-        static let info = Color.blue
+
+        // Status colors (using brand colors)
+        static let success = Color(red: 100 / 255, green: 210 / 255, blue: 155 / 255)  // Teal (accent)
+        static let warning = Color(red: 240 / 255, green: 160 / 255, blue: 10 / 255)  // Orange (primary)
+        static let error = Color(red: 220 / 255, green: 100 / 255, blue: 70 / 255)  // Red-orange (secondary)
+        static let info = Color(red: 0.8, green: 0.8, blue: 0.8)  // Light grey (textSecondary)
     }
-    
+
     // MARK: - Typography
     struct Typography {
         // Headers
@@ -40,7 +40,7 @@ struct DesignSystem {
         static let title = Font.system(size: 28, weight: .semibold, design: .default)
         static let title2 = Font.system(size: 22, weight: .semibold, design: .default)
         static let title3 = Font.system(size: 20, weight: .medium, design: .default)
-        
+
         // Body text
         static let body = Font.system(size: 17, weight: .regular, design: .default)
         static let bodyBold = Font.system(size: 17, weight: .semibold, design: .default)
@@ -48,11 +48,11 @@ struct DesignSystem {
         static let subheadline = Font.system(size: 15, weight: .regular, design: .default)
         static let footnote = Font.system(size: 13, weight: .regular, design: .default)
         static let caption = Font.system(size: 12, weight: .regular, design: .default)
-        
+
         // Special
         static let monospaced = Font.system(size: 17, weight: .regular, design: .monospaced)
     }
-    
+
     // MARK: - Spacing
     struct Spacing {
         static let xs: CGFloat = 4
@@ -62,7 +62,7 @@ struct DesignSystem {
         static let xl: CGFloat = 32
         static let xxl: CGFloat = 48
     }
-    
+
     // MARK: - Corner Radius
     struct CornerRadius {
         static let small: CGFloat = 8
@@ -70,7 +70,7 @@ struct DesignSystem {
         static let large: CGFloat = 16
         static let extraLarge: CGFloat = 20
     }
-    
+
     // MARK: - Shadows
     struct Shadows {
         static let card = Color.black.opacity(0.3)
@@ -83,12 +83,12 @@ struct DesignSystem {
 struct ClaimbCard<Content: View>: View {
     let content: Content
     let padding: CGFloat
-    
+
     init(padding: CGFloat = DesignSystem.Spacing.md, @ViewBuilder content: () -> Content) {
         self.padding = padding
         self.content = content()
     }
-    
+
     var body: some View {
         content
             .padding(padding)
@@ -111,24 +111,24 @@ struct ClaimbCard<Content: View>: View {
 struct ClaimbButtonStyle: ButtonStyle {
     let variant: ButtonVariant
     let size: ButtonSize
-    
+
     enum ButtonVariant {
         case primary
         case secondary
         case minimal
     }
-    
+
     enum ButtonSize {
         case small
         case medium
         case large
     }
-    
+
     init(variant: ButtonVariant = .primary, size: ButtonSize = .medium) {
         self.variant = variant
         self.size = size
     }
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(buttonFont)
@@ -139,7 +139,7 @@ struct ClaimbButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
-    
+
     private var buttonFont: Font {
         switch size {
         case .small: return DesignSystem.Typography.callout
@@ -147,7 +147,7 @@ struct ClaimbButtonStyle: ButtonStyle {
         case .large: return DesignSystem.Typography.title3
         }
     }
-    
+
     private var buttonPadding: EdgeInsets {
         switch size {
         case .small: return EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
@@ -155,7 +155,7 @@ struct ClaimbButtonStyle: ButtonStyle {
         case .large: return EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20)
         }
     }
-    
+
     private var buttonTextColor: Color {
         switch variant {
         case .primary: return DesignSystem.Colors.white
@@ -163,7 +163,7 @@ struct ClaimbButtonStyle: ButtonStyle {
         case .minimal: return DesignSystem.Colors.textPrimary
         }
     }
-    
+
     private var buttonBackground: Color {
         switch variant {
         case .primary: return DesignSystem.Colors.primary
@@ -180,17 +180,17 @@ struct ClaimbRating {
         case good = "Good"
         case fair = "Fair"
         case poor = "Poor"
-        
+
         var color: Color {
             switch self {
-            case .excellent: return DesignSystem.Colors.success
-            case .good: return DesignSystem.Colors.accent
-            case .fair: return DesignSystem.Colors.warning
-            case .poor: return DesignSystem.Colors.error
+            case .excellent: return DesignSystem.Colors.success  // Teal
+            case .good: return DesignSystem.Colors.accent  // Teal (same as success)
+            case .fair: return DesignSystem.Colors.warning  // Orange
+            case .poor: return DesignSystem.Colors.error  // Red-orange
             }
         }
     }
-    
+
     static func level(for score: Double, maxScore: Double = 100) -> Level {
         let percentage = score / maxScore
         switch percentage {
@@ -208,14 +208,17 @@ struct ClaimbProgressBar: View {
     let maxValue: Double
     let color: Color
     let height: CGFloat
-    
-    init(value: Double, maxValue: Double = 100, color: Color = DesignSystem.Colors.primary, height: CGFloat = 8) {
+
+    init(
+        value: Double, maxValue: Double = 100, color: Color = DesignSystem.Colors.primary,
+        height: CGFloat = 8
+    ) {
         self.value = value
         self.maxValue = maxValue
         self.color = color
         self.height = height
     }
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
@@ -223,7 +226,7 @@ struct ClaimbProgressBar: View {
                 RoundedRectangle(cornerRadius: height / 2)
                     .fill(DesignSystem.Colors.cardBorder)
                     .frame(height: height)
-                
+
                 // Progress
                 RoundedRectangle(cornerRadius: height / 2)
                     .fill(color)
@@ -241,8 +244,11 @@ extension View {
             self
         }
     }
-    
-    func claimbButton(variant: ClaimbButtonStyle.ButtonVariant = .primary, size: ClaimbButtonStyle.ButtonSize = .medium) -> some View {
+
+    func claimbButton(
+        variant: ClaimbButtonStyle.ButtonVariant = .primary,
+        size: ClaimbButtonStyle.ButtonSize = .medium
+    ) -> some View {
         self.buttonStyle(ClaimbButtonStyle(variant: variant, size: size))
     }
 }

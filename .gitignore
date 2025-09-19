@@ -94,3 +94,11 @@ iOSInjectionProject/
 
 # Temporary files
 temp_*/
+
+# API Keys and Secrets
+Scripts/setup_api_key.sh
+*.env
+.env
+.env.local
+.env.development
+.env.production

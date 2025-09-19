@@ -24,6 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F31B71632E7DE95D003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35E2E712E6E0C0B009DDF39 /* Claimb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Claimb.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E802E6E0C0C009DDF39 /* ClaimbTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -77,6 +78,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F31B71672E7DE95D003C0FF7 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F35E2E682E6E0C0A009DDF39 = {
 			isa = PBXGroup;
 			children = (
@@ -229,6 +235,10 @@
 			productRefGroup = F35E2E722E6E0C0B009DDF39 /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = F31B71672E7DE95D003C0FF7 /* Products */;
+					ProjectRef = F31B71632E7DE95D003C0FF7 /* Claimb.xcodeproj */;
+				},
 				{
 					ProductGroup = F36F09B92E7AADC000B06E02 /* Products */;
 					ProjectRef = F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */;
