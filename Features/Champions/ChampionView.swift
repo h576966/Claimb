@@ -13,7 +13,7 @@ struct ChampionView: View {
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var championDataViewModel: ChampionDataViewModel?
-    @State private var selectedFilter: ChampionFilter = .all
+    @State private var selectedFilter: ChampionFilter = .mostPlayed
     @State private var showRoleSelection = false
     @State private var expandedChampionIds: Set<Int> = []
 
@@ -137,31 +137,42 @@ struct ChampionView: View {
     }
 
     private var filterOptionsView: some View {
-        HStack(spacing: DesignSystem.Spacing.sm) {
-            ForEach(ChampionFilter.allCases, id: \.self) { filter in
-                Button(action: {
-                    selectedFilter = filter
-                }) {
-                    Text(filter.rawValue)
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(
-                            selectedFilter == filter
-                                ? DesignSystem.Colors.white : DesignSystem.Colors.textPrimary
-                        )
-                        .padding(.horizontal, DesignSystem.Spacing.md)
-                        .padding(.vertical, DesignSystem.Spacing.sm)
-                        .background(
-                            selectedFilter == filter
-                                ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground
-                        )
-                        .cornerRadius(DesignSystem.CornerRadius.small)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-                        )
+        VStack(spacing: DesignSystem.Spacing.sm) {
+            // Filter buttons
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(ChampionFilter.allCases, id: \.self) { filter in
+                    Button(action: {
+                        selectedFilter = filter
+                    }) {
+                        Text(filter.rawValue)
+                            .font(DesignSystem.Typography.callout)
+                            .foregroundColor(
+                                selectedFilter == filter
+                                    ? DesignSystem.Colors.white : DesignSystem.Colors.textPrimary
+                            )
+                            .padding(.horizontal, DesignSystem.Spacing.md)
+                            .padding(.vertical, DesignSystem.Spacing.sm)
+                            .background(
+                                selectedFilter == filter
+                                    ? DesignSystem.Colors.primary
+                                    : DesignSystem.Colors.cardBackground
+                            )
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
+
+            // Filter description
+            Text(selectedFilter.description)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
         }
         .padding(.horizontal, DesignSystem.Spacing.lg)
         .padding(.bottom, DesignSystem.Spacing.md)
@@ -176,6 +187,7 @@ struct ChampionView: View {
                             championStat: championStat,
                             filter: selectedFilter,
                             userSession: userSession,
+                            viewModel: viewModel,
                             isExpanded: expandedChampionIds.contains(championStat.champion.id),
                             onToggle: {
                                 toggleExpansion(for: championStat.champion.id)
@@ -235,189 +247,10 @@ struct ChampionStats {
 }
 
 // MARK: - KPI Data Structure
-
-struct RoleKPI {
-    let title: String
-    let value: String
-    let color: Color
-}
+// Note: RoleKPI struct is now defined in ChampionDataViewModel to avoid duplication
 
 // MARK: - Role-Specific KPI Logic
-
-private func getRoleSpecificKPIs(for championStat: ChampionStats, role: String) -> [RoleKPI] {
-    ClaimbLogger.debug(
-        "Getting role-specific KPIs", service: "ChampionView",
-        metadata: [
-            "role": role,
-            "champion": championStat.champion.name,
-        ])
-
-    switch role.uppercased() {
-    case "BOTTOM":
-        return [
-            RoleKPI(
-                title: "CS/min",
-                value: String(format: "%.1f", championStat.averageCS),
-                color: getKPIColor(
-                    value: championStat.averageCS, baseline: 6.84, higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Deaths",
-                value: String(format: "%.1f", championStat.averageDeaths),
-                color: getKPIColor(
-                    value: championStat.averageDeaths, baseline: 5.39, higherIsBetter: false)
-            ),
-            RoleKPI(
-                title: "Team DMG",
-                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
-                color: getKPIColor(
-                    value: championStat.averageTeamDamagePercent, baseline: 0.22,
-                    higherIsBetter: true)
-            ),
-        ]
-
-    case "JUNGLE":
-        return [
-            RoleKPI(
-                title: "Obj Part%",
-                value: String(format: "%.0f%%", championStat.averageObjectiveParticipation * 100),
-                color: getKPIColor(
-                    value: championStat.averageObjectiveParticipation * 100, baseline: 75.0,
-                    higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Vision/min",
-                value: String(format: "%.1f", championStat.averageVisionScore),
-                color: getKPIColor(
-                    value: championStat.averageVisionScore, baseline: 0.75, higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Kill Part%",
-                value: String(format: "%.0f%%", championStat.averageKillParticipation * 100),
-                color: getKPIColor(
-                    value: championStat.averageKillParticipation * 100, baseline: 50.0,
-                    higherIsBetter: true)
-            ),
-        ]
-
-    case "MID":
-        return [
-            RoleKPI(
-                title: "CS/min",
-                value: String(format: "%.1f", championStat.averageCS),
-                color: getKPIColor(
-                    value: championStat.averageCS, baseline: 6.46, higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Team DMG",
-                value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
-                color: getKPIColor(
-                    value: championStat.averageTeamDamagePercent, baseline: 0.22,
-                    higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Deaths",
-                value: String(format: "%.1f", championStat.averageDeaths),
-                color: getKPIColor(
-                    value: championStat.averageDeaths, baseline: 4.8, higherIsBetter: false)
-            ),
-        ]
-
-    case "TOP":
-        return [
-            RoleKPI(
-                title: "CS/min",
-                value: String(format: "%.1f", championStat.averageCS),
-                color: getKPIColor(
-                    value: championStat.averageCS, baseline: 6.59, higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Dmg Taken%",
-                value: String(format: "%.1f%%", championStat.averageDamageTakenShare * 100),
-                color: getKPIColor(
-                    value: championStat.averageDamageTakenShare * 100, baseline: 29.0,
-                    higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Deaths",
-                value: String(format: "%.1f", championStat.averageDeaths),
-                color: getKPIColor(
-                    value: championStat.averageDeaths, baseline: 4.78, higherIsBetter: false)
-            ),
-        ]
-
-    case "UTILITY", "SUPPORT":
-        return [
-            RoleKPI(
-                title: "Vision/min",
-                value: String(format: "%.1f", championStat.averageVisionScore),
-                color: getKPIColor(
-                    value: championStat.averageVisionScore, baseline: 1.77, higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Kill Part%",
-                value: String(format: "%.0f%%", championStat.averageKillParticipation * 100),
-                color: getKPIColor(
-                    value: championStat.averageKillParticipation * 100, baseline: 51.0,
-                    higherIsBetter: true)
-            ),
-            RoleKPI(
-                title: "Obj Part%",
-                value: String(format: "%.0f%%", championStat.averageObjectiveParticipation * 100),
-                color: getKPIColor(
-                    value: championStat.averageObjectiveParticipation * 100, baseline: 41.0,
-                    higherIsBetter: true)
-            ),
-        ]
-
-    default:
-        // Fallback to general metrics
-        return [
-            RoleKPI(
-                title: "CS/min",
-                value: String(format: "%.1f", championStat.averageCS),
-                color: DesignSystem.Colors.textPrimary
-            ),
-            RoleKPI(
-                title: "Deaths",
-                value: String(format: "%.1f", championStat.averageDeaths),
-                color: DesignSystem.Colors.textPrimary
-            ),
-            RoleKPI(
-                title: "KDA",
-                value: String(format: "%.1f", championStat.averageKDA),
-                color: DesignSystem.Colors.textPrimary
-            ),
-        ]
-    }
-}
-
-private func getKPIColor(value: Double, baseline: Double, higherIsBetter: Bool) -> Color {
-    // Use the same performance calculation logic as KPICalculationService
-    if higherIsBetter {
-        // Standard logic for higher-is-better metrics
-        if value >= baseline * 1.1 {
-            return DesignSystem.Colors.accent  // Teal - excellent
-        } else if value >= baseline {
-            return DesignSystem.Colors.white  // White - good
-        } else if value >= baseline * 0.8 {
-            return DesignSystem.Colors.warning  // Orange - needs improvement
-        } else {
-            return DesignSystem.Colors.secondary  // Red - poor
-        }
-    } else {
-        // Special handling for lower-is-better metrics (like deaths)
-        if value <= baseline * 0.9 {
-            return DesignSystem.Colors.accent  // Teal - excellent
-        } else if value <= baseline {
-            return DesignSystem.Colors.white  // White - good
-        } else if value <= baseline * 1.2 {
-            return DesignSystem.Colors.warning  // Orange - needs improvement
-        } else {
-            return DesignSystem.Colors.secondary  // Red - poor
-        }
-    }
-}
+// Note: KPI logic has been moved to ChampionDataViewModel to avoid duplication
 
 // MARK: - Champion Card Views
 
@@ -425,6 +258,7 @@ struct ExpandableChampionStatsCard: View {
     let championStat: ChampionStats
     let filter: ChampionFilter
     let userSession: UserSession
+    let viewModel: ChampionDataViewModel
     let isExpanded: Bool
     let onToggle: () -> Void
 
@@ -519,7 +353,7 @@ struct ExpandableChampionStatsCard: View {
                     ], spacing: DesignSystem.Spacing.sm
                 ) {
                     ForEach(
-                        getRoleSpecificKPIs(
+                        viewModel.getRoleSpecificKPIsFromChampionView(
                             for: championStat, role: userSession.selectedPrimaryRole), id: \.title
                     ) { kpi in
                         StatItemView(

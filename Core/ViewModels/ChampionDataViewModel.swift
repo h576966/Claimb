@@ -78,7 +78,7 @@ public class ChampionDataViewModel {
     }
 
     /// Loads champion statistics for the current role and filter
-    public func loadChampionStats(role: String? = nil, filter: ChampionFilter = .all) async {
+    public func loadChampionStats(role: String? = nil, filter: ChampionFilter = .mostPlayed) async {
         // Cancel any existing task
         currentTask?.cancel()
 
@@ -265,29 +265,262 @@ public class ChampionDataViewModel {
             )
         }
 
-        // Apply additional filtering based on the filter parameter
-        let finalStats = filteredStats.filter { stats in
-            switch filter {
-            case .all:
-                return true
-            case .highWinRate:
-                return stats.winRate >= 0.6
-            case .highGames:
-                return stats.gamesPlayed >= 10
-            case .highKDA:
-                return stats.averageKDA >= 2.0
+        // Apply sorting based on filter type
+        switch filter {
+        case .mostPlayed:
+            // Sort by total games played (descending)
+            return filteredStats.sorted { $0.gamesPlayed > $1.gamesPlayed }
+
+        case .bestPerforming:
+            // Calculate average win rate for filtering
+            guard !filteredStats.isEmpty else { return [] }
+            let averageWinRate =
+                filteredStats.map { $0.winRate }.reduce(0, +) / Double(filteredStats.count)
+
+            // Filter out champions below average win rate
+            let aboveAverageStats = filteredStats.filter { $0.winRate >= averageWinRate }
+
+            // Sort by composite performance score (descending)
+            return aboveAverageStats.sorted { lhs, rhs in
+                let lhsScore = calculateCompositePerformanceScore(lhs, role: role)
+                let rhsScore = calculateCompositePerformanceScore(rhs, role: role)
+                return lhsScore > rhsScore
+            }
+        }
+    }
+
+    /// Calculates a simplified composite performance score using existing color-coded ratings from ChampionView
+    private func calculateCompositePerformanceScore(_ stats: ChampionStats, role: String) -> Double
+    {
+        // Reuse existing role-specific KPI logic from ChampionView
+        let roleKPIs = getRoleSpecificKPIsFromChampionView(for: stats, role: role)
+
+        // Convert existing color codes to 0-4 scale (Red = 0 points)
+        let kpiScores = roleKPIs.map { kpi in
+            switch kpi.color {
+            case DesignSystem.Colors.accent: return 4.0  // Green - Excellent
+            case DesignSystem.Colors.white: return 3.0  // White - Good
+            case DesignSystem.Colors.warning: return 2.0  // Orange - Needs Improvement
+            case DesignSystem.Colors.secondary: return 0.0  // Red - Poor (0 points)
+            default: return 2.0  // Default to average
             }
         }
 
-        return finalStats.sorted { $0.gamesPlayed > $1.gamesPlayed }
+        // Average KPI performance (0-4 scale)
+        let averageKPIScore =
+            kpiScores.isEmpty ? 2.0 : kpiScores.reduce(0, +) / Double(kpiScores.count)
+
+        // Win rate bonus (0-1 additional points)
+        let winRateBonus = stats.winRate
+
+        // Games played reliability weight (0.5-1.0)
+        let gamesWeight = min(Double(stats.gamesPlayed) / 5.0, 1.0)
+
+        // Final composite score: (KPI average + win rate bonus) * games weight
+        return (averageKPIScore + winRateBonus) * gamesWeight
+    }
+
+    /// Reuse existing role-specific KPI logic from ChampionView to avoid duplication
+    func getRoleSpecificKPIsFromChampionView(for championStat: ChampionStats, role: String)
+        -> [RoleKPI]
+    {
+        // This reuses the exact same logic from ChampionView's getRoleSpecificKPIs function
+        // to avoid code duplication
+        let role = role.uppercased()
+
+        switch role {
+        case "BOTTOM":
+            return [
+                RoleKPI(
+                    title: "CS/min",
+                    value: String(format: "%.1f", championStat.averageCS),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageCS, baseline: 6.84, higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Team DMG",
+                    value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageTeamDamagePercent, baseline: 0.22,
+                        higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Deaths",
+                    value: String(format: "%.1f", championStat.averageDeaths),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageDeaths, baseline: 5.39, higherIsBetter: false)
+                ),
+            ]
+
+        case "JUNGLE":
+            return [
+                RoleKPI(
+                    title: "Obj Part%",
+                    value: String(
+                        format: "%.0f%%", championStat.averageObjectiveParticipation * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageObjectiveParticipation * 100, baseline: 75.0,
+                        higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Vision/min",
+                    value: String(format: "%.1f", championStat.averageVisionScore),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageVisionScore, baseline: 0.75, higherIsBetter: true
+                    )
+                ),
+                RoleKPI(
+                    title: "Kill Part%",
+                    value: String(format: "%.0f%%", championStat.averageKillParticipation * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageKillParticipation * 100, baseline: 50.0,
+                        higherIsBetter: true)
+                ),
+            ]
+
+        case "MID":
+            return [
+                RoleKPI(
+                    title: "CS/min",
+                    value: String(format: "%.1f", championStat.averageCS),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageCS, baseline: 6.46, higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Team DMG",
+                    value: String(format: "%.1f%%", championStat.averageTeamDamagePercent * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageTeamDamagePercent, baseline: 0.22,
+                        higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Deaths",
+                    value: String(format: "%.1f", championStat.averageDeaths),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageDeaths, baseline: 4.8, higherIsBetter: false)
+                ),
+            ]
+
+        case "TOP":
+            return [
+                RoleKPI(
+                    title: "CS/min",
+                    value: String(format: "%.1f", championStat.averageCS),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageCS, baseline: 6.59, higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Dmg Taken%",
+                    value: String(format: "%.1f%%", championStat.averageDamageTakenShare * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageDamageTakenShare * 100, baseline: 29.0,
+                        higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Deaths",
+                    value: String(format: "%.1f", championStat.averageDeaths),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageDeaths, baseline: 4.78, higherIsBetter: false)
+                ),
+            ]
+
+        case "UTILITY", "SUPPORT":
+            return [
+                RoleKPI(
+                    title: "Vision/min",
+                    value: String(format: "%.1f", championStat.averageVisionScore),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageVisionScore, baseline: 1.77, higherIsBetter: true
+                    )
+                ),
+                RoleKPI(
+                    title: "Kill Part%",
+                    value: String(format: "%.0f%%", championStat.averageKillParticipation * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageKillParticipation * 100, baseline: 51.0,
+                        higherIsBetter: true)
+                ),
+                RoleKPI(
+                    title: "Obj Part%",
+                    value: String(
+                        format: "%.0f%%", championStat.averageObjectiveParticipation * 100),
+                    color: getKPIColorFromChampionView(
+                        value: championStat.averageObjectiveParticipation * 100, baseline: 41.0,
+                        higherIsBetter: true)
+                ),
+            ]
+
+        default:
+            // Fallback to general metrics
+            return [
+                RoleKPI(
+                    title: "CS/min",
+                    value: String(format: "%.1f", championStat.averageCS),
+                    color: DesignSystem.Colors.textPrimary
+                ),
+                RoleKPI(
+                    title: "Deaths",
+                    value: String(format: "%.1f", championStat.averageDeaths),
+                    color: DesignSystem.Colors.textPrimary
+                ),
+                RoleKPI(
+                    title: "KDA",
+                    value: String(format: "%.1f", championStat.averageKDA),
+                    color: DesignSystem.Colors.textPrimary
+                ),
+            ]
+        }
+    }
+
+    /// Reuse existing KPI color logic from ChampionView to avoid duplication
+    private func getKPIColorFromChampionView(value: Double, baseline: Double, higherIsBetter: Bool)
+        -> Color
+    {
+        if higherIsBetter {
+            if value >= baseline * 1.1 {
+                return DesignSystem.Colors.accent  // Green - excellent
+            } else if value >= baseline {
+                return DesignSystem.Colors.white  // White - good
+            } else if value >= baseline * 0.8 {
+                return DesignSystem.Colors.warning  // Orange - needs improvement
+            } else {
+                return DesignSystem.Colors.secondary  // Red - poor
+            }
+        } else {
+            // Special handling for lower-is-better metrics (like deaths)
+            if value <= baseline * 0.9 {
+                return DesignSystem.Colors.accent  // Green - excellent
+            } else if value <= baseline {
+                return DesignSystem.Colors.white  // White - good
+            } else if value <= baseline * 1.2 {
+                return DesignSystem.Colors.warning  // Orange - needs improvement
+            } else {
+                return DesignSystem.Colors.secondary  // Red - poor
+            }
+        }
     }
 }
 
 // MARK: - Champion Filter
 
 public enum ChampionFilter: String, CaseIterable {
-    case all = "All"
-    case highWinRate = "High Win Rate"
-    case highGames = "High Games"
-    case highKDA = "High KDA"
+    case mostPlayed = "Most Played"
+    case bestPerforming = "Best Performing"
+
+    var description: String {
+        switch self {
+        case .mostPlayed:
+            return "Champions you've played most frequently"
+        case .bestPerforming:
+            return "Champions where you excel based on performance"
+        }
+    }
+}
+
+// MARK: - Supporting Types
+
+public struct RoleKPI {
+    let title: String
+    let value: String
+    let color: Color
 }
