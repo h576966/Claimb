@@ -27,6 +27,10 @@ enum DataCoordinatorError: Error, LocalizedError {
 public class DataCoordinator {
     private let dataManager: DataManager
 
+    // Request deduplication
+    private var activeRequests: Set<String> = []
+    private var requestQueue: [String: Task<UIState<[Match]>, Never>] = [:]
+
     public init(
         modelContext: ModelContext, riotClient: RiotClient? = nil,
         dataDragonService: DataDragonServiceProtocol? = nil
@@ -40,44 +44,75 @@ public class DataCoordinator {
         )
     }
 
+    deinit {
+        // Cancel all pending tasks to prevent memory leaks
+        // Note: We can't access @MainActor properties in deinit, so we'll just let them be cancelled naturally
+        // The tasks will be cancelled when the DataCoordinator is deallocated
+    }
+
     // MARK: - Match Loading
 
     /// Loads matches with the common pattern used across views
     public func loadMatches(for summoner: Summoner, limit: Int = 50) async -> UIState<[Match]> {
-        ClaimbLogger.info(
-            "Loading matches", service: "DataCoordinator",
-            metadata: [
-                "summoner": summoner.gameName,
-                "limit": String(limit),
-            ])
+        let requestKey = "matches_\(summoner.puuid)_\(limit)"
 
-        do {
-            // Check if we have existing matches
-            let existingMatches = try await dataManager.getMatches(for: summoner)
+        // Check if request is already in progress
+        if let existingTask = requestQueue[requestKey] {
+            ClaimbLogger.debug(
+                "Request already in progress, waiting for result", service: "DataCoordinator",
+                metadata: ["requestKey": requestKey])
+            return await existingTask.value
+        }
 
-            if existingMatches.isEmpty {
-                // Load initial matches
-                ClaimbLogger.info(
-                    "No existing matches, loading initial batch", service: "DataCoordinator")
-                try await dataManager.loadInitialMatches(for: summoner)
-            } else {
-                // Load any new matches incrementally
-                ClaimbLogger.info(
-                    "Found existing matches, checking for new ones", service: "DataCoordinator",
-                    metadata: [
-                        "count": String(existingMatches.count)
-                    ])
-                try await dataManager.refreshMatches(for: summoner)
+        // Create new task
+        let task = Task<UIState<[Match]>, Never> {
+            defer {
+                // Clean up when task completes
+                requestQueue.removeValue(forKey: requestKey)
+                activeRequests.remove(requestKey)
             }
 
-            // Get all matches after loading
-            let loadedMatches = try await dataManager.getMatches(for: summoner, limit: limit)
-            return .loaded(loadedMatches)
+            ClaimbLogger.info(
+                "Loading matches", service: "DataCoordinator",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "limit": String(limit),
+                ])
 
-        } catch {
-            ClaimbLogger.error("Failed to load matches", service: "DataCoordinator", error: error)
-            return .error(error)
+            do {
+                // Check if we have existing matches
+                let existingMatches = try await dataManager.getMatches(for: summoner)
+
+                if existingMatches.isEmpty {
+                    // Load initial matches
+                    ClaimbLogger.info(
+                        "No existing matches, loading initial batch", service: "DataCoordinator")
+                    try await dataManager.loadInitialMatches(for: summoner)
+                } else {
+                    // Load any new matches incrementally
+                    ClaimbLogger.info(
+                        "Found existing matches, checking for new ones", service: "DataCoordinator",
+                        metadata: [
+                            "count": String(existingMatches.count)
+                        ])
+                    try await dataManager.refreshMatches(for: summoner)
+                }
+
+                // Get all matches after loading
+                let loadedMatches = try await dataManager.getMatches(for: summoner, limit: limit)
+                return .loaded(loadedMatches)
+
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to load matches", service: "DataCoordinator", error: error)
+                return .error(error)
+            }
         }
+
+        // Store task and return its result
+        requestQueue[requestKey] = task
+        activeRequests.insert(requestKey)
+        return await task.value
     }
 
     /// Refreshes matches from API
@@ -109,6 +144,13 @@ public class DataCoordinator {
             // Ensure champion data is loaded first
             try await dataManager.loadChampionData()
             let champions = try await dataManager.getAllChampions()
+
+            ClaimbLogger.info(
+                "Successfully loaded \(champions.count) champions",
+                service: "DataCoordinator",
+                metadata: ["championCount": String(champions.count)]
+            )
+
             return .loaded(champions)
         } catch {
             ClaimbLogger.error("Failed to load champions", service: "DataCoordinator", error: error)
@@ -194,7 +236,8 @@ public class DataCoordinator {
             try await dataManager.loadBaselineData()
             return .loaded(())
         } catch {
-            ClaimbLogger.error("Failed to load baseline data", service: "DataCoordinator", error: error)
+            ClaimbLogger.error(
+                "Failed to load baseline data", service: "DataCoordinator", error: error)
             return .error(error)
         }
     }

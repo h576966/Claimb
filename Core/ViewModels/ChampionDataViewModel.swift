@@ -24,6 +24,8 @@ public class ChampionDataViewModel {
     private let dataCoordinator: DataCoordinator?
     private let summoner: Summoner
     private let userSession: UserSession
+    private var currentTask: Task<Void, Never>?
+    nonisolated(unsafe) private var cleanupTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -37,52 +39,76 @@ public class ChampionDataViewModel {
 
     /// Loads champions and calculates role statistics
     public func loadData() async {
-        guard let dataCoordinator = dataCoordinator else {
-            championState = .error(DataCoordinatorError.notAvailable)
-            return
+        // Cancel any existing task
+        currentTask?.cancel()
+
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else {
+                championState = .error(DataCoordinatorError.notAvailable)
+                return
+            }
+
+            championState = .loading
+
+            // Load champions using DataCoordinator
+            let championResult = await dataCoordinator.loadChampions()
+
+            championState = championResult
+
+            // Load matches and calculate role stats
+            let matchResult = await dataCoordinator.loadMatches(for: summoner)
+
+            switch matchResult {
+            case .loaded(let matches):
+                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+
+                // Load champion stats after setting role stats
+                await loadChampionStats()
+            case .error(let error):
+                championState = .error(error)
+            case .loading, .idle, .empty:
+                break
+            }
         }
 
-        championState = .loading
+        // Store task for cleanup
+        cleanupTask = currentTask
 
-        // Load champions using DataCoordinator
-        let championResult = await dataCoordinator.loadChampions()
-
-        championState = championResult
-
-        // Load matches and calculate role stats
-        let matchResult = await dataCoordinator.loadMatches(for: summoner)
-
-        switch matchResult {
-        case .loaded(let matches):
-            roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
-
-            // Load champion stats after setting role stats
-            await loadChampionStats()
-        case .error(let error):
-            championState = .error(error)
-        case .loading, .idle, .empty:
-            break
-        }
+        await currentTask?.value
     }
 
     /// Loads champion statistics for the current role and filter
     public func loadChampionStats(role: String? = nil, filter: ChampionFilter = .all) async {
-        guard let dataCoordinator = dataCoordinator else { return }
+        // Cancel any existing task
+        currentTask?.cancel()
 
-        let matchResult = await dataCoordinator.loadMatches(for: summoner)
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else { return }
 
-        switch matchResult {
-        case .loaded(let matches):
-            let currentRole = role ?? userSession.selectedPrimaryRole
-            let stats = calculateChampionStats(
-                from: matches,
-                role: currentRole,
-                filter: filter
-            )
-            championStats = stats
-        case .error, .loading, .idle, .empty:
-            break
+            let matchResult = await dataCoordinator.loadMatches(for: summoner)
+
+            switch matchResult {
+            case .loaded(let matches):
+                let currentRole = role ?? userSession.selectedPrimaryRole
+                let stats = calculateChampionStats(
+                    from: matches,
+                    role: currentRole,
+                    filter: filter
+                )
+                championStats = stats
+            case .error, .loading, .idle, .empty:
+                break
+            }
         }
+
+        // Store task for cleanup
+        cleanupTask = currentTask
+
+        await currentTask?.value
+    }
+
+    deinit {
+        cleanupTask?.cancel()
     }
 
     /// Gets the current champions if loaded
@@ -124,7 +150,7 @@ public class ChampionDataViewModel {
             let champion = currentChampions.first { $0.id == championId }
 
             guard let champion = champion else { continue }
-            
+
             // Debug logging for champion role investigation
             let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
             ClaimbLogger.debug(
@@ -133,7 +159,7 @@ public class ChampionDataViewModel {
                     "champion": champion.name,
                     "actualRole": actualRole,
                     "selectedRole": role,
-                    "championId": String(championId)
+                    "championId": String(championId),
                 ])
 
             // Only include champions played in the selected role
@@ -143,7 +169,7 @@ public class ChampionDataViewModel {
                     metadata: [
                         "champion": champion.name,
                         "actualRole": actualRole,
-                        "selectedRole": role
+                        "selectedRole": role,
                     ])
                 continue
             }

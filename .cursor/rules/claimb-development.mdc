@@ -59,16 +59,22 @@ rule "state_management" {
   then = "Use @State for local view state. Use @Observable (Swift 6) for new view models; fall back to ObservableObject only when you need objectWillChange. Use @Environment(\.modelContext) for SwiftData. Use @Query for simple fetches. Keep @MainActor on view models."
 }
 
-rule "service_layer" {
-  description = "Keep I/O in services"
-  when = "handling data operations"
-  then = "All I/O in services (RiotHTTPClient, DataDragonService, CoachingService) behind protocols. Inject into view models. No storage or networking in Views."
+rule "ui_state_pattern" {
+  description = "Use UIState enum for consistent state handling"
+  when = "managing view state"
+  then = "Use UIState<T> enum with cases: idle, loading, loaded(T), error(Error), empty(String). Use ClaimbContentWrapper for consistent UI state rendering. Example: ClaimbContentWrapper(state: viewModel.championState, loadingMessage: \"Loading...\", emptyMessage: \"No data found\", retryAction: { Task { await viewModel.loadData() } }) { data in /* content */ }"
+}
+
+rule "data_coordinator_pattern" {
+  description = "Use DataCoordinator for centralized data loading"
+  when = "loading data in views"
+  then = "Inject DataCoordinator via environment. Use loadMatches(), loadChampions(), calculateRoleStats() methods. Avoid direct DataManager usage in views. DataCoordinator returns UIState<T> for consistent state handling."
 }
 
 rule "view_models" {
   description = "Structure view models properly"
   when = "creating view models"
-  then = "Use @MainActor view models with intents like load(), selectRole(_:), save(). No storage or networking in Views. Isolate complex queries into Repository services."
+  then = "Use @MainActor @Observable view models with intents like load(), selectRole(_:), save(). No storage or networking in Views. Use DataCoordinator for data operations. Example: @MainActor @Observable class ChampionDataViewModel { var championState: UIState<[Champion]> = .idle }"
 }
 
 rule "cancellation" {
@@ -117,12 +123,6 @@ rule "http_caching" {
   then = "Use URLCache for static Data Dragon responses. For Riot responses, prefer domain caching (SwiftData) keyed by (endpoint, params, version). Cache champion JSON/icons locally."
 }
 
-rule "llm_integration" {
-  description = "Prepare for LLM integration"
-  when = "planning AI features"
-  then = "Use CoachingEngine protocol. Store prompt files in Resources/Prompts/. Use request hashing for cache. Implement opt-in privacy toggle."
-}
-
 ## API INTEGRATION
 
 rule "riot_api_client" {
@@ -149,6 +149,26 @@ rule "error_handling" {
   then = "Implement comprehensive error handling at service layer. Use Result type for operations that can fail. Provide user-friendly error messages. Log errors for debugging purposes."
 }
 
+## LOGGING & UTILITIES
+
+rule "structured_logging" {
+  description = "Use ClaimbLogger for all logging"
+  when = "adding logging"
+  then = "Use ClaimbLogger.debug/info/warning/error with service parameter and metadata. Example: ClaimbLogger.info(\"Loading matches\", service: \"DataCoordinator\", metadata: [\"summoner\": summoner.gameName]). No print statements in production."
+}
+
+rule "error_handler" {
+  description = "Use ErrorHandler for user-friendly messages"
+  when = "handling errors"
+  then = "Use ErrorHandler.userFriendlyMessage(for: error) to convert technical errors to user-friendly messages. Use ErrorHandler.logError/logWarning/logInfo for structured logging."
+}
+
+rule "api_key_management" {
+  description = "Use APIKeyManager for secure API key handling"
+  when = "accessing API keys"
+  then = "Use APIKeyManager.riotAPIKey for Riot API access. Check APIKeyManager.hasValidAPIKey before making requests. Never hardcode API keys in source code."
+}
+
 ## UI STATES & UX
 
 rule "ui_states" {
@@ -162,7 +182,7 @@ rule "ui_states" {
 rule "file_structure" {
   description = "Follow organized file structure"
   when = "organizing code"
-  then = "Core/DesignSystem, Core/Utilities. Models/. Services/{Riot, DataDragon, Coaching, Storage}. Features/Onboarding/RoleSelector/. Features/{Coaching, Champions, KPIs}/.... Resources/{Prompts, Strings}. Tests/{Unit, Snapshot}."
+  then = "Core/DesignSystem, Core/Utilities, Core/Services, Core/ViewModels, Core/Views. Models/. Services/{Riot, DataDragon, Storage, Coaching}. Features/{Champions, Coaching, KPIs, Onboarding}. ClaimbTests/ for tests. Resources/{Prompts, Strings}."
 }
 
 rule "naming_conventions" {
@@ -181,14 +201,6 @@ rule "file_length" {
   description = "Keep files manageable"
   when = "writing code"
   then = "Keep files ≤ ~300 lines. Extract subviews/components when needed. Split when it improves clarity."
-}
-
-## LOGGING
-
-rule "structured_logging" {
-  description = "Use structured logging"
-  when = "adding logging"
-  then = "Use swift-log for structured logging: logger.debug(\"[\(service)] \(message)\", metadata: ...). Gate verbose logs behind compile flag. No print statements in production."
 }
 
 ## LEAGUE OF LEGENDS SPECIFIC

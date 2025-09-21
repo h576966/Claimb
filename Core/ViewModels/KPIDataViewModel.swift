@@ -34,6 +34,8 @@ public class KPIDataViewModel {
     private let summoner: Summoner
     private let userSession: UserSession
     private let kpiCalculationService: KPICalculationService
+    private var currentTask: Task<Void, Never>?
+    nonisolated(unsafe) private var cleanupTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -56,49 +58,83 @@ public class KPIDataViewModel {
 
     /// Loads matches and calculates KPIs
     public func loadData() async {
-        guard let dataCoordinator = dataCoordinator else {
-            matchState = .error(DataCoordinatorError.notAvailable)
-            return
+        // Cancel any existing task
+        currentTask?.cancel()
+
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else {
+                matchState = .error(DataCoordinatorError.notAvailable)
+                return
+            }
+
+            matchState = .loading
+
+            // Load baseline data first
+            _ = await dataCoordinator.loadBaselineData()
+
+            let result = await dataCoordinator.loadMatches(for: summoner)
+
+            matchState = result
+
+            // Update role stats and KPIs if we have matches
+            if case .loaded(let matches) = result {
+                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                await calculateKPIs(matches: matches)
+            }
         }
 
-        matchState = .loading
+        // Store task for cleanup
+        cleanupTask = currentTask
 
-        // Load baseline data first
-        _ = await dataCoordinator.loadBaselineData()
-
-        let result = await dataCoordinator.loadMatches(for: summoner)
-
-        matchState = result
-
-        // Update role stats and KPIs if we have matches
-        if case .loaded(let matches) = result {
-            roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
-            await calculateKPIs(matches: matches)
-        }
+        await currentTask?.value
     }
 
     /// Refreshes matches and recalculates KPIs
     public func refreshData() async {
-        guard let dataCoordinator = dataCoordinator else { return }
+        // Cancel any existing task
+        currentTask?.cancel()
 
-        isRefreshing = true
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else { return }
 
-        let result = await dataCoordinator.refreshMatches(for: summoner)
+            isRefreshing = true
 
-        matchState = result
-        isRefreshing = false
+            let result = await dataCoordinator.refreshMatches(for: summoner)
 
-        // Update role stats and KPIs if we have matches
-        if case .loaded(let matches) = result {
-            roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
-            await calculateKPIs(matches: matches)
+            matchState = result
+            isRefreshing = false
+
+            // Update role stats and KPIs if we have matches
+            if case .loaded(let matches) = result {
+                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                await calculateKPIs(matches: matches)
+            }
         }
+
+        // Store task for cleanup
+        cleanupTask = currentTask
+
+        await currentTask?.value
     }
 
     /// Calculates KPIs for the current role
     public func calculateKPIsForCurrentRole() async {
-        guard let matches = matchState.data else { return }
-        await calculateKPIs(matches: matches)
+        // Cancel any existing task
+        currentTask?.cancel()
+
+        currentTask = Task {
+            guard let matches = matchState.data else { return }
+            await calculateKPIs(matches: matches)
+        }
+
+        // Store task for cleanup
+        cleanupTask = currentTask
+
+        await currentTask?.value
+    }
+
+    deinit {
+        cleanupTask?.cancel()
     }
 
     /// Gets the current matches if loaded

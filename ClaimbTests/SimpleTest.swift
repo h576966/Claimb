@@ -7,8 +7,6 @@
 
 import Foundation
 
-@testable import Claimb
-
 /// Simple test to verify basic functionality without XCTest
 final class SimpleTest {
 

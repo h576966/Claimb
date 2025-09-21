@@ -25,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		F31B70272E7C6334003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F31B71FB2E7DEFEF003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35E2E712E6E0C0B009DDF39 /* Claimb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Claimb.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E802E6E0C0C009DDF39 /* ClaimbTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,11 +45,6 @@
 		F35E2E832E6E0C0C009DDF39 /* ClaimbTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ClaimbTests;
-			sourceTree = "<group>";
-		};
-		F35E2E8D2E6E0C0C009DDF39 /* ClaimbUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ClaimbUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -83,12 +79,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F31B71FF2E7DEFEF003C0FF7 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F35E2E682E6E0C0A009DDF39 = {
 			isa = PBXGroup;
 			children = (
 				F35E2E732E6E0C0B009DDF39 /* . */,
 				F35E2E832E6E0C0C009DDF39 /* ClaimbTests */,
-				F35E2E8D2E6E0C0C009DDF39 /* ClaimbUITests */,
 				F35E2E722E6E0C0B009DDF39 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -189,9 +189,6 @@
 			dependencies = (
 				F35E2E8C2E6E0C0C009DDF39 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				F35E2E8D2E6E0C0C009DDF39 /* ClaimbUITests */,
-			);
 			name = ClaimbUITests;
 			packageProductDependencies = (
 			);
@@ -246,6 +243,10 @@
 				{
 					ProductGroup = F3E629842E7AAA6700DF2F2D /* Products */;
 					ProjectRef = F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F31B71FF2E7DEFEF003C0FF7 /* Products */;
+					ProjectRef = F31B71FB2E7DEFEF003C0FF7 /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F3F8AB6E2E7B11B1008E9E48 /* Products */;

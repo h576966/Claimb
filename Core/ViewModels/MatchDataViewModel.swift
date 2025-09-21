@@ -23,6 +23,8 @@ public class MatchDataViewModel {
 
     private let dataCoordinator: DataCoordinator?
     private let summoner: Summoner
+    private var currentTask: Task<Void, Never>?
+    nonisolated(unsafe) private var cleanupTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -35,54 +37,88 @@ public class MatchDataViewModel {
 
     /// Loads matches and calculates role statistics
     public func loadMatches(limit: Int = 50) async {
-        guard let dataCoordinator = dataCoordinator else {
-            matchState = .error(DataCoordinatorError.notAvailable)
-            return
+        // Cancel any existing task
+        currentTask?.cancel()
+
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else {
+                matchState = .error(DataCoordinatorError.notAvailable)
+                return
+            }
+
+            matchState = .loading
+
+            let result = await dataCoordinator.loadMatches(for: summoner, limit: limit)
+
+            matchState = result
+
+            // Update role stats if we have matches
+            if case .loaded(let matches) = result {
+                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+            }
         }
 
-        matchState = .loading
+        // Store task for cleanup
+        cleanupTask = currentTask
 
-        let result = await dataCoordinator.loadMatches(for: summoner, limit: limit)
-
-        matchState = result
-
-        // Update role stats if we have matches
-        if case .loaded(let matches) = result {
-            roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
-        }
+        await currentTask?.value
     }
 
     /// Refreshes matches from the API and recalculates role statistics
     public func refreshMatches() async {
-        guard let dataCoordinator = dataCoordinator else { return }
+        // Cancel any existing task
+        currentTask?.cancel()
 
-        isRefreshing = true
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else { return }
 
-        let result = await dataCoordinator.refreshMatches(for: summoner)
+            isRefreshing = true
 
-        matchState = result
-        isRefreshing = false
+            let result = await dataCoordinator.refreshMatches(for: summoner)
 
-        // Update role stats if we have matches
-        if case .loaded(let matches) = result {
-            roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+            matchState = result
+            isRefreshing = false
+
+            // Update role stats if we have matches
+            if case .loaded(let matches) = result {
+                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+            }
         }
+
+        // Store task for cleanup
+        cleanupTask = currentTask
+
+        await currentTask?.value
     }
 
     /// Clears all cached data and reloads matches
     public func clearCache() async {
-        guard let dataCoordinator = dataCoordinator else { return }
+        // Cancel any existing task
+        currentTask?.cancel()
 
-        isRefreshing = true
+        currentTask = Task {
+            guard let dataCoordinator = dataCoordinator else { return }
 
-        let result = await dataCoordinator.clearAllCache()
+            isRefreshing = true
 
-        isRefreshing = false
+            let result = await dataCoordinator.clearAllCache()
 
-        if case .loaded = result {
-            // Reload matches after clearing cache
-            await loadMatches()
+            isRefreshing = false
+
+            if case .loaded = result {
+                // Reload matches after clearing cache
+                await loadMatches()
+            }
         }
+
+        // Store task for cleanup
+        cleanupTask = currentTask
+
+        await currentTask?.value
+    }
+
+    deinit {
+        cleanupTask?.cancel()
     }
 
     /// Gets the current matches if loaded

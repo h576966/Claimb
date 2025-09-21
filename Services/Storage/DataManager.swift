@@ -133,11 +133,11 @@ public class DataManager {
             // Fetch more matches if we have less than the target
             // Account for filtering: fetch 100% more to compensate for ARAM/Swiftplay/old games that will be filtered out
             let targetCount = maxMatchesPerSummoner
-            let baseFetchCount = max(30, targetCount - existingMatches.count)  // Increased minimum from 20 to 30
-            let fetchCount = min(100, Int(Double(baseFetchCount) * 2.0))  // Cap at API limit of 100 matches
+            let baseFetchCount = max(15, targetCount - existingMatches.count)  // Reduced from 30 to 15
+            let fetchCount = min(50, baseFetchCount)  // No buffer, cap at 50 to reduce API calls
 
             ClaimbLogger.debug(
-                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (with 100% buffer for filtering)",
+                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (conservative approach)",
                 service: "DataManager",
                 metadata: [
                     "existingCount": String(existingMatches.count),
@@ -560,6 +560,12 @@ public class DataManager {
 
     /// Loads champion data for a participant
     private func loadChampionForParticipant(_ participant: Participant) async {
+        // Simple validation - if champion already exists, skip
+        guard participant.champion == nil else {
+            ClaimbLogger.debug("Champion already loaded for participant", service: "DataManager")
+            return
+        }
+
         do {
             let descriptor = FetchDescriptor<Champion>()
             let allChampions = try modelContext.fetch(descriptor)
@@ -606,6 +612,7 @@ public class DataManager {
                         "championId": String(participant.championId),
                         "availableIds": availableIds,
                     ])
+                // Don't fail the entire operation - just log and continue
             }
 
             // Save the context to ensure the relationship is persisted
@@ -613,6 +620,7 @@ public class DataManager {
         } catch {
             ClaimbLogger.error(
                 "Error loading champion for participant", service: "DataManager", error: error)
+            // Don't fail the entire operation - just log and continue
         }
     }
 

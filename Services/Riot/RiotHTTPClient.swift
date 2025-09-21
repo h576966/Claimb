@@ -14,7 +14,8 @@ public class RiotHTTPClient: RiotClient {
 
     public init(apiKey: String) {
         self.apiKey = apiKey
-        self.rateLimiter = RateLimiter(requestsPerSecond: 20, requestsPerTwoMinutes: 100)
+        // More conservative rate limiting to avoid 429 errors
+        self.rateLimiter = RateLimiter(requestsPerSecond: 10, requestsPerTwoMinutes: 50)
 
         // Configure URLSession with URLCache for automatic disk caching
         let config = URLSessionConfiguration.default
@@ -77,53 +78,50 @@ public class RiotHTTPClient: RiotClient {
 
         do {
             let (data, response) = try await session.data(for: request)
-
-            if let httpResponse = response as? HTTPURLResponse {
-                switch httpResponse.statusCode {
-                case 200...299:
-                    return data
-                case 401:
-                    throw RiotAPIError.unauthorized
-                case 404:
-                    throw RiotAPIError.notFound
-                case 429:
-                    // Handle rate limit with exponential backoff
-                    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(
-                        TimeInterval.init)
-                    await rateLimiter.handleRateLimit(retryAfter: retryAfter)
-                    throw RiotAPIError.rateLimitExceeded
-                default:
-                    throw RiotAPIError.serverError(httpResponse.statusCode)
-                }
-            }
-
-            return data
-
+            return try handleResponse(data: data, response: response)
         } catch {
-            // Simple retry: wait 2 seconds and try once more
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            let (data, response) = try await session.data(for: request)
-
-            if let httpResponse = response as? HTTPURLResponse {
-                switch httpResponse.statusCode {
-                case 200...299:
-                    return data
-                case 401:
-                    throw RiotAPIError.unauthorized
-                case 404:
-                    throw RiotAPIError.notFound
-                case 429:
-                    // Handle rate limit with exponential backoff
-                    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(
-                        TimeInterval.init)
-                    await rateLimiter.handleRateLimit(retryAfter: retryAfter)
-                    throw RiotAPIError.rateLimitExceeded
-                default:
-                    throw RiotAPIError.serverError(httpResponse.statusCode)
-                }
+            // Only retry on network errors, not API errors
+            if error is URLError {
+                ClaimbLogger.warning(
+                    "Network error, retrying once", service: "RiotHTTPClient",
+                    metadata: ["error": error.localizedDescription]
+                )
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                let (data, response) = try await session.data(for: request)
+                return try handleResponse(data: data, response: response)
             }
+            throw error
+        }
+    }
 
+    private func handleResponse(data: Data, response: URLResponse) throws -> Data {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw RiotAPIError.noData
+        }
+
+        switch httpResponse.statusCode {
+        case 200...299:
             return data
+        case 401:
+            throw RiotAPIError.unauthorized
+        case 404:
+            throw RiotAPIError.notFound
+        case 429:
+            // Handle rate limit with exponential backoff
+            let retryAfter =
+                httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(
+                    TimeInterval.init) ?? 60.0  // Default to 60 seconds if no Retry-After header
+            ClaimbLogger.warning(
+                "Rate limit exceeded, waiting \(retryAfter) seconds",
+                service: "RiotHTTPClient",
+                metadata: ["retryAfter": String(retryAfter)]
+            )
+            Task {
+                await rateLimiter.handleRateLimit(retryAfter: retryAfter)
+            }
+            throw RiotAPIError.rateLimitExceeded
+        default:
+            throw RiotAPIError.serverError(httpResponse.statusCode)
         }
     }
 
