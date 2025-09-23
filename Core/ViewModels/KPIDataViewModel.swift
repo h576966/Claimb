@@ -30,7 +30,7 @@ public class KPIDataViewModel {
 
     // MARK: - Private Properties
 
-    private let dataCoordinator: DataCoordinator?
+    private let dataManager: DataManager?
     private let summoner: Summoner
     private let userSession: UserSession
     private let kpiCalculationService: KPICalculationService
@@ -39,8 +39,8 @@ public class KPIDataViewModel {
 
     // MARK: - Initialization
 
-    public init(dataCoordinator: DataCoordinator?, summoner: Summoner, userSession: UserSession) {
-        self.dataCoordinator = dataCoordinator
+    public init(dataManager: DataManager?, summoner: Summoner, userSession: UserSession) {
+        self.dataManager = dataManager
         self.summoner = summoner
         self.userSession = userSession
 
@@ -62,23 +62,23 @@ public class KPIDataViewModel {
         currentTask?.cancel()
 
         currentTask = Task {
-            guard let dataCoordinator = dataCoordinator else {
-                matchState = .error(DataCoordinatorError.notAvailable)
+            guard let dataManager = dataManager else {
+                matchState = .error(DataManagerError.notAvailable)
                 return
             }
 
             matchState = .loading
 
             // Load baseline data first
-            _ = await dataCoordinator.loadBaselineData()
+            _ = await dataManager.loadBaselineData()
 
-            let result = await dataCoordinator.loadMatches(for: summoner)
+            let result = await dataManager.loadMatches(for: summoner)
 
             matchState = result
 
             // Update role stats and KPIs if we have matches
             if case .loaded(let matches) = result {
-                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                roleStats = calculateRoleStats(from: matches, summoner: summoner)
                 await calculateKPIs(matches: matches)
             }
         }
@@ -95,18 +95,18 @@ public class KPIDataViewModel {
         currentTask?.cancel()
 
         currentTask = Task {
-            guard let dataCoordinator = dataCoordinator else { return }
+            guard let dataManager = dataManager else { return }
 
             isRefreshing = true
 
-            let result = await dataCoordinator.refreshMatches(for: summoner)
+            let result = await dataManager.refreshMatches(for: summoner)
 
             matchState = result
             isRefreshing = false
 
             // Update role stats and KPIs if we have matches
             if case .loaded(let matches) = result {
-                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                roleStats = calculateRoleStats(from: matches, summoner: summoner)
                 await calculateKPIs(matches: matches)
             }
         }
@@ -155,7 +155,7 @@ public class KPIDataViewModel {
     // MARK: - Private Methods
 
     private func calculateKPIs(matches: [Match]) async {
-        guard dataCoordinator != nil else { return }
+        guard dataManager != nil else { return }
 
         let role = userSession.selectedPrimaryRole
 
@@ -173,6 +173,37 @@ public class KPIDataViewModel {
                 "Failed to calculate KPIs", service: "KPIDataViewModel", error: error)
             _kpiMetrics = []
         }
+    }
+
+    /// Calculates role statistics from matches
+    private func calculateRoleStats(from matches: [Match], summoner: Summoner) -> [RoleStats] {
+        var roleStats: [String: (wins: Int, total: Int)] = [:]
+
+        for match in matches {
+            // Find the summoner's participant in this match
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+
+            let normalizedRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            let isWin = participant.win
+
+            if roleStats[normalizedRole] == nil {
+                roleStats[normalizedRole] = (wins: 0, total: 0)
+            }
+
+            roleStats[normalizedRole]?.total += 1
+            if isWin {
+                roleStats[normalizedRole]?.wins += 1
+            }
+        }
+
+        // Convert to RoleStats array
+        return roleStats.map { (role, stats) in
+            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
+            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
+        }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
 
 }

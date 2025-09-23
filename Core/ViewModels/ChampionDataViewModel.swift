@@ -21,7 +21,7 @@ public class ChampionDataViewModel {
 
     // MARK: - Private Properties
 
-    private let dataCoordinator: DataCoordinator?
+    private let dataManager: DataManager?
     private let summoner: Summoner
     private let userSession: UserSession
     private var currentTask: Task<Void, Never>?
@@ -29,8 +29,8 @@ public class ChampionDataViewModel {
 
     // MARK: - Initialization
 
-    public init(dataCoordinator: DataCoordinator?, summoner: Summoner, userSession: UserSession) {
-        self.dataCoordinator = dataCoordinator
+    public init(dataManager: DataManager?, summoner: Summoner, userSession: UserSession) {
+        self.dataManager = dataManager
         self.summoner = summoner
         self.userSession = userSession
     }
@@ -43,24 +43,24 @@ public class ChampionDataViewModel {
         currentTask?.cancel()
 
         currentTask = Task {
-            guard let dataCoordinator = dataCoordinator else {
-                championState = .error(DataCoordinatorError.notAvailable)
+            guard let dataManager = dataManager else {
+                championState = .error(DataManagerError.notAvailable)
                 return
             }
 
             championState = .loading
 
-            // Load champions using DataCoordinator
-            let championResult = await dataCoordinator.loadChampions()
+            // Load champions using DataManager
+            let championResult = await dataManager.loadChampions()
 
             championState = championResult
 
             // Load matches and calculate role stats
-            let matchResult = await dataCoordinator.loadMatches(for: summoner)
+            let matchResult = await dataManager.loadMatches(for: summoner)
 
             switch matchResult {
             case .loaded(let matches):
-                roleStats = dataCoordinator.calculateRoleStats(from: matches, summoner: summoner)
+                roleStats = calculateRoleStats(from: matches, summoner: summoner)
 
                 // Load champion stats after setting role stats
                 await loadChampionStats()
@@ -83,9 +83,9 @@ public class ChampionDataViewModel {
         currentTask?.cancel()
 
         currentTask = Task {
-            guard let dataCoordinator = dataCoordinator else { return }
+            guard let dataManager = dataManager else { return }
 
-            let matchResult = await dataCoordinator.loadMatches(for: summoner)
+            let matchResult = await dataManager.loadMatches(for: summoner)
 
             switch matchResult {
             case .loaded(let matches):
@@ -498,6 +498,37 @@ public class ChampionDataViewModel {
                 return DesignSystem.Colors.secondary  // Red - poor
             }
         }
+    }
+
+    /// Calculates role statistics from matches
+    private func calculateRoleStats(from matches: [Match], summoner: Summoner) -> [RoleStats] {
+        var roleStats: [String: (wins: Int, total: Int)] = [:]
+
+        for match in matches {
+            // Find the summoner's participant in this match
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+
+            let normalizedRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            let isWin = participant.win
+
+            if roleStats[normalizedRole] == nil {
+                roleStats[normalizedRole] = (wins: 0, total: 0)
+            }
+
+            roleStats[normalizedRole]?.total += 1
+            if isWin {
+                roleStats[normalizedRole]?.wins += 1
+            }
+        }
+
+        // Convert to RoleStats array
+        return roleStats.map { (role, stats) in
+            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) : 0.0
+            return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
+        }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
 }
 

@@ -216,9 +216,13 @@ struct ChampionView: View {
 
     private func initializeViewModel() {
         if championDataViewModel == nil {
-            let dataCoordinator = DataCoordinator(modelContext: modelContext)
+            let dataManager = DataManager(
+                modelContext: modelContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
+            )
             championDataViewModel = ChampionDataViewModel(
-                dataCoordinator: dataCoordinator,
+                dataManager: dataManager,
                 summoner: summoner,
                 userSession: userSession
             )

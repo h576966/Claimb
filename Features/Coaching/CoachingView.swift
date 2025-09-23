@@ -206,9 +206,13 @@ struct CoachingView: View {
 
     private func initializeViewModel() {
         if matchDataViewModel == nil {
-            let dataCoordinator = DataCoordinator(modelContext: modelContext)
+            let dataManager = DataManager(
+                modelContext: modelContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
+            )
             matchDataViewModel = MatchDataViewModel(
-                dataCoordinator: dataCoordinator,
+                dataManager: dataManager,
                 summoner: summoner
             )
         }

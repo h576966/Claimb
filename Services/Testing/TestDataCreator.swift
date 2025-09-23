@@ -71,6 +71,7 @@ public class TestDataCreator {
                 teamId: i % 2 == 0 ? 100 : 200,
                 lane: i % 2 == 0 ? "BOTTOM" : "TOP",
                 role: i % 2 == 0 ? "DUO_CARRY" : "SOLO",
+                teamPosition: i % 2 == 0 ? "BOTTOM" : "TOP",
                 kills: 5 + (i % 5),
                 deaths: 3 + (i % 4),
                 assists: 8 + (i % 6),

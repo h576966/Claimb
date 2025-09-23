@@ -8,6 +8,18 @@
 import Foundation
 import SwiftData
 
+/// User session related errors
+public enum UserSessionError: Error, LocalizedError {
+    case failedToRecreateSummoner
+
+    public var errorDescription: String? {
+        switch self {
+        case .failedToRecreateSummoner:
+            return "Failed to recreate summoner from stored credentials"
+        }
+    }
+}
+
 /// Manages user session state and persistent login
 @MainActor
 @Observable
@@ -106,11 +118,33 @@ public class UserSession {
         )
 
         // Recreate the summoner
-        let summoner = try await dataManager.createOrUpdateSummoner(
+        let summonerState = await dataManager.createOrUpdateSummoner(
             gameName: gameName,
             tagLine: tagLine,
             region: region
         )
+
+        // Handle summoner creation result
+        guard case .loaded(let summoner) = summonerState else {
+            let errorMessage =
+                switch summonerState {
+                case .error(let error):
+                    "Failed to recreate summoner: \(error.localizedDescription)"
+                case .loading:
+                    "Summoner recreation is still loading"
+                case .idle:
+                    "Summoner recreation not started"
+                case .empty(let message):
+                    "Summoner recreation failed: \(message)"
+                case .loaded(_):
+                    "This case should not be reached"
+                }
+
+            ClaimbLogger.error(
+                "Failed to recreate summoner from stored credentials", service: "UserSession",
+                metadata: ["error": errorMessage])
+            throw UserSessionError.failedToRecreateSummoner
+        }
 
         // Load champion data if needed
         try await dataManager.loadChampionData()
@@ -148,7 +182,7 @@ public class UserSession {
             metadata: [
                 "savedGameName": savedGameName ?? "nil",
                 "savedTagLine": savedTagLine ?? "nil",
-                "savedRegion": savedRegion ?? "nil"
+                "savedRegion": savedRegion ?? "nil",
             ]
         )
 
@@ -208,11 +242,33 @@ public class UserSession {
             )
 
             // Refresh summoner data
-            let refreshedSummoner = try await dataManager.createOrUpdateSummoner(
+            let refreshedSummonerState = await dataManager.createOrUpdateSummoner(
                 gameName: currentSummoner.gameName,
                 tagLine: currentSummoner.tagLine,
                 region: currentSummoner.region
             )
+
+            // Handle summoner refresh result
+            guard case .loaded(let refreshedSummoner) = refreshedSummonerState else {
+                let errorMessage =
+                    switch refreshedSummonerState {
+                    case .error(let error):
+                        "Failed to refresh summoner: \(error.localizedDescription)"
+                    case .loading:
+                        "Summoner refresh is still loading"
+                    case .idle:
+                        "Summoner refresh not started"
+                    case .empty(let message):
+                        "Summoner refresh failed: \(message)"
+                    case .loaded(_):
+                        "This case should not be reached"
+                    }
+
+                ClaimbLogger.error(
+                    "Failed to refresh summoner", service: "UserSession",
+                    metadata: ["error": errorMessage])
+                return
+            }
 
             await MainActor.run {
                 self.currentSummoner = refreshedSummoner

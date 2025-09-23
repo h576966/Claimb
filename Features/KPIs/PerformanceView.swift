@@ -5,6 +5,7 @@
 //  Created by AI Assistant on 2025-09-10.
 //
 
+import Foundation
 import SwiftData
 import SwiftUI
 
@@ -278,9 +279,13 @@ struct PerformanceView: View {
 
     private func initializeViewModel() {
         if kpiDataViewModel == nil {
-            let dataCoordinator = DataCoordinator(modelContext: modelContext)
+            let dataManager = DataManager(
+                modelContext: modelContext,
+                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+                dataDragonService: DataDragonService()
+            )
             kpiDataViewModel = KPIDataViewModel(
-                dataCoordinator: dataCoordinator,
+                dataManager: dataManager,
                 summoner: summoner,
                 userSession: userSession
             )

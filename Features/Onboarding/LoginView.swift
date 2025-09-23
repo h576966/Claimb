@@ -193,19 +193,41 @@ struct LoginView: View {
             )
 
             // Create or update summoner
-            let summoner = try await dataManager.createOrUpdateSummoner(
+            let summonerState = await dataManager.createOrUpdateSummoner(
                 gameName: gameName.trimmingCharacters(in: .whitespacesAndNewlines),
                 tagLine: tagLine.trimmingCharacters(in: .whitespacesAndNewlines),
                 region: selectedRegion
             )
 
+            // Handle summoner creation result
+            guard case .loaded(let summoner) = summonerState else {
+                let errorMessage =
+                    switch summonerState {
+                    case .error(let error):
+                        "Failed to create summoner: \(error.localizedDescription)"
+                    case .loading:
+                        "Summoner creation is still loading"
+                    case .idle:
+                        "Summoner creation not started"
+                    case .empty(let message):
+                        "Summoner creation failed: \(message)"
+                    case .loaded(_):
+                        "This case should not be reached"
+                    }
+
+                await MainActor.run {
+                    self.errorMessage = errorMessage
+                    self.isLoading = false
+                }
+                return
+            }
+
             // Load champion data if needed
             try await dataManager.loadChampionData()
 
             // Refresh matches - continue even if some matches fail
-            do {
-                try await dataManager.refreshMatches(for: summoner)
-            } catch {
+            let refreshState = await dataManager.refreshMatches(for: summoner)
+            if case .error(let error) = refreshState {
                 // Log the error but don't fail login if only match loading fails
                 ClaimbLogger.error(
                     "Failed to load some matches during login, continuing anyway",

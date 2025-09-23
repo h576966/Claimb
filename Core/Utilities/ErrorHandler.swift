@@ -31,6 +31,8 @@ enum ErrorHandler {
 
         if let dataError = error as? DataManagerError {
             switch dataError {
+            case .notAvailable:
+                return "Data manager is not available"
             case .missingResource(let resource):
                 return "Missing resource: \(resource) not found"
             case .databaseError(let message):

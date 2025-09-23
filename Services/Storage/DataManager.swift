@@ -21,6 +21,13 @@ public class DataManager {
     private let maxMatchesPerSummoner = 100  // Increased from 50 to 100
     private let maxGameAgeInDays = 365  // Filter out games older than 1 year
 
+    // Request deduplication
+    private var activeRequests: Set<String> = []
+    private var requestQueue: [String: Task<UIState<[Match]>, Never>] = [:]
+    private var championRequestQueue: [String: Task<UIState<[Champion]>, Never>] = [:]
+    private var summonerRequestQueue: [String: Task<UIState<Summoner>, Never>] = [:]
+    private var baselineRequestQueue: [String: Task<UIState<Void>, Never>] = [:]
+
     public var isLoading = false
     public var lastRefreshTime: Date?
     public var errorMessage: String?
@@ -37,7 +44,7 @@ public class DataManager {
     // MARK: - Summoner Management
 
     /// Creates or updates a summoner with account data
-    public func createOrUpdateSummoner(gameName: String, tagLine: String, region: String)
+    public func createOrUpdateSummonerInternal(gameName: String, tagLine: String, region: String)
         async throws -> Summoner
     {
         ClaimbLogger.info(
@@ -120,8 +127,25 @@ public class DataManager {
 
     // MARK: - Match Management
 
+    /// Forces a refresh of matches (bypasses cache)
+    public func forceRefreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
+        ClaimbLogger.info(
+            "Force refreshing matches", service: "DataManager",
+            metadata: ["summoner": summoner.gameName])
+
+        do {
+            try await refreshMatchesInternal(for: summoner)
+            let refreshedMatches = try await getMatches(for: summoner)
+            return .loaded(refreshedMatches)
+        } catch {
+            ClaimbLogger.error(
+                "Failed to force refresh matches", service: "DataManager", error: error)
+            return .error(error)
+        }
+    }
+
     /// Refreshes match data for a summoner with incremental fetching
-    public func refreshMatches(for summoner: Summoner) async throws {
+    public func refreshMatchesInternal(for summoner: Summoner) async throws {
         isLoading = true
         errorMessage = nil
 
@@ -317,9 +341,10 @@ public class DataManager {
         }
     }
 
-    /// Checks if a match is relevant for analysis (Ranked, Draft, Summoner's Rift only, within 1 year)
+    /// Checks if a match is relevant for analysis (Ranked, Draft, Summoner's Rift only, within 1 year, minimum 10 minutes)
     private func isRelevantMatch(
-        gameMode: String, gameType: String, queueId: Int, mapId: Int, gameCreation: Int
+        gameMode: String, gameType: String, queueId: Int, mapId: Int, gameCreation: Int,
+        gameDuration: Int
     ) -> Bool {
         // Must be on Summoner's Rift (mapId 11)
         guard mapId == 11 else { return false }
@@ -346,6 +371,19 @@ public class DataManager {
                     "daysOld": String(
                         Calendar.current.dateComponents([.day], from: gameDate, to: Date()).day ?? 0
                     ),
+                ])
+            return false
+        }
+
+        // Must be at least 10 minutes long (filter out surrender games and remakes)
+        let minimumDurationSeconds = 10 * 60  // 10 minutes in seconds
+        guard gameDuration >= minimumDurationSeconds else {
+            ClaimbLogger.debug(
+                "Skipping short match", service: "DataManager",
+                metadata: [
+                    "gameDuration": String(gameDuration),
+                    "minimumDuration": String(minimumDurationSeconds),
+                    "durationMinutes": String(gameDuration / 60),
                 ])
             return false
         }
@@ -385,10 +423,10 @@ public class DataManager {
         let gameEndTimestamp = info["gameEndTimestamp"] as? Int ?? 0
 
         // Filter out irrelevant matches BEFORE creating Match object
-        // This prevents storing ARAM, Swiftplay, old games, and other non-relevant game types
+        // This prevents storing ARAM, Swiftplay, old games, short games, and other non-relevant game types
         if !isRelevantMatch(
             gameMode: gameMode, gameType: gameType, queueId: queueId, mapId: mapId,
-            gameCreation: gameCreation)
+            gameCreation: gameCreation, gameDuration: gameDuration)
         {
             ClaimbLogger.debug(
                 "Skipping irrelevant match", service: "DataManager",
@@ -462,6 +500,7 @@ public class DataManager {
         let teamId = participantJson["teamId"] as? Int ?? 0
         let lane = participantJson["lane"] as? String ?? "UNKNOWN"
         let role = participantJson["role"] as? String ?? "UNKNOWN"
+        let teamPosition = participantJson["teamPosition"] as? String ?? role
 
         let kills = participantJson["kills"] as? Int ?? 0
         let deaths = participantJson["deaths"] as? Int ?? 0
@@ -522,6 +561,7 @@ public class DataManager {
             teamId: teamId,
             lane: lane,
             role: role,
+            teamPosition: teamPosition,
             kills: kills,
             deaths: deaths,
             assists: assists,
@@ -730,8 +770,8 @@ public class DataManager {
 
     // MARK: - Cache Management
 
-    /// Clears all cached data (for debugging/testing)
-    public func clearAllCache() async throws {
+    /// Clears all cached data (for debugging/testing) - internal
+    public func clearAllCacheInternal() async throws {
         ClaimbLogger.info("Starting cache clear...", service: "DataManager")
 
         // Clear matches and participants
@@ -959,7 +999,7 @@ public class DataManager {
     }
 
     /// Loads baseline data from bundled JSON files
-    public func loadBaselineData() async throws {
+    public func loadBaselineDataInternal() async throws {
         // Check if we already have baseline data
         let existingBaselines = try await getAllBaselines()
         if !existingBaselines.isEmpty {
@@ -1018,6 +1058,303 @@ public class DataManager {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode([ChampionClassMappingData].self, from: data)
     }
+
+    // MARK: - Cache Management
+
+    /// Determines if matches should be refreshed based on time and data freshness
+    private func shouldRefreshMatches(for summoner: Summoner) -> Bool {
+        // Check if it's been more than 5 minutes since last update
+        let timeSinceLastUpdate = Date().timeIntervalSince(summoner.lastUpdated)
+        let refreshInterval: TimeInterval = 5 * 60  // 5 minutes
+
+        if timeSinceLastUpdate > refreshInterval {
+            ClaimbLogger.debug(
+                "Matches are stale, refreshing", service: "DataManager",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "refreshInterval": String(Int(refreshInterval)),
+                ])
+            return true
+        }
+
+        ClaimbLogger.debug(
+            "Matches are fresh, using cache", service: "DataManager",
+            metadata: [
+                "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                "refreshInterval": String(Int(refreshInterval)),
+            ])
+        return false
+    }
+
+    // MARK: - Request Deduplication
+
+    /// Loads matches with deduplication
+    public func loadMatches(for summoner: Summoner, limit: Int = 100) async -> UIState<[Match]> {
+        let requestKey = "matches_\(summoner.puuid)_\(limit)"
+
+        // Check if request is already in progress
+        if let existingTask = requestQueue[requestKey] {
+            ClaimbLogger.debug(
+                "Request already in progress, waiting for result", service: "DataManager",
+                metadata: ["requestKey": requestKey])
+            return await existingTask.value
+        }
+
+        // Create new task
+        let task = Task<UIState<[Match]>, Never> {
+            defer {
+                // Clean up when task completes
+                requestQueue.removeValue(forKey: requestKey)
+                activeRequests.remove(requestKey)
+            }
+
+            ClaimbLogger.info(
+                "Loading matches", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "limit": String(limit),
+                ])
+
+            do {
+                // Check if we have existing matches
+                let existingMatches = try await getMatches(for: summoner)
+
+                if existingMatches.isEmpty {
+                    // Load initial matches
+                    ClaimbLogger.info(
+                        "No existing matches, loading initial batch", service: "DataManager")
+                    try await loadInitialMatches(for: summoner)
+                } else {
+                    // Check if we need to refresh based on time
+                    let shouldRefresh = shouldRefreshMatches(for: summoner)
+
+                    if shouldRefresh {
+                        ClaimbLogger.info(
+                            "Found existing matches, refreshing with new data",
+                            service: "DataManager",
+                            metadata: [
+                                "count": String(existingMatches.count),
+                                "lastUpdated": summoner.lastUpdated.description,
+                            ])
+                        try await refreshMatchesInternal(for: summoner)
+                    } else {
+                        ClaimbLogger.info(
+                            "Using cached matches (no refresh needed)", service: "DataManager",
+                            metadata: [
+                                "count": String(existingMatches.count),
+                                "lastUpdated": summoner.lastUpdated.description,
+                            ])
+                    }
+                }
+
+                // Get all matches after loading
+                let loadedMatches = try await getMatches(for: summoner, limit: limit)
+                return .loaded(loadedMatches)
+
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to load matches", service: "DataManager", error: error)
+                return .error(error)
+            }
+        }
+
+        // Store task and return its result
+        requestQueue[requestKey] = task
+        activeRequests.insert(requestKey)
+        return await task.value
+    }
+
+    /// Loads champions with deduplication
+    public func loadChampions() async -> UIState<[Champion]> {
+        let requestKey = "champions"
+
+        if let existingTask = championRequestQueue[requestKey] {
+            ClaimbLogger.debug(
+                "Champion request already in progress, waiting for result",
+                service: "DataManager",
+                metadata: ["requestKey": requestKey])
+            return await existingTask.value
+        }
+
+        let task = Task<UIState<[Champion]>, Never> {
+            defer {
+                championRequestQueue.removeValue(forKey: requestKey)
+                activeRequests.remove(requestKey)
+            }
+
+            ClaimbLogger.info("Loading champions", service: "DataManager")
+
+            do {
+                try await loadChampionData()
+                let champions = try await getAllChampions()
+
+                ClaimbLogger.info(
+                    "Successfully loaded \(champions.count) champions",
+                    service: "DataManager",
+                    metadata: ["championCount": String(champions.count)]
+                )
+
+                return .loaded(champions)
+            } catch {
+                ClaimbLogger.error("Failed to load champions", service: "DataManager", error: error)
+                return .error(error)
+            }
+        }
+
+        championRequestQueue[requestKey] = task
+        activeRequests.insert(requestKey)
+        return await task.value
+    }
+
+    /// Creates or updates summoner with deduplication
+    public func createOrUpdateSummoner(gameName: String, tagLine: String, region: String) async
+        -> UIState<Summoner>
+    {
+        let requestKey = "summoner_\(gameName)_\(tagLine)_\(region)"
+
+        if let existingTask = summonerRequestQueue[requestKey] {
+            ClaimbLogger.debug(
+                "Summoner request already in progress, waiting for result",
+                service: "DataManager",
+                metadata: ["requestKey": requestKey])
+            return await existingTask.value
+        }
+
+        let task = Task<UIState<Summoner>, Never> {
+            defer {
+                summonerRequestQueue.removeValue(forKey: requestKey)
+                activeRequests.remove(requestKey)
+            }
+
+            ClaimbLogger.info(
+                "Creating/updating summoner", service: "DataManager",
+                metadata: [
+                    "gameName": gameName,
+                    "tagLine": tagLine,
+                    "region": region,
+                ])
+
+            do {
+                let summoner = try await self.createOrUpdateSummonerInternal(
+                    gameName: gameName,
+                    tagLine: tagLine,
+                    region: region
+                )
+
+                try await loadChampionData()
+                try await refreshMatches(for: summoner)
+
+                return .loaded(summoner)
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to create/update summoner", service: "DataManager", error: error)
+                return .error(error)
+            }
+        }
+
+        summonerRequestQueue[requestKey] = task
+        activeRequests.insert(requestKey)
+        return await task.value
+    }
+
+    /// Loads baseline data with deduplication
+    public func loadBaselineData() async -> UIState<Void> {
+        let requestKey = "baseline_data"
+
+        if let existingTask = baselineRequestQueue[requestKey] {
+            ClaimbLogger.debug(
+                "Baseline data request already in progress, waiting for result",
+                service: "DataManager",
+                metadata: ["requestKey": requestKey])
+            return await existingTask.value
+        }
+
+        let task = Task<UIState<Void>, Never> {
+            defer {
+                baselineRequestQueue.removeValue(forKey: requestKey)
+                activeRequests.remove(requestKey)
+            }
+
+            ClaimbLogger.info("Loading baseline data", service: "DataManager")
+
+            do {
+                try await self.loadBaselineDataInternal()
+                return .loaded(())
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to load baseline data", service: "DataManager", error: error)
+                return .error(error)
+            }
+        }
+
+        baselineRequestQueue[requestKey] = task
+        activeRequests.insert(requestKey)
+        return await task.value
+    }
+
+    /// Refreshes matches with deduplication
+    public func refreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
+        ClaimbLogger.info(
+            "Refreshing matches", service: "DataManager",
+            metadata: [
+                "summoner": summoner.gameName
+            ])
+
+        do {
+            try await self.refreshMatchesInternal(for: summoner)
+            let refreshedMatches = try await getMatches(for: summoner)
+            return .loaded(refreshedMatches)
+        } catch {
+            ClaimbLogger.error(
+                "Failed to refresh matches", service: "DataManager", error: error)
+            return .error(error)
+        }
+    }
+
+    /// Clears all cached data with deduplication
+    public func clearAllCache() async -> UIState<Void> {
+        ClaimbLogger.info("Clearing all cache", service: "DataManager")
+
+        do {
+            try await clearAllCacheInternal()
+            return .loaded(())
+        } catch {
+            ClaimbLogger.error("Failed to clear cache", service: "DataManager", error: error)
+            return .error(error)
+        }
+    }
+
+    /// Cancels all pending requests (useful for cleanup)
+    public func cancelAllRequests() {
+        // Cancel all match requests
+        for task in requestQueue.values {
+            task.cancel()
+        }
+        requestQueue.removeAll()
+
+        // Cancel all champion requests
+        for task in championRequestQueue.values {
+            task.cancel()
+        }
+        championRequestQueue.removeAll()
+
+        // Cancel all summoner requests
+        for task in summonerRequestQueue.values {
+            task.cancel()
+        }
+        summonerRequestQueue.removeAll()
+
+        // Cancel all baseline requests
+        for task in baselineRequestQueue.values {
+            task.cancel()
+        }
+        baselineRequestQueue.removeAll()
+
+        // Clear active requests
+        activeRequests.removeAll()
+
+        ClaimbLogger.info("Cancelled all pending requests", service: "DataManager")
+    }
 }
 
 // MARK: - Supporting Types
@@ -1060,12 +1397,15 @@ private struct ChampionClassMappingData: Codable {
 // MARK: - DataManager Errors
 
 public enum DataManagerError: Error, LocalizedError {
+    case notAvailable
     case missingResource(String)
     case invalidData(String)
     case databaseError(String)
 
     public var errorDescription: String? {
         switch self {
+        case .notAvailable:
+            return "DataManager is not available"
         case .missingResource(let resource):
             return "Missing resource: \(resource)"
         case .invalidData(let message):
@@ -1083,7 +1423,7 @@ enum MatchFilterError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .irrelevantMatch:
-            return "Match is not relevant for analysis (ARAM, Swiftplay, etc.)"
+            return "Match is not relevant for analysis (ARAM, Swiftplay, short games, etc.)"
         }
     }
 }
