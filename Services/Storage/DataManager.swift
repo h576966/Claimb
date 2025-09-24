@@ -144,7 +144,7 @@ public class DataManager {
         }
     }
 
-    /// Refreshes match data for a summoner with incremental fetching
+    /// Refreshes match data for a summoner with efficient incremental fetching
     public func refreshMatchesInternal(for summoner: Summoner) async throws {
         isLoading = true
         errorMessage = nil
@@ -154,19 +154,32 @@ public class DataManager {
             let existingMatches = try await getMatches(for: summoner)
             let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
-            // Fetch more matches if we have less than the target
-            // Account for filtering: fetch 100% more to compensate for ARAM/Swiftplay/old games that will be filtered out
+            // Efficient incremental fetching strategy
             let targetCount = maxMatchesPerSummoner
-            let baseFetchCount = max(15, targetCount - existingMatches.count)  // Reduced from 30 to 15
-            let fetchCount = min(50, baseFetchCount)  // No buffer, cap at 50 to reduce API calls
+            let currentCount = existingMatches.count
+
+            // Only fetch if we're below target or if matches are very old
+            guard currentCount < targetCount else {
+                ClaimbLogger.debug(
+                    "Already at target match count, skipping refresh", service: "DataManager",
+                    metadata: [
+                        "currentCount": String(currentCount),
+                        "targetCount": String(targetCount),
+                    ])
+                return
+            }
+
+            // Calculate how many new matches to fetch
+            let neededMatches = targetCount - currentCount
+            let fetchCount = min(neededMatches, 20)  // Conservative: fetch max 20 new matches per refresh
 
             ClaimbLogger.debug(
-                "Existing matches: \(existingMatches.count), fetching \(fetchCount) more (conservative approach)",
+                "Incremental fetch: need \(neededMatches), fetching \(fetchCount) new matches",
                 service: "DataManager",
                 metadata: [
-                    "existingCount": String(existingMatches.count),
+                    "currentCount": String(currentCount),
+                    "neededMatches": String(neededMatches),
                     "fetchCount": String(fetchCount),
-                    "baseFetchCount": String(baseFetchCount),
                 ]
             )
 
@@ -219,19 +232,20 @@ public class DataManager {
         isLoading = false
     }
 
-    /// Loads initial match data for a summoner (40 games)
+    /// Loads initial match data for a summoner (bulk load for first time)
     public func loadInitialMatches(for summoner: Summoner) async throws {
         isLoading = true
         errorMessage = nil
 
         do {
             ClaimbLogger.info(
-                "Loading initial matches", service: "DataManager",
+                "Bulk loading initial matches", service: "DataManager",
                 metadata: [
                     "gameName": summoner.gameName,
                     "count": "100",  // API limit is 100 matches per request
                 ])
 
+            // Bulk fetch: get maximum matches in one request
             let matchHistory = try await riotClient.getMatchHistory(
                 puuid: summoner.puuid,
                 region: summoner.region,
@@ -256,11 +270,11 @@ public class DataManager {
             try modelContext.save()
 
             ClaimbLogger.dataOperation(
-                "Loaded initial matches", count: addedMatchesCount, service: "DataManager")
+                "Bulk loaded initial matches", count: addedMatchesCount, service: "DataManager")
 
             if skippedMatchesCount > 0 {
                 ClaimbLogger.debug(
-                    "Skipped irrelevant matches during initial load", service: "DataManager",
+                    "Skipped irrelevant matches during bulk load", service: "DataManager",
                     metadata: [
                         "skippedCount": String(skippedMatchesCount),
                         "addedCount": String(addedMatchesCount),
@@ -1061,29 +1075,41 @@ public class DataManager {
 
     // MARK: - Cache Management
 
-    /// Determines if matches should be refreshed based on time and data freshness
+    /// Determines if matches should be refreshed based on smart caching strategy
     private func shouldRefreshMatches(for summoner: Summoner) -> Bool {
-        // Check if it's been more than 5 minutes since last update
         let timeSinceLastUpdate = Date().timeIntervalSince(summoner.lastUpdated)
-        let refreshInterval: TimeInterval = 5 * 60  // 5 minutes
 
-        if timeSinceLastUpdate > refreshInterval {
+        // Smart caching strategy:
+        // - First time: always refresh
+        // - Recent data (< 5 minutes): use cache
+        // - Stale data (> 5 minutes): incremental refresh
+        // - Very old data (> 1 hour): full refresh
+
+        if timeSinceLastUpdate < 5 * 60 {  // Less than 5 minutes
             ClaimbLogger.debug(
-                "Matches are stale, refreshing", service: "DataManager",
+                "Matches are fresh, using cache", service: "DataManager",
                 metadata: [
                     "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
-                    "refreshInterval": String(Int(refreshInterval)),
+                    "strategy": "cache",
+                ])
+            return false
+        } else if timeSinceLastUpdate < 60 * 60 {  // Less than 1 hour
+            ClaimbLogger.debug(
+                "Matches are stale, incremental refresh", service: "DataManager",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "strategy": "incremental",
+                ])
+            return true
+        } else {  // More than 1 hour
+            ClaimbLogger.debug(
+                "Matches are very old, full refresh", service: "DataManager",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "strategy": "full",
                 ])
             return true
         }
-
-        ClaimbLogger.debug(
-            "Matches are fresh, using cache", service: "DataManager",
-            metadata: [
-                "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
-                "refreshInterval": String(Int(refreshInterval)),
-            ])
-        return false
     }
 
     // MARK: - Request Deduplication

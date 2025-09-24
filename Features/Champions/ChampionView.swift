@@ -12,7 +12,7 @@ struct ChampionView: View {
     let summoner: Summoner
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
-    @State private var championDataViewModel: ChampionDataViewModel?
+    @State private var matchDataViewModel: MatchDataViewModel?
     @State private var selectedFilter: ChampionFilter = .mostPlayed
     @State private var showRoleSelection = false
     @State private var expandedChampionIds: Set<Int> = []
@@ -26,7 +26,7 @@ struct ChampionView: View {
                 headerView
 
                 // Role Selector
-                if let viewModel = championDataViewModel, !viewModel.roleStats.isEmpty {
+                if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
                         selectedRole: Binding(
                             get: { userSession.selectedPrimaryRole },
@@ -45,13 +45,13 @@ struct ChampionView: View {
                 filterOptionsView
 
                 // Content with UI State Management
-                if let viewModel = championDataViewModel {
+                if let viewModel = matchDataViewModel {
                     ClaimbContentWrapper(
                         state: viewModel.championState,
                         loadingMessage: "Loading champions...",
                         emptyMessage: "No champions found",
                         retryAction: {
-                            Task { await viewModel.loadData() }
+                            Task { await viewModel.loadAllData() }
                         }
                     ) { champions in
                         if viewModel.championStats.isEmpty {
@@ -68,23 +68,23 @@ struct ChampionView: View {
         .onAppear {
             initializeViewModel()
             Task {
-                await championDataViewModel?.loadData()
+                await matchDataViewModel?.loadAllData()
             }
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
-                await championDataViewModel?.loadChampionStats(
+                await matchDataViewModel?.loadChampionStats(
                     role: userSession.selectedPrimaryRole, filter: selectedFilter)
             }
         }
         .onChange(of: selectedFilter) { _, _ in
             Task {
-                await championDataViewModel?.loadChampionStats(
+                await matchDataViewModel?.loadChampionStats(
                     role: userSession.selectedPrimaryRole, filter: selectedFilter)
             }
         }
         .sheet(isPresented: $showRoleSelection) {
-            if let viewModel = championDataViewModel {
+            if let viewModel = matchDataViewModel {
                 RoleSelectorView(
                     selectedRole: Binding(
                         get: { userSession.selectedPrimaryRole },
@@ -127,7 +127,7 @@ struct ChampionView: View {
 
             Button("Load Champions") {
                 Task {
-                    await championDataViewModel?.loadData()
+                    await matchDataViewModel?.loadAllData()
                 }
             }
             .claimbButton(variant: .primary, size: .medium)
@@ -181,7 +181,7 @@ struct ChampionView: View {
     private func championListView(champions: [Champion]) -> some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.sm) {
-                if let viewModel = championDataViewModel {
+                if let viewModel = matchDataViewModel {
                     ForEach(viewModel.championStats, id: \.champion.id) { championStat in
                         ExpandableChampionStatsCard(
                             championStat: championStat,
@@ -215,13 +215,13 @@ struct ChampionView: View {
     }
 
     private func initializeViewModel() {
-        if championDataViewModel == nil {
+        if matchDataViewModel == nil {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
                 dataDragonService: DataDragonService()
             )
-            championDataViewModel = ChampionDataViewModel(
+            matchDataViewModel = MatchDataViewModel(
                 dataManager: dataManager,
                 summoner: summoner,
                 userSession: userSession
@@ -231,24 +231,7 @@ struct ChampionView: View {
 }
 
 // MARK: - Data Structures
-
-struct ChampionStats {
-    let champion: Champion
-    var gamesPlayed: Int
-    var wins: Int
-    var winRate: Double
-    var averageKDA: Double
-    var averageCS: Double
-    var averageVisionScore: Double
-    var averageDeaths: Double
-
-    // Role-specific KPIs
-    var averageGoldPerMin: Double
-    var averageKillParticipation: Double
-    var averageObjectiveParticipation: Double
-    var averageTeamDamagePercent: Double
-    var averageDamageTakenShare: Double
-}
+// Note: ChampionStats struct is now defined in MatchDataViewModel to avoid duplication
 
 // MARK: - KPI Data Structure
 // Note: RoleKPI struct is now defined in ChampionDataViewModel to avoid duplication
@@ -262,7 +245,7 @@ struct ExpandableChampionStatsCard: View {
     let championStat: ChampionStats
     let filter: ChampionFilter
     let userSession: UserSession
-    let viewModel: ChampionDataViewModel
+    let viewModel: MatchDataViewModel
     let isExpanded: Bool
     let onToggle: () -> Void
 
@@ -357,12 +340,12 @@ struct ExpandableChampionStatsCard: View {
                     ], spacing: DesignSystem.Spacing.sm
                 ) {
                     ForEach(
-                        viewModel.getRoleSpecificKPIsFromChampionView(
-                            for: championStat, role: userSession.selectedPrimaryRole), id: \.title
+                        viewModel.getRoleSpecificKPIsForChampion(
+                            championStat, role: userSession.selectedPrimaryRole), id: \.metric
                     ) { kpi in
                         StatItemView(
-                            title: kpi.title,
-                            value: kpi.value,
+                            title: kpi.displayName,
+                            value: kpi.formattedValue,
                             color: kpi.color
                         )
                     }

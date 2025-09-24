@@ -11,49 +11,6 @@ import SwiftUI
 
 // MARK: - KPI Data Structures
 
-struct KPIMetric {
-    let metric: String
-    let value: Double
-    let baseline: Baseline?
-    let performanceLevel: PerformanceLevel
-    let color: Color
-
-    var displayName: String {
-        switch metric {
-        case "deaths_per_game": return "Deaths per Game"
-        case "vision_score_per_min": return "Vision Score/min"
-        case "kill_participation_pct": return "Kill Participation"
-        case "cs_per_min": return "CS per Minute"
-        case "objective_participation_pct": return "Objective Participation"
-        case "team_damage_pct": return "Damage Share"
-        case "damage_taken_share_pct": return "Damage Taken Share"
-        case "primary_role_consistency": return "Role Consistency"
-        case "champion_pool_size": return "Champion Pool Size"
-        default: return metric
-        }
-    }
-
-    var formattedValue: String {
-        switch metric {
-        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
-            "damage_taken_share_pct":
-            // Convert decimal to percentage (0.5 -> 50%)
-            return String(format: "%.0f%%", value * 100)
-        case "primary_role_consistency":
-            // Already a percentage, no decimal needed
-            return String(format: "%.0f%%", value)
-        case "cs_per_min", "vision_score_per_min":
-            return String(format: "%.1f", value)
-        case "deaths_per_game":
-            return String(format: "%.1f", value)
-        case "champion_pool_size":
-            return String(format: "%.0f", value)
-        default:
-            return String(format: "%.2f", value)
-        }
-    }
-}
-
 enum PerformanceLevel {
     case poor
     case needsImprovement
@@ -138,13 +95,11 @@ struct KPICard: View {
         )
     }
 
-    private func performanceLevelText(_ level: PerformanceLevel) -> String {
+    private func performanceLevelText(_ level: Baseline.PerformanceLevel) -> String {
         switch level {
-        case .poor: return "Poor"
-        case .needsImprovement: return "Needs Improvement"
-        case .good: return "Good"
         case .excellent: return "Excellent"
-        case .unknown: return "Unknown"
+        case .good: return "Good"
+        case .needsImprovement: return "Needs Improvement"
         }
     }
 
@@ -175,7 +130,7 @@ struct PerformanceView: View {
     let summoner: Summoner
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
-    @State private var kpiDataViewModel: KPIDataViewModel?
+    @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showRoleSelection = false
 
     var body: some View {
@@ -187,7 +142,7 @@ struct PerformanceView: View {
                 headerView
 
                 // Role Selector
-                if let viewModel = kpiDataViewModel, !viewModel.roleStats.isEmpty {
+                if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
                         selectedRole: Binding(
                             get: { userSession.selectedPrimaryRole },
@@ -203,12 +158,12 @@ struct PerformanceView: View {
                 }
 
                 // Content
-                if let viewModel = kpiDataViewModel {
+                if let viewModel = matchDataViewModel {
                     ClaimbContentWrapper(
                         state: viewModel.matchState,
                         loadingMessage: "Loading performance data...",
                         emptyMessage: "No matches found for analysis",
-                        retryAction: { Task { await viewModel.loadData() } }
+                        retryAction: { Task { await viewModel.loadAllData() } }
                     ) { matches in
                         kpiListView(matches: matches)
                     }
@@ -220,16 +175,16 @@ struct PerformanceView: View {
         .onAppear {
             initializeViewModel()
             Task {
-                await kpiDataViewModel?.loadData()
+                await matchDataViewModel?.loadAllData()
             }
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
-                await kpiDataViewModel?.calculateKPIsForCurrentRole()
+                await matchDataViewModel?.calculateKPIsForCurrentRole()
             }
         }
         .sheet(isPresented: $showRoleSelection) {
-            if let viewModel = kpiDataViewModel {
+            if let viewModel = matchDataViewModel {
                 RoleSelectorView(
                     selectedRole: Binding(
                         get: { userSession.selectedPrimaryRole },
@@ -252,8 +207,8 @@ struct PerformanceView: View {
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",
-                action: { Task { await kpiDataViewModel?.refreshData() } },
-                isLoading: kpiDataViewModel?.isRefreshing ?? false,
+                action: { Task { await matchDataViewModel?.refreshMatches() } },
+                isLoading: matchDataViewModel?.isRefreshing ?? false,
                 isDisabled: false
             ),
             onLogout: {
@@ -266,7 +221,7 @@ struct PerformanceView: View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.sm) {
                 // KPI Cards
-                if let viewModel = kpiDataViewModel {
+                if let viewModel = matchDataViewModel {
                     ForEach(viewModel.kpiMetrics, id: \.metric) { kpi in
                         KPICard(kpi: kpi)
                     }
@@ -278,13 +233,13 @@ struct PerformanceView: View {
     }
 
     private func initializeViewModel() {
-        if kpiDataViewModel == nil {
+        if matchDataViewModel == nil {
             let dataManager = DataManager(
                 modelContext: modelContext,
                 riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
                 dataDragonService: DataDragonService()
             )
-            kpiDataViewModel = KPIDataViewModel(
+            matchDataViewModel = MatchDataViewModel(
                 dataManager: dataManager,
                 summoner: summoner,
                 userSession: userSession

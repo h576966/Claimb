@@ -233,7 +233,7 @@ public class KPICalculationService {
 
         return KPIMetric(
             metric: metric,
-            value: value,
+            value: String(format: "%.2f", value),
             baseline: baseline,
             performanceLevel: performanceLevel,
             color: color
@@ -272,7 +272,6 @@ public class KPICalculationService {
         }
     }
 
-
     private func mapRoleToBaselineFormat(_ role: String) -> String {
         switch role.uppercased() {
         case "MID":
@@ -291,7 +290,7 @@ public class KPICalculationService {
     }
 
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
-        -> (PerformanceLevel, Color)
+        -> (Baseline.PerformanceLevel, Color)
     {
         if let baseline = baseline {
             // Special handling for Deaths per Game - lower is better
@@ -303,7 +302,7 @@ public class KPICalculationService {
                 } else if value <= baseline.p60 * 1.2 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
-                    return (.poor, DesignSystem.Colors.secondary)
+                    return (.needsImprovement, DesignSystem.Colors.secondary)
                 }
             } else {
                 // Standard logic for other metrics - higher is better
@@ -314,7 +313,7 @@ public class KPICalculationService {
                 } else if value >= baseline.p40 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
-                    return (.poor, DesignSystem.Colors.secondary)
+                    return (.needsImprovement, DesignSystem.Colors.secondary)
                 }
             }
         } else {
@@ -324,7 +323,7 @@ public class KPICalculationService {
     }
 
     private func getBasicPerformanceLevel(value: Double, metric: String) -> (
-        PerformanceLevel, Color
+        Baseline.PerformanceLevel, Color
     ) {
         // Basic performance levels without baseline data
         switch metric {
@@ -336,7 +335,7 @@ public class KPICalculationService {
             } else if value < 7.0 {
                 return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
-                return (.poor, DesignSystem.Colors.secondary)
+                return (.needsImprovement, DesignSystem.Colors.secondary)
             }
         case "vision_score_per_min", "vision_score_per_minute":
             if value > 2.0 {
@@ -346,7 +345,7 @@ public class KPICalculationService {
             } else if value > 1.0 {
                 return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
-                return (.poor, DesignSystem.Colors.secondary)
+                return (.needsImprovement, DesignSystem.Colors.secondary)
             }
         case "kill_participation_pct", "kill_participation":
             if value > 0.7 {
@@ -356,7 +355,7 @@ public class KPICalculationService {
             } else if value > 0.3 {
                 return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
-                return (.poor, DesignSystem.Colors.secondary)
+                return (.needsImprovement, DesignSystem.Colors.secondary)
             }
         case "cs_per_min":
             if value > 8.0 {
@@ -366,10 +365,10 @@ public class KPICalculationService {
             } else if value > 5.0 {
                 return (.needsImprovement, DesignSystem.Colors.warning)
             } else {
-                return (.poor, DesignSystem.Colors.secondary)
+                return (.needsImprovement, DesignSystem.Colors.secondary)
             }
         default:
-            return (.unknown, DesignSystem.Colors.textSecondary)
+            return (.needsImprovement, DesignSystem.Colors.textSecondary)
         }
     }
 }

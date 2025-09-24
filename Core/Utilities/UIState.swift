@@ -51,7 +51,7 @@ public enum UIState<T> {
     }
 }
 
-/// Standardized loading view component
+/// Standardized loading view component using ClaimbSpinner
 public struct ClaimbLoadingView: View {
     public let message: String
     public let size: CGFloat
@@ -72,6 +72,19 @@ public struct ClaimbLoadingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.background)
+    }
+}
+
+/// Simple inline loading indicator using ClaimbSpinner
+public struct ClaimbInlineSpinner: View {
+    public let size: CGFloat
+
+    public init(size: CGFloat = 20) {
+        self.size = size
+    }
+
+    public var body: some View {
+        GlowCSpinner(size: size)
     }
 }
 

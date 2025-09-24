@@ -26,6 +26,7 @@
 /* Begin PBXFileReference section */
 		F31B70272E7C6334003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F31B71FB2E7DEFEF003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35E2E712E6E0C0B009DDF39 /* Claimb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Claimb.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E802E6E0C0C009DDF39 /* ClaimbTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -80,6 +81,11 @@
 			sourceTree = "<group>";
 		};
 		F31B71FF2E7DEFEF003C0FF7 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3288AD82E84739B0073DB01 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -259,6 +265,10 @@
 				{
 					ProductGroup = F31B702B2E7C6334003C0FF7 /* Products */;
 					ProjectRef = F31B70272E7C6334003C0FF7 /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F3288AD82E84739B0073DB01 /* Products */;
+					ProjectRef = F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";

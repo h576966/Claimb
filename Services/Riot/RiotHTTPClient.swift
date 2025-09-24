@@ -14,8 +14,8 @@ public class RiotHTTPClient: RiotClient {
 
     public init(apiKey: String) {
         self.apiKey = apiKey
-        // More conservative rate limiting to avoid 429 errors
-        self.rateLimiter = RateLimiter(requestsPerSecond: 10, requestsPerTwoMinutes: 50)
+        // Simplified rate limiting for bulk operations
+        self.rateLimiter = RateLimiter(requestsPerSecond: 10)
 
         // Configure URLSession with URLCache for automatic disk caching
         let config = URLSessionConfiguration.default
