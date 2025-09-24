@@ -339,16 +339,10 @@ struct ExpandableChampionStatsCard: View {
                         GridItem(.flexible()),
                     ], spacing: DesignSystem.Spacing.sm
                 ) {
-                    ForEach(
-                        viewModel.getRoleSpecificKPIsForChampion(
-                            championStat, role: userSession.selectedPrimaryRole), id: \.metric
-                    ) { kpi in
-                        StatItemView(
-                            title: kpi.displayName,
-                            value: kpi.formattedValue,
-                            color: kpi.color
-                        )
-                    }
+                    // TODO: Implement role-specific KPIs for champions
+                    Text("Role-specific KPIs coming soon")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.md)

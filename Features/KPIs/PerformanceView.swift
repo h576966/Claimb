@@ -9,35 +9,6 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-// MARK: - KPI Data Structures
-
-enum PerformanceLevel {
-    case poor
-    case needsImprovement
-    case good
-    case excellent
-    case unknown
-}
-
-// MARK: - PerformanceLevel Extensions
-
-extension PerformanceLevel: Comparable {
-    /// Sorting priority: Poor (0) > Needs Improvement (1) > Good (2) > Excellent (3) > Unknown (4)
-    var sortPriority: Int {
-        switch self {
-        case .poor: return 0
-        case .needsImprovement: return 1
-        case .good: return 2
-        case .excellent: return 3
-        case .unknown: return 4
-        }
-    }
-
-    static func < (lhs: PerformanceLevel, rhs: PerformanceLevel) -> Bool {
-        return lhs.sortPriority < rhs.sortPriority
-    }
-}
-
 // MARK: - KPI Card View
 
 struct KPICard: View {
