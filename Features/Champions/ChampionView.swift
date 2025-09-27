@@ -247,7 +247,7 @@ struct ExpandableChampionStatsCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Main card content (always visible)
+            // Main card content (always visible) - entire card is clickable
             Button(action: onToggle) {
                 HStack(spacing: DesignSystem.Spacing.md) {
                     // Champion Icon

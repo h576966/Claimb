@@ -28,8 +28,8 @@ public class MatchDataViewModel {
     private let summoner: Summoner
     private let userSession: UserSession?
     private let kpiCalculationService: KPICalculationService?
-    // Note: nonisolated(unsafe) is required for deinit access, despite compiler warning
-    nonisolated(unsafe) private var currentTask: Task<Void, Never>?
+    // Note: nonisolated is required for deinit access
+    nonisolated private var currentTask: Task<Void, Never>?
 
     // MARK: - In-Memory Caches
     private var kpiCache: [String: [KPIMetric]] = [:]
@@ -556,7 +556,18 @@ public class MatchDataViewModel {
         let championClass = championStat.champion.championClass
         let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[role] ?? []
 
-        return keyMetrics.compactMap { metric in
+        ClaimbLogger.debug(
+            "Getting champion KPI display",
+            service: AppConstants.LoggingServices.matchDataViewModel,
+            metadata: [
+                "champion": championStat.champion.name,
+                "championClass": championClass,
+                "role": role,
+                "keyMetrics": keyMetrics.joined(separator: ", "),
+            ]
+        )
+
+        let results = keyMetrics.compactMap { metric in
             let value = getStatValue(from: championStat, for: metric)
 
             // Try to get baseline for specific class, fallback to "ALL"
@@ -566,6 +577,18 @@ public class MatchDataViewModel {
 
             let performanceLevel = baseline?.getPerformanceLevel(value) ?? .needsImprovement
 
+            ClaimbLogger.debug(
+                "KPI calculation",
+                service: AppConstants.LoggingServices.matchDataViewModel,
+                metadata: [
+                    "metric": metric,
+                    "value": String(value),
+                    "formattedValue": formatValue(value, for: metric),
+                    "hasBaseline": baseline != nil ? "true" : "false",
+                    "performanceLevel": performanceLevel.rawValue,
+                ]
+            )
+
             return ChampionKPIDisplay(
                 metric: metric,
                 value: formatValue(value, for: metric),
@@ -573,6 +596,17 @@ public class MatchDataViewModel {
                 color: getPerformanceColor(performanceLevel)
             )
         }
+
+        ClaimbLogger.debug(
+            "Champion KPI display results",
+            service: AppConstants.LoggingServices.matchDataViewModel,
+            metadata: [
+                "champion": championStat.champion.name,
+                "resultCount": String(results.count),
+            ]
+        )
+
+        return results
     }
 
     /// Maps ChampionStats properties to metric values
@@ -591,23 +625,65 @@ public class MatchDataViewModel {
 
     /// Synchronous baseline lookup (baselines are already loaded)
     private func getBaselineSync(role: String, classTag: String, metric: String) -> Baseline? {
-        guard let dataManager = dataManager else { return nil }
+        guard let dataManager = dataManager else {
+            ClaimbLogger.debug(
+                "No dataManager available for baseline lookup",
+                service: AppConstants.LoggingServices.matchDataViewModel)
+            return nil
+        }
 
-        // Since baselines are already loaded, we can use a simple Task to get them
+        // Use RunLoop to avoid deadlocks with semaphores on MainActor
         var result: Baseline?
-        let semaphore = DispatchSemaphore(value: 0)
+        var completed = false
 
         Task {
             do {
                 result = try await dataManager.getBaseline(
                     role: role, classTag: classTag, metric: metric)
+                ClaimbLogger.debug(
+                    "Baseline lookup result",
+                    service: AppConstants.LoggingServices.matchDataViewModel,
+                    metadata: [
+                        "role": role,
+                        "classTag": classTag,
+                        "metric": metric,
+                        "found": result != nil ? "true" : "false",
+                    ]
+                )
             } catch {
+                ClaimbLogger.debug(
+                    "Baseline lookup failed",
+                    service: AppConstants.LoggingServices.matchDataViewModel,
+                    metadata: [
+                        "role": role,
+                        "classTag": classTag,
+                        "metric": metric,
+                        "error": error.localizedDescription,
+                    ]
+                )
                 result = nil
             }
-            semaphore.signal()
+            completed = true
         }
 
-        semaphore.wait()
+        // Wait for completion with timeout
+        let timeout = Date().addingTimeInterval(1.0)  // 1 second timeout
+        while !completed && Date() < timeout {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+
+        if !completed {
+            ClaimbLogger.warning(
+                "Baseline lookup timed out",
+                service: AppConstants.LoggingServices.matchDataViewModel,
+                metadata: [
+                    "role": role,
+                    "classTag": classTag,
+                    "metric": metric,
+                ]
+            )
+        }
+
         return result
     }
 
