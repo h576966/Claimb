@@ -243,11 +243,41 @@ public class KPICalculationService {
 
         return KPIMetric(
             metric: metric,
-            value: String(format: "%.2f", value),
+            value: formatKPIValue(value, for: metric),
             baseline: finalBaseline,
             performanceLevel: performanceLevel,
             color: color
         )
+    }
+
+    /// Formats KPI values according to their specific requirements
+    private func formatKPIValue(_ value: Double, for metric: String) -> String {
+        switch metric {
+        case "deaths_per_game":
+            // Deaths per Game: 1 decimal place
+            return String(format: "%.1f", value)
+        case "kill_participation_pct":
+            // Kill Participation: percentage (0.45 -> 45%)
+            return String(format: "%.0f%%", value * 100)
+        case "cs_per_min":
+            // CS per Minute: 1 decimal place
+            return String(format: "%.1f", value)
+        case "primary_role_consistency":
+            // Role Consistency: percentage (55.00 -> 55%)
+            return String(format: "%.0f%%", value)
+        case "champion_pool_size":
+            // Champion Pool Size: integer (6.00 -> 6)
+            return String(format: "%.0f", value)
+        case "vision_score_per_min":
+            // Vision Score per Minute: 1 decimal place
+            return String(format: "%.1f", value)
+        case "objective_participation_pct", "team_damage_pct", "damage_taken_share_pct":
+            // Other percentage metrics: percentage format
+            return String(format: "%.0f%%", value * 100)
+        default:
+            // Default: 1 decimal place
+            return String(format: "%.1f", value)
+        }
     }
 
     private func getBaselineForMetric(metric: String, role: String) async -> Baseline? {
