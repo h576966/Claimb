@@ -65,7 +65,7 @@ public class DataManager {
     /// Eliminates code duplication across different request types
     private func deduplicateRequest<T>(
         key: String,
-        operation: @escaping () async -> UIState<T>
+        operation: @escaping @MainActor () async -> UIState<T>
     ) async -> UIState<T> {
         // Check if request is already in progress
         if let existingTask = requestTasks[key] as? Task<UIState<T>, Never> {
@@ -76,7 +76,7 @@ public class DataManager {
         }
 
         // Create new task
-        let task = Task<UIState<T>, Never> {
+        let task = Task<UIState<T>, Never> { @MainActor in
             defer {
                 // Clean up when task completes
                 requestTasks.removeValue(forKey: key)
@@ -527,8 +527,6 @@ public class DataManager {
         ClaimbLogger.info("Match data cleared", service: "DataManager")
     }
 
-
-
     /// Clears URL cache only
     public func clearURLCache() {
         ClaimbLogger.info("Clearing URL cache...", service: "DataManager")
@@ -608,7 +606,6 @@ public class DataManager {
         return try await baselineDataLoader.getBaseline(
             role: role, classTag: classTag, metric: metric)
     }
-
 
     /// Clears all baselines (for debugging/testing)
     public func clearBaselines() async throws {

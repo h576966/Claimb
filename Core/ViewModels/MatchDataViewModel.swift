@@ -31,6 +31,16 @@ public class MatchDataViewModel {
     // Note: nonisolated(unsafe) is required for deinit access, despite compiler warning
     nonisolated(unsafe) private var currentTask: Task<Void, Never>?
 
+    // MARK: - In-Memory Caches
+    private var kpiCache: [String: [KPIMetric]] = [:]
+    private let kpiPersistPrefix = "kpiCache_"
+
+    private func kpiCacheKey(matches: [Match], role: String) -> String {
+        let count = matches.count
+        let latestId = matches.first?.matchId ?? "none"
+        return "\(summoner.puuid)|\(role)|\(count)|\(latestId)"
+    }
+
     // MARK: - Initialization
 
     public init(dataManager: DataManager?, summoner: Summoner, userSession: UserSession? = nil) {
@@ -84,9 +94,14 @@ public class MatchDataViewModel {
                     await calculateChampionStats(matches: matchData, champions: championData)
                 }
 
-                // Calculate KPIs if userSession is available
+                // KPIs: serve cached first, then refresh in background
                 if userSession != nil {
-                    await calculateKPIs(matches: matchData)
+                    let servedFromCache = loadKPIsFromCacheIfAvailable(matches: matchData)
+                    if !servedFromCache {
+                        await calculateKPIs(matches: matchData)
+                    } else {
+                        Task { await calculateKPIs(matches: matchData) }
+                    }
                 }
             }
         }
@@ -311,13 +326,54 @@ public class MatchDataViewModel {
                 summoner: summoner
             )
 
+            let key = kpiCacheKey(matches: matches, role: role)
+            kpiCache[key] = roleKPIs
             kpiMetrics = roleKPIs
+
+            // Persist lightweight cache
+            let persistedKey = kpiPersistPrefix + key
+            let payload = roleKPIs.map { $0.toPersisted() }
+            UserDefaults.standard.set(payload, forKey: persistedKey)
 
         } catch {
             ClaimbLogger.error(
                 "Failed to calculate KPIs", service: "MatchDataViewModel", error: error)
             kpiMetrics = []
         }
+    }
+
+    // Attempts to serve KPIs from cache; returns true if served
+    private func loadKPIsFromCacheIfAvailable(matches: [Match]) -> Bool {
+        guard let userSession = userSession else { return false }
+        let role = userSession.selectedPrimaryRole
+        let key = kpiCacheKey(matches: matches, role: role)
+        if let cached = kpiCache[key] {
+            kpiMetrics = cached
+            ClaimbLogger.debug(
+                "Served KPIs from cache", service: "MatchDataViewModel",
+                metadata: [
+                    "role": role,
+                    "matchCount": String(matches.count),
+                ])
+            return true
+        }
+        // Try persisted cache
+        let persistedKey = kpiPersistPrefix + key
+        if let array = UserDefaults.standard.array(forKey: persistedKey) as? [[String: String]] {
+            let restored = array.compactMap { KPIMetric.fromPersisted($0) }
+            if !restored.isEmpty {
+                kpiCache[key] = restored
+                kpiMetrics = restored
+                ClaimbLogger.debug(
+                    "Served KPIs from persisted cache", service: "MatchDataViewModel",
+                    metadata: [
+                        "role": role,
+                        "matchCount": String(matches.count),
+                    ])
+                return true
+            }
+        }
+        return false
     }
 
     /// Calculates role statistics from matches
@@ -509,5 +565,49 @@ public struct KPIMetric {
 
     public var formattedValue: String {
         return value
+    }
+
+    // MARK: - Lightweight persistence helpers (no Color persistence)
+    public func toPersisted() -> [String: String] {
+        var dict: [String: String] = [
+            "metric": metric,
+            "value": value,
+            "performanceLevel": performanceLevel.rawValue,
+        ]
+        if let baseline = baseline {
+            dict["baseline_metric"] = baseline.metric
+            dict["baseline_role"] = baseline.role
+            dict["baseline_classTag"] = baseline.classTag
+            dict["baseline_mean"] = String(baseline.mean)
+            dict["baseline_median"] = String(baseline.median)
+            dict["baseline_p40"] = String(baseline.p40)
+            dict["baseline_p60"] = String(baseline.p60)
+        }
+        return dict
+    }
+
+    public static func fromPersisted(_ dict: [String: String]) -> KPIMetric? {
+        guard
+            let metric = dict["metric"],
+            let value = dict["value"],
+            let levelRaw = dict["performanceLevel"],
+            let level = Baseline.PerformanceLevel(rawValue: levelRaw)
+        else { return nil }
+
+        var baseline: Baseline? = nil
+        if let m = dict["baseline_metric"], let r = dict["baseline_role"],
+            let c = dict["baseline_classTag"], let meanStr = dict["baseline_mean"],
+            let medianStr = dict["baseline_median"], let p40Str = dict["baseline_p40"],
+            let p60Str = dict["baseline_p60"], let mean = Double(meanStr),
+            let median = Double(medianStr), let p40 = Double(p40Str), let p60 = Double(p60Str)
+        {
+            baseline = Baseline(
+                role: r, classTag: c, metric: m, mean: mean, median: median, p40: p40, p60: p60)
+        }
+
+        // Use a neutral color; UI can recolor based on performance if needed
+        return KPIMetric(
+            metric: metric, value: value, baseline: baseline, performanceLevel: level,
+            color: .primary)
     }
 }

@@ -9,6 +9,7 @@ import Foundation
 import SwiftData
 
 /// Handles loading and management of champion data from Data Dragon
+@MainActor
 public class ChampionDataLoader {
     private let modelContext: ModelContext
     private let dataDragonService: DataDragonServiceProtocol

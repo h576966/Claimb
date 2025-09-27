@@ -67,12 +67,16 @@ public class RiotHTTPClient: RiotClient {
         request.setValue(apiKey, forHTTPHeaderField: "X-Riot-Token")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // Debug logging for API requests
+        // Debug logging for API requests (mask sensitive data)
+        let maskedKey =
+            apiKey.count >= 8
+            ? String(repeating: "*", count: max(0, apiKey.count - 4)) + apiKey.suffix(4)
+            : "****"
         ClaimbLogger.debug(
             "Making API request", service: "RiotHTTPClient",
             metadata: [
                 "url": url.absoluteString,
-                "apiKey": String(apiKey.prefix(10)) + "...",
+                "apiKey": maskedKey,
                 "method": request.httpMethod ?? "GET",
             ])
 

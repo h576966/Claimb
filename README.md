@@ -92,6 +92,18 @@ We recently completed a comprehensive architecture cleanup that reduced codebase
 - **Improved maintainability** through focused, single-responsibility components
 - **Enhanced user experience** with persistent role selection
 
+### **Performance Optimizations (September 2025)**
+- **One‑time Team DMG fix**: gated cache clear with `UserDefaults` flag; no longer runs on every launch
+- **SwiftData safety**: all `ModelContext` operations are MainActor‑isolated (loaders/parsers/dedup tasks)
+- **Secure logging**: Riot API key masked (only last 4 characters retained)
+- **KPI caching**: 
+  - In‑memory cache keyed by `summonerPUUID|role|matchCount|latestMatchId`
+  - Persisted lightweight cache in `UserDefaults` for instant warm starts
+  - Cached‑first rendering with background refresh on view entry or role change
+- **Role mapping logs throttled**: duplicate `NONE` role mappings logged once per unique `(role,lane,result)`
+
+Result: faster warm starts, less redundant work and noise, and safer logs with minimal added complexity.
+
 ### **🔄 In Development**
 - **Testing Infrastructure**: Unit tests for critical components
 - **Advanced Performance Metrics**: Trend analysis and improvement suggestions

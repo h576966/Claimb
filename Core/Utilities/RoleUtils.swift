@@ -8,6 +8,7 @@
 import Foundation
 
 struct RoleUtils {
+    private static var seenRoleLogs: Set<String> = []
     /// Normalizes role names from Riot API to our standard 5 roles
     /// Uses both role and lane data for improved accuracy (87.5% vs role-only)
     static func normalizeRole(_ role: String, lane: String? = nil) -> String {
@@ -62,15 +63,19 @@ struct RoleUtils {
             }
         }
 
-        // Debug logging for role mapping investigation (only for NONE roles)
+        // Debug logging for role mapping investigation (only for NONE roles) - throttle duplicates
         if upperRole == "NONE" {
-            ClaimbLogger.debug(
-                "Role mapping", service: "RoleUtils",
-                metadata: [
-                    "role": role,
-                    "lane": lane ?? "nil",
-                    "result": result,
-                ])
+            let key = "\(upperRole)|\(upperLane)|\(result)"
+            if !Self.seenRoleLogs.contains(key) {
+                Self.seenRoleLogs.insert(key)
+                ClaimbLogger.debug(
+                    "Role mapping", service: "RoleUtils",
+                    metadata: [
+                        "role": role,
+                        "lane": lane ?? "nil",
+                        "result": result,
+                    ])
+            }
         }
 
         return result

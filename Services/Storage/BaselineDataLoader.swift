@@ -9,6 +9,7 @@ import Foundation
 import SwiftData
 
 /// Handles loading and management of baseline data from JSON files
+@MainActor
 public class BaselineDataLoader {
     private let modelContext: ModelContext
 

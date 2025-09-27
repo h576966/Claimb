@@ -156,9 +156,18 @@ struct ClaimbApp: App {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    // Clear cache programmatically for Team DMG fix
-                    Task {
-                        await clearCacheForTeamDMGFix()
+                    // Team DMG fix: run cache clear only once per app install/version
+                    let teamDMGFixKey = "TeamDMGFix_Applied_2.0"
+                    if UserDefaults.standard.bool(forKey: teamDMGFixKey) == false {
+                        Task { @MainActor in
+                            await clearCacheForTeamDMGFix()
+                            UserDefaults.standard.set(true, forKey: teamDMGFixKey)
+                            ClaimbLogger.info(
+                                "Team DMG fix applied (one-time)", service: "ClaimbApp")
+                        }
+                    } else {
+                        ClaimbLogger.debug(
+                            "Team DMG fix already applied, skipping", service: "ClaimbApp")
                     }
                 }
         }

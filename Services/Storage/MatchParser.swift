@@ -9,6 +9,7 @@ import Foundation
 import SwiftData
 
 /// Handles parsing of match data from Riot API responses
+@MainActor
 public class MatchParser {
     private let modelContext: ModelContext
 
