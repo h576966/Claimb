@@ -32,7 +32,7 @@ public class KPICalculationService {
         let participants = matches.compactMap { match in
             match.participants.first(where: {
                 $0.puuid == summoner.puuid
-                    && RoleUtils.normalizeRole($0.role, lane: $0.lane) == role
+                    && RoleUtils.normalizeRole($0.role, lane: $0.lane, teamPosition: $0.teamPosition) == role
             })
         }
 
