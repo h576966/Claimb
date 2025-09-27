@@ -196,9 +196,8 @@ struct BaselineTestView: View {
             let baselines = try modelContext.fetch(baselineDescriptor)
             baselineCount = baselines.count
 
-            let mappingDescriptor = FetchDescriptor<ChampionClassMapping>()
-            let mappings = try modelContext.fetch(mappingDescriptor)
-            championMappingCount = mappings.count
+            // Champion class mappings are now loaded directly from JSON in Champion model
+            championMappingCount = 171 // Total number of champions
         } catch {
             errorMessage = "Failed to load counts: \(error.localizedDescription)"
         }

@@ -221,8 +221,7 @@ struct PerformanceView: View {
 
 #Preview {
     let modelContainer = try! ModelContainer(
-        for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
-        ChampionClassMapping.self)
+        for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
     let userSession = UserSession(modelContext: modelContainer.mainContext)
     let summoner = Summoner(
         puuid: "test-puuid",

@@ -64,6 +64,33 @@ public class Champion {
         return "https://ddragon.leagueoflegends.com/cdn/img/champion/splash/\(key)_0.jpg"
     }
     
+    // MARK: - Champion Class Mapping
+    
+    /// Static mapping of champion keys to their primary classes
+    private static let championClassMapping: [String: String] = {
+        // Load from JSON file once and cache statically
+        guard let url = Bundle.main.url(forResource: "champion_class_mapping_clean", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let mappings = try? JSONDecoder().decode([ChampionClassMappingData].self, from: data) else {
+            ClaimbLogger.error("Failed to load champion class mapping from JSON", service: "Champion")
+            return [:]
+        }
+        
+        var mapping: [String: String] = [:]
+        for item in mappings {
+            mapping[item.champion_id] = item.primary_class
+        }
+        
+        ClaimbLogger.info("Loaded champion class mappings", service: "Champion", 
+                         metadata: ["count": String(mappings.count)])
+        return mapping
+    }()
+    
+    /// The primary class/role of this champion (Fighter, Mage, Assassin, etc.)
+    public var championClass: String {
+        return Self.championClassMapping[key] ?? "Unknown"
+    }
+    
     // MARK: - Champion Name Transformation
     
     /// Transforms champion names to match Data Dragon image naming convention
@@ -102,6 +129,15 @@ public class Champion {
             .replacingOccurrences(of: "'", with: "")
             .replacingOccurrences(of: ".", with: "")
     }
+}
+
+// MARK: - Supporting Types
+
+/// JSON structure for champion class mapping data
+private struct ChampionClassMappingData: Codable {
+    let champion_id: String
+    let champion_name: String
+    let primary_class: String
 }
 
 // MARK: - Errors

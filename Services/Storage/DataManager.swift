@@ -815,12 +815,7 @@ public class DataManager {
             modelContext.delete(baseline)
         }
 
-        // Clear champion class mappings
-        let mappingDescriptor = FetchDescriptor<ChampionClassMapping>()
-        let allMappings = try modelContext.fetch(mappingDescriptor)
-        for mapping in allMappings {
-            modelContext.delete(mapping)
-        }
+        // Champion class mappings are now loaded directly from JSON in Champion model
 
         try modelContext.save()
 
@@ -1037,17 +1032,6 @@ public class DataManager {
         }
     }
 
-    /// Loads champion class mapping from bundled JSON file
-    public func loadChampionClassMapping() async throws -> [String: String] {
-        let mappingData = try await loadChampionClassMappingJSON()
-        var mapping: [String: String] = [:]
-
-        for item in mappingData {
-            mapping[item.champion_name] = item.primary_class
-        }
-
-        return mapping
-    }
 
     // MARK: - Private JSON Loading Methods
 
@@ -1061,17 +1045,6 @@ public class DataManager {
         return try JSONDecoder().decode([BaselineData].self, from: data)
     }
 
-    private func loadChampionClassMappingJSON() async throws -> [ChampionClassMappingData] {
-        guard
-            let url = Bundle.main.url(
-                forResource: "champion_class_mapping_clean", withExtension: "json")
-        else {
-            throw DataManagerError.missingResource("champion_class_mapping_clean.json")
-        }
-
-        let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode([ChampionClassMappingData].self, from: data)
-    }
 
     // MARK: - Cache Management
 
@@ -1414,11 +1387,6 @@ private struct BaselineData: Codable {
     let p60: Double
 }
 
-private struct ChampionClassMappingData: Codable {
-    let champion_name: String
-    let primary_class: String
-    let secondary_class: String?
-}
 
 // MARK: - DataManager Errors
 
