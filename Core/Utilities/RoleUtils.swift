@@ -34,7 +34,13 @@ struct RoleUtils {
             case "DUO_SUPPORT", "SUPPORT", "UTILITY":
                 result = "SUPPORT"
             default:
-                result = "BOTTOM"  // Default to ADC for bot lane
+                // For unknown roles in bot lane, check if it's a typical mid champion
+                // This helps catch cases where mid champions are misclassified
+                if isMidChampion(role: upperRole, lane: upperLane) {
+                    result = "MID"
+                } else {
+                    result = "BOTTOM"  // Default to ADC for bot lane
+                }
             }
         default:
             // Fallback to role-only mapping if lane is unknown
@@ -121,6 +127,13 @@ struct RoleUtils {
         } else {
             return "secondary"  // Red-orange for poor performance
         }
+    }
+
+    /// Helper function to identify mid champions that might be misclassified
+    private static func isMidChampion(role: String, lane: String) -> Bool {
+        // Check for typical mid champion indicators
+        let midIndicators = ["SOLO", "MID", "MIDDLE", "NONE"]
+        return midIndicators.contains(role) || lane == "MID_LANE"
     }
 }
 

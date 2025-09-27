@@ -708,8 +708,18 @@ public class MatchDataViewModel {
                 / Double(participants.count)
 
         case "team_damage_pct":
-            return participants.map { $0.teamDamagePercentage }.reduce(0, +)
-                / Double(participants.count)
+            return participants.map { participant in
+                // Use challenge data if available, otherwise calculate from raw damage data
+                if participant.teamDamagePercentage > 0 {
+                    return participant.teamDamagePercentage
+                } else {
+                    // Fallback calculation: participant damage / team total damage
+                    let match = matches.first { $0.participants.contains(participant) }
+                    let teamParticipants = match?.participants.filter { $0.teamId == participant.teamId } ?? []
+                    let teamTotalDamage = teamParticipants.reduce(0) { $0 + $1.totalDamageDealtToChampions }
+                    return teamTotalDamage > 0 ? Double(participant.totalDamageDealtToChampions) / Double(teamTotalDamage) : 0.0
+                }
+            }.reduce(0, +) / Double(participants.count)
 
         case "objective_participation_pct":
             return participants.map { $0.objectiveParticipationPercentage }.reduce(0, +)
