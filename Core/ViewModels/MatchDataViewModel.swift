@@ -550,12 +550,25 @@ public class MatchDataViewModel {
         return fallbackPerformers.sorted { $0.winRate > $1.winRate }
     }
 
+    /// Converts normalized role names to baseline role names
+    private func normalizedRoleToBaselineRole(_ role: String) -> String {
+        switch role.uppercased() {
+        case "MID": return "MIDDLE"
+        case "BOTTOM": return "BOTTOM"
+        case "TOP": return "TOP"
+        case "JUNGLE": return "JUNGLE"
+        case "SUPPORT": return "UTILITY"
+        default: return role.uppercased()
+        }
+    }
+
     /// Gets champion KPI display data using existing ChampionStats and baselines
     public func getChampionKPIDisplay(for championStat: ChampionStats, role: String)
         -> [ChampionKPIDisplay]
     {
         let championClass = championStat.champion.championClass
-        let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[role] ?? []
+        let baselineRole = normalizedRoleToBaselineRole(role)
+        let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[baselineRole] ?? []
 
         ClaimbLogger.debug(
             "Getting champion KPI display",
@@ -564,6 +577,7 @@ public class MatchDataViewModel {
                 "champion": championStat.champion.name,
                 "championClass": championClass,
                 "role": role,
+                "baselineRole": baselineRole,
                 "keyMetrics": keyMetrics.joined(separator: ", "),
             ]
         )
@@ -573,8 +587,8 @@ public class MatchDataViewModel {
 
             // Try to get baseline for specific class, fallback to "ALL"
             let baseline =
-                getBaselineSync(role: role, classTag: championClass, metric: metric)
-                ?? getBaselineSync(role: role, classTag: "ALL", metric: metric)
+                getBaselineSync(role: baselineRole, classTag: championClass, metric: metric)
+                ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
 
             let performanceLevel = baseline?.getPerformanceLevel(value) ?? .needsImprovement
 
