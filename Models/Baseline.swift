@@ -19,8 +19,11 @@ public class Baseline {
     public var p40: Double
     public var p60: Double
     public var lastUpdated: Date
-    
-    public init(role: String, classTag: String, metric: String, mean: Double, median: Double, p40: Double, p60: Double) {
+
+    public init(
+        role: String, classTag: String, metric: String, mean: Double, median: Double, p40: Double,
+        p60: Double
+    ) {
         self.id = "\(role)_\(classTag)_\(metric)"
         self.role = role
         self.classTag = classTag
@@ -31,27 +34,27 @@ public class Baseline {
         self.p60 = p60
         self.lastUpdated = Date()
     }
-    
+
     // Get the "good" performance range (P40-P60)
     public var goodRange: ClosedRange<Double> {
         return p40...p60
     }
-    
+
     // Check if value is within "good" range
     public func isGoodPerformance(_ value: Double) -> Bool {
         return goodRange.contains(value)
     }
-    
+
     // Check if value is excellent (above P60)
     public func isExcellentPerformance(_ value: Double) -> Bool {
         return value >= p60
     }
-    
+
     // Check if value needs improvement (below P40)
     public func needsImprovement(_ value: Double) -> Bool {
         return value < p40
     }
-    
+
     // Get performance level for a value
     public func getPerformanceLevel(_ value: Double) -> PerformanceLevel {
         if isExcellentPerformance(value) {
@@ -62,24 +65,24 @@ public class Baseline {
             return .needsImprovement
         }
     }
-    
+
     // Get inverted performance level for metrics where lower is better (e.g., deaths)
     public func getInvertedPerformanceLevel(_ value: Double) -> PerformanceLevel {
         if value < p40 {
             return .excellent  // Low deaths = excellent
         } else if value <= p60 {
-            return .good       // Medium deaths = good
+            return .good  // Medium deaths = good
         } else {
             return .needsImprovement  // High deaths = needs improvement
         }
     }
-    
+
     // Performance level enum
     public enum PerformanceLevel: String, CaseIterable {
         case excellent = "Excellent"
         case good = "Good"
         case needsImprovement = "Needs Improvement"
-        
+
         public var color: String {
             switch self {
             case .excellent: return "green"

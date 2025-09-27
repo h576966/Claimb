@@ -477,10 +477,10 @@ public class MatchDataViewModel {
                     + participant.teamDamagePercentage) / Double(current.gamesPlayed)
             let newObjectiveParticipation =
                 (current.averageObjectiveParticipation * Double(current.gamesPlayed - 1)
-                    + participant.objectiveParticipation) / Double(current.gamesPlayed)
+                    + participant.objectiveParticipationPercentage) / Double(current.gamesPlayed)
             let newDamageTakenShare =
                 (current.averageDamageTakenShare * Double(current.gamesPlayed - 1)
-                    + participant.damageTakenShare) / Double(current.gamesPlayed)
+                    + participant.damageTakenSharePercentage) / Double(current.gamesPlayed)
             let newGoldPerMin =
                 (current.averageGoldPerMin * Double(current.gamesPlayed - 1)
                     + participant.goldPerMinute) / Double(current.gamesPlayed)
@@ -611,11 +611,12 @@ public class MatchDataViewModel {
                 ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
 
             // For deaths, lower is better, so invert the performance level
-            let performanceLevel = if metric == "deaths_per_game" {
-                baseline?.getInvertedPerformanceLevel(value) ?? .needsImprovement
-            } else {
-                baseline?.getPerformanceLevel(value) ?? .needsImprovement
-            }
+            let performanceLevel =
+                if metric == "deaths_per_game" {
+                    baseline?.getInvertedPerformanceLevel(value) ?? .needsImprovement
+                } else {
+                    baseline?.getPerformanceLevel(value) ?? .needsImprovement
+                }
 
             ClaimbLogger.debug(
                 "KPI calculation",
