@@ -449,21 +449,7 @@ public class DataManager {
     }
 
     // MARK: - Champion Management (Delegated to ChampionDataLoader)
-
-    /// Gets a champion by key
-    public func getChampion(by key: String) async throws -> Champion? {
-        return try await championDataLoader.getChampion(by: key)
-    }
-
-    /// Gets a champion by ID
-    public func getChampion(by id: Int) async throws -> Champion? {
-        return try await championDataLoader.getChampion(by: id)
-    }
-
-    /// Gets all champions
-    public func getAllChampions() async throws -> [Champion] {
-        return try await championDataLoader.getAllChampions()
-    }
+    // Note: Direct champion access methods removed - use championDataLoader directly if needed
 
     // MARK: - Cache Management
 
@@ -541,35 +527,7 @@ public class DataManager {
         ClaimbLogger.info("Match data cleared", service: "DataManager")
     }
 
-    /// Clears only champion data
-    public func clearChampionData() async throws {
-        ClaimbLogger.info("Clearing champion data...", service: "DataManager")
 
-        let championDescriptor = FetchDescriptor<Champion>()
-        let allChampions = try modelContext.fetch(championDescriptor)
-        for champion in allChampions {
-            modelContext.delete(champion)
-        }
-
-        try modelContext.save()
-
-        ClaimbLogger.info("Champion data cleared", service: "DataManager")
-    }
-
-    /// Clears only baseline data
-    public func clearBaselineData() async throws {
-        ClaimbLogger.info("Clearing baseline data...", service: "DataManager")
-
-        let baselineDescriptor = FetchDescriptor<Baseline>()
-        let allBaselines = try modelContext.fetch(baselineDescriptor)
-        for baseline in allBaselines {
-            modelContext.delete(baseline)
-        }
-
-        try modelContext.save()
-
-        ClaimbLogger.info("Baseline data cleared", service: "DataManager")
-    }
 
     /// Clears URL cache only
     public func clearURLCache() {
@@ -651,15 +609,6 @@ public class DataManager {
             role: role, classTag: classTag, metric: metric)
     }
 
-    /// Gets all baselines for a specific role and class tag
-    public func getBaselines(role: String, classTag: String) async throws -> [Baseline] {
-        return try await baselineDataLoader.getBaselines(role: role, classTag: classTag)
-    }
-
-    /// Gets all baselines
-    public func getAllBaselines() async throws -> [Baseline] {
-        return try await baselineDataLoader.getAllBaselines()
-    }
 
     /// Clears all baselines (for debugging/testing)
     public func clearBaselines() async throws {
