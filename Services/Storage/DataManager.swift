@@ -21,12 +21,9 @@ public class DataManager {
     private let maxMatchesPerSummoner = 100  // Increased from 50 to 100
     private let maxGameAgeInDays = 365  // Filter out games older than 1 year
 
-    // Request deduplication
+    // Request deduplication - unified generic system
     private var activeRequests: Set<String> = []
-    private var requestQueue: [String: Task<UIState<[Match]>, Never>] = [:]
-    private var championRequestQueue: [String: Task<UIState<[Champion]>, Never>] = [:]
-    private var summonerRequestQueue: [String: Task<UIState<Summoner>, Never>] = [:]
-    private var baselineRequestQueue: [String: Task<UIState<Void>, Never>] = [:]
+    private var requestTasks: [String: Any] = [:]
 
     public var isLoading = false
     public var lastRefreshTime: Date?
@@ -49,6 +46,38 @@ public class DataManager {
             riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
             dataDragonService: DataDragonService()
         )
+    }
+    
+    // MARK: - Request Deduplication Helper
+    
+    /// Generic helper for request deduplication
+    /// Eliminates code duplication across different request types
+    private func deduplicateRequest<T>(
+        key: String,
+        operation: @escaping () async -> UIState<T>
+    ) async -> UIState<T> {
+        // Check if request is already in progress
+        if let existingTask = requestTasks[key] as? Task<UIState<T>, Never> {
+            ClaimbLogger.debug(
+                "Request already in progress, waiting for result", service: "DataManager",
+                metadata: ["requestKey": key])
+            return await existingTask.value
+        }
+        
+        // Create new task
+        let task = Task<UIState<T>, Never> {
+            defer {
+                // Clean up when task completes
+                requestTasks.removeValue(forKey: key)
+                activeRequests.remove(key)
+            }
+            
+            activeRequests.insert(key)
+            return await operation()
+        }
+        
+        requestTasks[key] = task
+        return await task.value
     }
 
     // MARK: - Summoner Management
@@ -1098,23 +1127,8 @@ public class DataManager {
     /// Loads matches with deduplication
     public func loadMatches(for summoner: Summoner, limit: Int = 100) async -> UIState<[Match]> {
         let requestKey = "matches_\(summoner.puuid)_\(limit)"
-
-        // Check if request is already in progress
-        if let existingTask = requestQueue[requestKey] {
-            ClaimbLogger.debug(
-                "Request already in progress, waiting for result", service: "DataManager",
-                metadata: ["requestKey": requestKey])
-            return await existingTask.value
-        }
-
-        // Create new task
-        let task = Task<UIState<[Match]>, Never> {
-            defer {
-                // Clean up when task completes
-                requestQueue.removeValue(forKey: requestKey)
-                activeRequests.remove(requestKey)
-            }
-
+        
+        return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info(
                 "Loading matches", service: "DataManager",
                 metadata: [
@@ -1124,16 +1138,16 @@ public class DataManager {
 
             do {
                 // Check if we have existing matches
-                let existingMatches = try await getMatches(for: summoner)
+                let existingMatches = try await self.getMatches(for: summoner)
 
                 if existingMatches.isEmpty {
                     // Load initial matches
                     ClaimbLogger.info(
                         "No existing matches, loading initial batch", service: "DataManager")
-                    try await loadInitialMatches(for: summoner)
+                    try await self.loadInitialMatches(for: summoner)
                 } else {
                     // Check if we need to refresh based on time
-                    let shouldRefresh = shouldRefreshMatches(for: summoner)
+                    let shouldRefresh = self.shouldRefreshMatches(for: summoner)
 
                     if shouldRefresh {
                         ClaimbLogger.info(
@@ -1143,7 +1157,7 @@ public class DataManager {
                                 "count": String(existingMatches.count),
                                 "lastUpdated": summoner.lastUpdated.description,
                             ])
-                        try await refreshMatchesInternal(for: summoner)
+                        try await self.refreshMatchesInternal(for: summoner)
                     } else {
                         ClaimbLogger.info(
                             "Using cached matches (no refresh needed)", service: "DataManager",
@@ -1155,7 +1169,7 @@ public class DataManager {
                 }
 
                 // Get all matches after loading
-                let loadedMatches = try await getMatches(for: summoner, limit: limit)
+                let loadedMatches = try await self.getMatches(for: summoner, limit: limit)
                 return .loaded(loadedMatches)
 
             } catch {
@@ -1164,36 +1178,18 @@ public class DataManager {
                 return .error(error)
             }
         }
-
-        // Store task and return its result
-        requestQueue[requestKey] = task
-        activeRequests.insert(requestKey)
-        return await task.value
     }
 
     /// Loads champions with deduplication
     public func loadChampions() async -> UIState<[Champion]> {
         let requestKey = "champions"
-
-        if let existingTask = championRequestQueue[requestKey] {
-            ClaimbLogger.debug(
-                "Champion request already in progress, waiting for result",
-                service: "DataManager",
-                metadata: ["requestKey": requestKey])
-            return await existingTask.value
-        }
-
-        let task = Task<UIState<[Champion]>, Never> {
-            defer {
-                championRequestQueue.removeValue(forKey: requestKey)
-                activeRequests.remove(requestKey)
-            }
-
+        
+        return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info("Loading champions", service: "DataManager")
 
             do {
-                try await loadChampionData()
-                let champions = try await getAllChampions()
+                try await self.loadChampionData()
+                let champions = try await self.getAllChampions()
 
                 ClaimbLogger.info(
                     "Successfully loaded \(champions.count) champions",
@@ -1207,10 +1203,6 @@ public class DataManager {
                 return .error(error)
             }
         }
-
-        championRequestQueue[requestKey] = task
-        activeRequests.insert(requestKey)
-        return await task.value
     }
 
     /// Creates or updates summoner with deduplication
@@ -1218,20 +1210,8 @@ public class DataManager {
         -> UIState<Summoner>
     {
         let requestKey = "summoner_\(gameName)_\(tagLine)_\(region)"
-
-        if let existingTask = summonerRequestQueue[requestKey] {
-            ClaimbLogger.debug(
-                "Summoner request already in progress, waiting for result",
-                service: "DataManager",
-                metadata: ["requestKey": requestKey])
-            return await existingTask.value
-        }
-
-        let task = Task<UIState<Summoner>, Never> {
-            defer {
-                summonerRequestQueue.removeValue(forKey: requestKey)
-                activeRequests.remove(requestKey)
-            }
+        
+        return await deduplicateRequest(key: requestKey) {
 
             ClaimbLogger.info(
                 "Creating/updating summoner", service: "DataManager",
@@ -1248,8 +1228,8 @@ public class DataManager {
                     region: region
                 )
 
-                try await loadChampionData()
-                try await refreshMatches(for: summoner)
+                try await self.loadChampionData()
+                _ = await self.refreshMatches(for: summoner)
 
                 return .loaded(summoner)
             } catch {
@@ -1258,30 +1238,13 @@ public class DataManager {
                 return .error(error)
             }
         }
-
-        summonerRequestQueue[requestKey] = task
-        activeRequests.insert(requestKey)
-        return await task.value
     }
 
     /// Loads baseline data with deduplication
     public func loadBaselineData() async -> UIState<Void> {
         let requestKey = "baseline_data"
-
-        if let existingTask = baselineRequestQueue[requestKey] {
-            ClaimbLogger.debug(
-                "Baseline data request already in progress, waiting for result",
-                service: "DataManager",
-                metadata: ["requestKey": requestKey])
-            return await existingTask.value
-        }
-
-        let task = Task<UIState<Void>, Never> {
-            defer {
-                baselineRequestQueue.removeValue(forKey: requestKey)
-                activeRequests.remove(requestKey)
-            }
-
+        
+        return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info("Loading baseline data", service: "DataManager")
 
             do {
@@ -1293,10 +1256,6 @@ public class DataManager {
                 return .error(error)
             }
         }
-
-        baselineRequestQueue[requestKey] = task
-        activeRequests.insert(requestKey)
-        return await task.value
     }
 
     /// Refreshes matches with deduplication
@@ -1333,31 +1292,13 @@ public class DataManager {
 
     /// Cancels all pending requests (useful for cleanup)
     public func cancelAllRequests() {
-        // Cancel all match requests
-        for task in requestQueue.values {
-            task.cancel()
+        // Cancel all requests using the unified system
+        for task in requestTasks.values {
+            if let cancellableTask = task as? Task<Any, Never> {
+                cancellableTask.cancel()
+            }
         }
-        requestQueue.removeAll()
-
-        // Cancel all champion requests
-        for task in championRequestQueue.values {
-            task.cancel()
-        }
-        championRequestQueue.removeAll()
-
-        // Cancel all summoner requests
-        for task in summonerRequestQueue.values {
-            task.cancel()
-        }
-        summonerRequestQueue.removeAll()
-
-        // Cancel all baseline requests
-        for task in baselineRequestQueue.values {
-            task.cancel()
-        }
-        baselineRequestQueue.removeAll()
-
-        // Clear active requests
+        requestTasks.removeAll()
         activeRequests.removeAll()
 
         ClaimbLogger.info("Cancelled all pending requests", service: "DataManager")
