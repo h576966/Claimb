@@ -473,7 +473,7 @@ public class MatchDataViewModel {
             championStats[champion.name]?.averageCS = newCS
             championStats[champion.name]?.averageVisionScore = newVision
             championStats[champion.name]?.averageDeaths = newDeaths
-            // Note: Other metrics (kill participation, team damage, etc.) are calculated 
+            // Note: Other metrics (kill participation, team damage, etc.) are calculated
             // directly from match data in getChampionKPIDisplay to avoid duplication with KPICalculationService
         }
 
@@ -585,7 +585,7 @@ public class MatchDataViewModel {
 
         // Get champion-specific matches for this role
         let championMatches = getChampionMatches(for: championStat.champion, role: role)
-        
+
         guard !championMatches.isEmpty else {
             ClaimbLogger.debug(
                 "No matches found for champion",
@@ -611,13 +611,12 @@ public class MatchDataViewModel {
                 getBaselineSync(role: baselineRole, classTag: championClass, metric: metric)
                 ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
 
-            // For deaths, lower is better, so invert the performance level
-            let performanceLevel =
-                if metric == "deaths_per_game" {
-                    baseline?.getInvertedPerformanceLevel(value) ?? .needsImprovement
-                } else {
-                    baseline?.getPerformanceLevel(value) ?? .needsImprovement
-                }
+            // Use the same logic as KPICalculationService for consistent color coding
+            let (performanceLevel, _) = getPerformanceLevelWithBaseline(
+                value: value,
+                metric: metric,
+                baseline: baseline
+            )
 
             ClaimbLogger.debug(
                 "KPI calculation",
@@ -654,7 +653,8 @@ public class MatchDataViewModel {
     /// Gets champion-specific matches for a role
     private func getChampionMatches(for champion: Champion, role: String) -> [Match] {
         return currentMatches.filter { match in
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
                 return false
             }
             let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
@@ -663,15 +663,17 @@ public class MatchDataViewModel {
     }
 
     /// Calculates metric value using KPICalculationService logic (reused to avoid duplication)
-    private func calculateChampionMetricValue(metric: String, matches: [Match], champion: Champion, role: String) -> Double {
+    private func calculateChampionMetricValue(
+        metric: String, matches: [Match], champion: Champion, role: String
+    ) -> Double {
         let participants = matches.compactMap { match in
-            match.participants.first(where: { 
-                $0.puuid == summoner.puuid && $0.championId == champion.id 
+            match.participants.first(where: {
+                $0.puuid == summoner.puuid && $0.championId == champion.id
             })
         }
-        
+
         guard !participants.isEmpty else { return 0.0 }
-        
+
         switch metric {
         case "cs_per_min":
             return participants.map { participant in
@@ -680,32 +682,37 @@ public class MatchDataViewModel {
                 return gameDurationMinutes > 0
                     ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
             }.reduce(0, +) / Double(participants.count)
-            
+
         case "deaths_per_game":
             return participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
-            
+
         case "kill_participation_pct":
             return participants.map { participant in
                 let match = matches.first { $0.participants.contains(participant) }
-                let teamKills = match?.participants
+                let teamKills =
+                    match?.participants
                     .filter { $0.teamId == participant.teamId }
                     .reduce(0) { $0 + $1.kills } ?? 0
                 return teamKills > 0
                     ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
             }.reduce(0, +) / Double(participants.count)
-            
+
         case "vision_score_per_min":
-            return participants.map { $0.visionScorePerMinute }.reduce(0, +) / Double(participants.count)
-            
+            return participants.map { $0.visionScorePerMinute }.reduce(0, +)
+                / Double(participants.count)
+
         case "team_damage_pct":
-            return participants.map { $0.teamDamagePercentage }.reduce(0, +) / Double(participants.count)
-            
+            return participants.map { $0.teamDamagePercentage }.reduce(0, +)
+                / Double(participants.count)
+
         case "objective_participation_pct":
-            return participants.map { $0.objectiveParticipationPercentage }.reduce(0, +) / Double(participants.count)
-            
+            return participants.map { $0.objectiveParticipationPercentage }.reduce(0, +)
+                / Double(participants.count)
+
         case "damage_taken_share_pct":
-            return participants.map { $0.damageTakenSharePercentage }.reduce(0, +) / Double(participants.count)
-            
+            return participants.map { $0.damageTakenSharePercentage }.reduce(0, +)
+                / Double(participants.count)
+
         default:
             return 0.0
         }
@@ -796,6 +803,78 @@ public class MatchDataViewModel {
         case .excellent: return DesignSystem.Colors.accent
         case .good: return DesignSystem.Colors.primary
         case .needsImprovement: return DesignSystem.Colors.secondary
+        }
+    }
+
+    /// Gets performance level and color using the same logic as KPICalculationService
+    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
+        -> (Baseline.PerformanceLevel, Color)
+    {
+        if let baseline = baseline {
+            // Special handling for Deaths per Game - lower is better
+            if metric == "deaths_per_game" {
+                if value <= baseline.p40 * 0.9 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value <= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value <= baseline.p60 * 1.2 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.needsImprovement, DesignSystem.Colors.secondary)
+                }
+            } else {
+                // Standard logic for other metrics - higher is better
+                if value >= baseline.p60 * 1.1 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value >= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value >= baseline.p40 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.needsImprovement, DesignSystem.Colors.secondary)
+                }
+            }
+        } else {
+            // Fallback to basic performance levels
+            return getBasicPerformanceLevel(value: value, metric: metric)
+        }
+    }
+
+    /// Basic performance levels without baseline data
+    private func getBasicPerformanceLevel(value: Double, metric: String) -> (
+        Baseline.PerformanceLevel, Color
+    ) {
+        // Basic performance levels without baseline data
+        switch metric {
+        case "deaths_per_game":
+            // For deaths, lower is better
+            if value <= 3.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value <= 5.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct", "damage_taken_share_pct":
+            // Percentage metrics - higher is better
+            if value >= 0.7 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 0.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        case "cs_per_min", "vision_score_per_min":
+            // Rate metrics - higher is better
+            if value >= 8.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 6.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        default:
+            return (.needsImprovement, DesignSystem.Colors.warning)
         }
     }
 }
