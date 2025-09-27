@@ -244,9 +244,9 @@ struct ExpandableChampionStatsCard: View {
     let viewModel: MatchDataViewModel
     let isExpanded: Bool
     let onToggle: () -> Void
-    
+
     /// Cached KPI results to prevent recalculation on every render
-    @State private var cachedKPIs: [MatchDataViewModel.ChampionKPIDisplay] = []
+    @State private var cachedKPIs: [ChampionKPIDisplay] = []
     @State private var lastCalculatedRole: String = ""
 
     var body: some View {
@@ -321,14 +321,14 @@ struct ExpandableChampionStatsCard: View {
             calculateKPIsIfNeeded()
         }
     }
-    
+
     /// Calculate KPIs only when role changes or first time
     private func calculateKPIsIfNeeded() {
         let currentRole = userSession.selectedPrimaryRole
         if lastCalculatedRole != currentRole {
             lastCalculatedRole = currentRole
             cachedKPIs = viewModel.getChampionKPIDisplay(
-                for: championStat, 
+                for: championStat,
                 role: currentRole
             )
         }
