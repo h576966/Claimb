@@ -139,7 +139,7 @@ public class UserSession {
         }
 
         // Load champion data if needed
-        try await dataManager.loadChampionData()
+        _ = await dataManager.loadChampions()
 
         await MainActor.run {
             self.currentSummoner = summoner
@@ -226,43 +226,39 @@ public class UserSession {
     public func refreshSummoner() async {
         guard let currentSummoner = currentSummoner else { return }
 
-        do {
-            let dataManager = DataManager.create(with: modelContext)
+        let dataManager = DataManager.create(with: modelContext)
 
-            // Refresh summoner data
-            let refreshedSummonerState = await dataManager.createOrUpdateSummoner(
-                gameName: currentSummoner.gameName,
-                tagLine: currentSummoner.tagLine,
-                region: currentSummoner.region
-            )
+        // Refresh summoner data
+        let refreshedSummonerState = await dataManager.createOrUpdateSummoner(
+            gameName: currentSummoner.gameName,
+            tagLine: currentSummoner.tagLine,
+            region: currentSummoner.region
+        )
 
-            // Handle summoner refresh result
-            guard case .loaded(let refreshedSummoner) = refreshedSummonerState else {
-                let errorMessage =
-                    switch refreshedSummonerState {
-                    case .error(let error):
-                        "Failed to refresh summoner: \(error.localizedDescription)"
-                    case .loading:
-                        "Summoner refresh is still loading"
-                    case .idle:
-                        "Summoner refresh not started"
-                    case .empty(let message):
-                        "Summoner refresh failed: \(message)"
-                    case .loaded(_):
-                        "This case should not be reached"
-                    }
+        // Handle summoner refresh result
+        guard case .loaded(let refreshedSummoner) = refreshedSummonerState else {
+            let errorMessage =
+                switch refreshedSummonerState {
+                case .error(let error):
+                    "Failed to refresh summoner: \(error.localizedDescription)"
+                case .loading:
+                    "Summoner refresh is still loading"
+                case .idle:
+                    "Summoner refresh not started"
+                case .empty(let message):
+                    "Summoner refresh failed: \(message)"
+                case .loaded(_):
+                    "This case should not be reached"
+                }
 
-                ClaimbLogger.error(
-                    "Failed to refresh summoner", service: "UserSession",
-                    metadata: ["error": errorMessage])
-                return
-            }
+            ClaimbLogger.error(
+                "Failed to refresh summoner", service: "UserSession",
+                metadata: ["error": errorMessage])
+            return
+        }
 
-            await MainActor.run {
-                self.currentSummoner = refreshedSummoner
-            }
-        } catch {
-            ClaimbLogger.error("Failed to refresh summoner", service: "UserSession", error: error)
+        await MainActor.run {
+            self.currentSummoner = refreshedSummoner
         }
     }
 

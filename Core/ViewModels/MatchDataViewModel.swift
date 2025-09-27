@@ -28,8 +28,8 @@ public class MatchDataViewModel {
     private let summoner: Summoner
     private let userSession: UserSession?
     private let kpiCalculationService: KPICalculationService?
-    private var currentTask: Task<Void, Never>?
-    nonisolated(unsafe) private var cleanupTask: Task<Void, Never>?
+    // Note: nonisolated(unsafe) is required for deinit access, despite compiler warning
+    nonisolated(unsafe) private var currentTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -65,7 +65,9 @@ public class MatchDataViewModel {
             championState = .loading
 
             // Load matches and champions in parallel
-            async let matchResult = dataManager.loadMatches(for: summoner, limit: limit)
+            // Note: We capture summoner here to avoid Sendable issues with async let
+            let currentSummoner = summoner
+            async let matchResult = dataManager.loadMatches(for: currentSummoner, limit: limit)
             async let championResult = dataManager.loadChampions()
 
             let (matches, champions) = await (matchResult, championResult)
@@ -88,9 +90,6 @@ public class MatchDataViewModel {
                 }
             }
         }
-
-        // Store task for cleanup
-        cleanupTask = currentTask
 
         await currentTask?.value
     }
@@ -122,9 +121,6 @@ public class MatchDataViewModel {
             }
         }
 
-        // Store task for cleanup
-        cleanupTask = currentTask
-
         await currentTask?.value
     }
 
@@ -148,14 +144,11 @@ public class MatchDataViewModel {
             }
         }
 
-        // Store task for cleanup
-        cleanupTask = currentTask
-
         await currentTask?.value
     }
 
     deinit {
-        cleanupTask?.cancel()
+        currentTask?.cancel()
     }
 
     /// Gets the current matches if loaded

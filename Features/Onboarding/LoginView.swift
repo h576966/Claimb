@@ -184,74 +184,66 @@ struct LoginView: View {
         isLoading = true
         errorMessage = nil
 
-        do {
-            // Create DataManager
-            let dataManager = DataManager.create(with: userSession.modelContext)
+        // Create DataManager
+        let dataManager = DataManager.create(with: userSession.modelContext)
 
-            // Create or update summoner
-            let summonerState = await dataManager.createOrUpdateSummoner(
-                gameName: gameName.trimmingCharacters(in: .whitespacesAndNewlines),
-                tagLine: tagLine.trimmingCharacters(in: .whitespacesAndNewlines),
-                region: selectedRegion
-            )
+        // Create or update summoner
+        let summonerState = await dataManager.createOrUpdateSummoner(
+            gameName: gameName.trimmingCharacters(in: .whitespacesAndNewlines),
+            tagLine: tagLine.trimmingCharacters(in: .whitespacesAndNewlines),
+            region: selectedRegion
+        )
 
-            // Handle summoner creation result
-            guard case .loaded(let summoner) = summonerState else {
-                let errorMessage =
-                    switch summonerState {
-                    case .error(let error):
-                        "Failed to create summoner: \(error.localizedDescription)"
-                    case .loading:
-                        "Summoner creation is still loading"
-                    case .idle:
-                        "Summoner creation not started"
-                    case .empty(let message):
-                        "Summoner creation failed: \(message)"
-                    case .loaded(_):
-                        "This case should not be reached"
-                    }
-
-                await MainActor.run {
-                    self.errorMessage = errorMessage
-                    self.isLoading = false
+        // Handle summoner creation result
+        guard case .loaded(let summoner) = summonerState else {
+            let errorMessage =
+                switch summonerState {
+                case .error(let error):
+                    "Failed to create summoner: \(error.localizedDescription)"
+                case .loading:
+                    "Summoner creation is still loading"
+                case .idle:
+                    "Summoner creation not started"
+                case .empty(let message):
+                    "Summoner creation failed: \(message)"
+                case .loaded(_):
+                    "This case should not be reached"
                 }
-                return
-            }
 
-            // Load champion data if needed
-            try await dataManager.loadChampionData()
-
-            // Refresh matches - continue even if some matches fail
-            let refreshState = await dataManager.refreshMatches(for: summoner)
-            if case .error(let error) = refreshState {
-                // Log the error but don't fail login if only match loading fails
-                ClaimbLogger.error(
-                    "Failed to load some matches during login, continuing anyway",
-                    service: "LoginView",
-                    error: error
-                )
-                // Still allow login to proceed
-            }
-
-            // Login the user
             await MainActor.run {
-                ClaimbLogger.debug("About to call userSession.login()", service: "LoginView")
-                userSession.login(summoner: summoner)
-                ClaimbLogger.debug(
-                    "userSession.login() completed", service: "LoginView",
-                    metadata: [
-                        "isLoggedIn": String(userSession.isLoggedIn)
-                    ])
-                self.isLoading = false
-                ClaimbLogger.debug(
-                    "Login process finished, isLoading set to false", service: "LoginView")
-            }
-
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "Login failed: \(error.localizedDescription)"
+                self.errorMessage = errorMessage
                 self.isLoading = false
             }
+            return
+        }
+
+        // Load champion data if needed
+        _ = await dataManager.loadChampions()
+
+        // Refresh matches - continue even if some matches fail
+        let refreshState = await dataManager.refreshMatches(for: summoner)
+        if case .error(let error) = refreshState {
+            // Log the error but don't fail login if only match loading fails
+            ClaimbLogger.error(
+                "Failed to load some matches during login, continuing anyway",
+                service: "LoginView",
+                error: error
+            )
+            // Still allow login to proceed
+        }
+
+        // Login the user
+        await MainActor.run {
+            ClaimbLogger.debug("About to call userSession.login()", service: "LoginView")
+            userSession.login(summoner: summoner)
+            ClaimbLogger.debug(
+                "userSession.login() completed", service: "LoginView",
+                metadata: [
+                    "isLoggedIn": String(userSession.isLoggedIn)
+                ])
+            self.isLoading = false
+            ClaimbLogger.debug(
+                "Login process finished, isLoading set to false", service: "LoginView")
         }
     }
 }
