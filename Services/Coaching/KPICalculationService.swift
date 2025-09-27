@@ -225,16 +225,26 @@ public class KPICalculationService {
         // Try to get baseline data for this metric and role
         let baseline = await getBaselineForMetric(metric: metric, role: role)
 
+        // For Role Consistency and Champion Pool Size, use hardcoded targets if no baseline found
+        let finalBaseline: Baseline?
+        if baseline == nil
+            && (metric == "primary_role_consistency" || metric == "champion_pool_size")
+        {
+            finalBaseline = createHardcodedBaseline(for: metric)
+        } else {
+            finalBaseline = baseline
+        }
+
         let (performanceLevel, color) = getPerformanceLevelWithBaseline(
             value: value,
             metric: metric,
-            baseline: baseline
+            baseline: finalBaseline
         )
 
         return KPIMetric(
             metric: metric,
             value: String(format: "%.2f", value),
-            baseline: baseline,
+            baseline: finalBaseline,
             performanceLevel: performanceLevel,
             color: color
         )
@@ -293,11 +303,11 @@ public class KPICalculationService {
         -> (Baseline.PerformanceLevel, Color)
     {
         if let baseline = baseline {
-            // Special handling for Deaths per Game - lower is better
-            if metric == "deaths_per_game" {
-                if value <= baseline.p40 * 0.9 {
+            // Special handling for Deaths per Game and Champion Pool Size - lower is better
+            if metric == "deaths_per_game" || metric == "champion_pool_size" {
+                if value <= baseline.p40 {
                     return (.excellent, DesignSystem.Colors.accent)
-                } else if value <= baseline.p60 {
+                } else if value < baseline.mean {
                     return (.good, DesignSystem.Colors.white)
                 } else if value <= baseline.p60 * 1.2 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
@@ -306,9 +316,9 @@ public class KPICalculationService {
                 }
             } else {
                 // Standard logic for other metrics - higher is better
-                if value >= baseline.p60 * 1.1 {
+                if value >= baseline.p60 {
                     return (.excellent, DesignSystem.Colors.accent)
-                } else if value >= baseline.p60 {
+                } else if value > baseline.mean {
                     return (.good, DesignSystem.Colors.white)
                 } else if value >= baseline.p40 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
@@ -367,8 +377,59 @@ public class KPICalculationService {
             } else {
                 return (.needsImprovement, DesignSystem.Colors.secondary)
             }
+        case "primary_role_consistency":
+            // Hardcoded target values for role consistency (accepted exception - these values are fundamental and don't change)
+            if value > 80.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 70.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value >= 65.0 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.secondary)
+            }
+        case "champion_pool_size":
+            // Hardcoded target values for champion pool size (accepted exception - these values are fundamental and don't change)
+            if value <= 3 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value <= 5 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
         default:
             return (.needsImprovement, DesignSystem.Colors.textSecondary)
+        }
+    }
+
+    /// Creates hardcoded baseline values for Role Consistency and Champion Pool Size
+    /// These are fundamental metrics with well-established target values that don't change
+    private func createHardcodedBaseline(for metric: String) -> Baseline? {
+        switch metric {
+        case "primary_role_consistency":
+            // Role Consistency targets: 80%+ excellent, 70%+ good, 65% needs improvement
+            return Baseline(
+                role: "ALL",
+                classTag: "ALL",
+                metric: metric,
+                mean: 70.0,  // Average role consistency
+                median: 75.0,  // Median role consistency
+                p40: 65.0,  // 40th percentile (needs improvement threshold)
+                p60: 80.0  // 60th percentile (excellent threshold)
+            )
+        case "champion_pool_size":
+            // Champion Pool Size targets: 1-3 excellent, 4-5 good, 6+ needs improvement
+            return Baseline(
+                role: "ALL",
+                classTag: "ALL",
+                metric: metric,
+                mean: 4.0,  // Average champion pool size
+                median: 3.0,  // Median champion pool size
+                p40: 3.0,  // 40th percentile (excellent threshold)
+                p60: 5.0  // 60th percentile (good threshold)
+            )
+        default:
+            return nil
         }
     }
 }

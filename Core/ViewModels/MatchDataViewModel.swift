@@ -36,9 +36,10 @@ public class MatchDataViewModel {
     private let kpiPersistPrefix = "kpiCache_"
 
     private func kpiCacheKey(matches: [Match], role: String) -> String {
-        let count = matches.count
+        // Use recent 20 matches for cache key to ensure cache consistency
+        let recentCount = min(matches.count, 20)
         let latestId = matches.first?.matchId ?? "none"
-        return "\(summoner.puuid)|\(role)|\(count)|\(latestId)"
+        return "\(summoner.puuid)|\(role)|\(recentCount)|\(latestId)"
     }
 
     // MARK: - Initialization
@@ -321,8 +322,10 @@ public class MatchDataViewModel {
         let role = userSession.selectedPrimaryRole
 
         do {
+            // Use only the last 20 matches for KPI calculations (recent performance focus)
+            let recentMatches = Array(matches.prefix(20))
             let roleKPIs = try await kpiCalculationService.calculateRoleKPIs(
-                matches: matches,
+                matches: recentMatches,
                 role: role,
                 summoner: summoner
             )
@@ -583,16 +586,19 @@ public class MatchDataViewModel {
             ]
         )
 
-        // Get champion-specific matches for this role
+        // Get champion-specific matches for this role (limit to last 20 for recent performance)
         let championMatches = getChampionMatches(for: championStat.champion, role: role)
+        let recentChampionMatches = Array(championMatches.prefix(20))
 
-        guard !championMatches.isEmpty else {
+        guard !recentChampionMatches.isEmpty else {
             ClaimbLogger.debug(
-                "No matches found for champion",
+                "No recent matches found for champion",
                 service: AppConstants.LoggingServices.matchDataViewModel,
                 metadata: [
                     "champion": championStat.champion.name,
                     "role": role,
+                    "totalMatches": String(championMatches.count),
+                    "recentMatches": String(recentChampionMatches.count),
                 ]
             )
             return []
@@ -601,7 +607,7 @@ public class MatchDataViewModel {
         let results = keyMetrics.compactMap { metric in
             let value = calculateChampionMetricValue(
                 metric: metric,
-                matches: championMatches,
+                matches: recentChampionMatches,
                 champion: championStat.champion,
                 role: role
             )
@@ -612,7 +618,7 @@ public class MatchDataViewModel {
                 ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
 
             // Use the same logic as KPICalculationService for consistent color coding
-            let (performanceLevel, _) = getPerformanceLevelWithBaseline(
+            let (performanceLevel, color) = getPerformanceLevelWithBaseline(
                 value: value,
                 metric: metric,
                 baseline: baseline
@@ -634,7 +640,7 @@ public class MatchDataViewModel {
                 metric: metric,
                 value: formatValue(value, for: metric),
                 performanceLevel: performanceLevel,
-                color: getPerformanceColor(performanceLevel)
+                color: color
             )
         }
 
@@ -797,15 +803,6 @@ public class MatchDataViewModel {
         }
     }
 
-    /// Gets performance color based on level
-    private func getPerformanceColor(_ level: Baseline.PerformanceLevel) -> Color {
-        switch level {
-        case .excellent: return DesignSystem.Colors.accent
-        case .good: return DesignSystem.Colors.primary
-        case .needsImprovement: return DesignSystem.Colors.secondary
-        }
-    }
-
     /// Gets performance level and color using the same logic as KPICalculationService
     private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
         -> (Baseline.PerformanceLevel, Color)
@@ -855,7 +852,8 @@ public class MatchDataViewModel {
             } else {
                 return (.needsImprovement, DesignSystem.Colors.warning)
             }
-        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct", "damage_taken_share_pct":
+        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
+            "damage_taken_share_pct":
             // Percentage metrics - higher is better
             if value >= 0.7 {
                 return (.excellent, DesignSystem.Colors.accent)

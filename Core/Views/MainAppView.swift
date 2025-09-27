@@ -145,7 +145,7 @@ struct MainAppView: View {
             .padding(.horizontal, DesignSystem.Spacing.lg)
         }
         .padding(.top, DesignSystem.Spacing.lg)
-        .padding(.bottom, DesignSystem.Spacing.md)
+        .padding(.bottom, DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.background)
     }
 

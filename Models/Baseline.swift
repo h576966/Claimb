@@ -66,17 +66,6 @@ public class Baseline {
         }
     }
 
-    // Get inverted performance level for metrics where lower is better (e.g., deaths)
-    public func getInvertedPerformanceLevel(_ value: Double) -> PerformanceLevel {
-        if value < p40 {
-            return .excellent  // Low deaths = excellent
-        } else if value <= p60 {
-            return .good  // Medium deaths = good
-        } else {
-            return .needsImprovement  // High deaths = needs improvement
-        }
-    }
-
     // Performance level enum
     public enum PerformanceLevel: String, CaseIterable {
         case excellent = "Excellent"

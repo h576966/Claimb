@@ -74,7 +74,7 @@ public class Champion {
             let url = Bundle.main.url(
                 forResource: "champion_class_mapping_clean", withExtension: "json"),
             let data = try? Data(contentsOf: url),
-            let mappings = try? JSONDecoder().decode([ChampionClassMappingData].self, from: data)
+            let mappings = try? JSONDecoder().decode([ChampionClassMapping].self, from: data)
         else {
             ClaimbLogger.error(
                 "Failed to load champion class mapping from JSON", service: "Champion")
@@ -141,7 +141,7 @@ public class Champion {
 // MARK: - Supporting Types
 
 /// JSON structure for champion class mapping data
-private struct ChampionClassMappingData: Codable {
+private struct ChampionClassMapping: Codable {
     let champion_id: String
     let champion_name: String
     let primary_class: String
