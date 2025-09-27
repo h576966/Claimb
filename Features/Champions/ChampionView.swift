@@ -328,17 +328,36 @@ struct ExpandableChampionStatsCard: View {
                 }
 
                 // Role-specific KPIs
-                LazyVGrid(
-                    columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                    ], spacing: DesignSystem.Spacing.sm
-                ) {
-                    // TODO: Implement role-specific KPIs for champions
-                    Text("Role-specific KPIs coming soon")
+                let championKPIs = viewModel.getChampionKPIDisplay(
+                    for: championStat, role: userSession.selectedPrimaryRole)
+
+                if championKPIs.isEmpty {
+                    Text("No KPI data available for this champion")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .padding(.vertical, DesignSystem.Spacing.sm)
+                } else {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                        ], spacing: DesignSystem.Spacing.sm
+                    ) {
+                        ForEach(championKPIs, id: \.metric) { kpi in
+                            VStack(spacing: DesignSystem.Spacing.xs) {
+                                Text(kpi.value)
+                                    .font(DesignSystem.Typography.bodyBold)
+                                    .foregroundColor(kpi.color)
+
+                                Text(kpi.displayName)
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, DesignSystem.Spacing.xs)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.md)

@@ -475,9 +475,10 @@ public class MatchDataViewModel {
             championStats[champion.name]?.averageDeaths = newDeaths
         }
 
-        // Filter champions with at least 3 games and calculate win rates
+        // Filter champions with at least minimum games and calculate win rates
         let filteredStats = championStats.values.compactMap { stats -> ChampionStats? in
-            guard stats.gamesPlayed >= 3 else { return nil }
+            guard stats.gamesPlayed >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming
+            else { return nil }
 
             let winRate =
                 stats.gamesPlayed > 0 ? Double(stats.wins) / Double(stats.gamesPlayed) : 0.0
@@ -499,12 +500,138 @@ public class MatchDataViewModel {
             )
         }
 
-        // Apply sorting based on filter type
+        // Apply sorting and filtering based on filter type
         switch filter {
         case .mostPlayed:
             return filteredStats.sorted { $0.gamesPlayed > $1.gamesPlayed }
         case .bestPerforming:
-            return filteredStats.sorted { $0.winRate > $1.winRate }
+            return applyBestPerformingFilter(to: filteredStats)
+        }
+    }
+
+    /// Applies smart filtering for Best Performing champions
+    private func applyBestPerformingFilter(to stats: [ChampionStats]) -> [ChampionStats] {
+        // First try with default 50% win rate threshold
+        let highPerformers = stats.filter {
+            $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold
+        }
+
+        // If we have enough champions, return them sorted by win rate
+        if highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback {
+            ClaimbLogger.debug(
+                "Using default win rate threshold for Best Performing",
+                service: AppConstants.LoggingServices.matchDataViewModel,
+                metadata: [
+                    "threshold": String(AppConstants.ChampionFiltering.defaultWinRateThreshold),
+                    "championCount": String(highPerformers.count),
+                ]
+            )
+            return highPerformers.sorted { $0.winRate > $1.winRate }
+        }
+
+        // Fallback to 40% threshold if too few champions meet 50% criteria
+        let fallbackPerformers = stats.filter {
+            $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold
+        }
+
+        ClaimbLogger.debug(
+            "Using fallback win rate threshold for Best Performing",
+            service: AppConstants.LoggingServices.matchDataViewModel,
+            metadata: [
+                "defaultThreshold": String(AppConstants.ChampionFiltering.defaultWinRateThreshold),
+                "fallbackThreshold": String(
+                    AppConstants.ChampionFiltering.fallbackWinRateThreshold),
+                "defaultCount": String(highPerformers.count),
+                "fallbackCount": String(fallbackPerformers.count),
+            ]
+        )
+
+        return fallbackPerformers.sorted { $0.winRate > $1.winRate }
+    }
+
+    /// Gets champion KPI display data using existing ChampionStats and baselines
+    public func getChampionKPIDisplay(for championStat: ChampionStats, role: String)
+        -> [ChampionKPIDisplay]
+    {
+        let championClass = championStat.champion.championClass
+        let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[role] ?? []
+
+        return keyMetrics.compactMap { metric in
+            let value = getStatValue(from: championStat, for: metric)
+
+            // Try to get baseline for specific class, fallback to "ALL"
+            let baseline =
+                getBaselineSync(role: role, classTag: championClass, metric: metric)
+                ?? getBaselineSync(role: role, classTag: "ALL", metric: metric)
+
+            let performanceLevel = baseline?.getPerformanceLevel(value) ?? .needsImprovement
+
+            return ChampionKPIDisplay(
+                metric: metric,
+                value: formatValue(value, for: metric),
+                performanceLevel: performanceLevel,
+                color: getPerformanceColor(performanceLevel)
+            )
+        }
+    }
+
+    /// Maps ChampionStats properties to metric values
+    private func getStatValue(from stats: ChampionStats, for metric: String) -> Double {
+        switch metric {
+        case "cs_per_min": return stats.averageCS
+        case "deaths_per_game": return stats.averageDeaths
+        case "kill_participation_pct": return stats.averageKillParticipation
+        case "team_damage_pct": return stats.averageTeamDamagePercent
+        case "vision_score_per_min": return stats.averageVisionScore
+        case "objective_participation_pct": return stats.averageObjectiveParticipation
+        case "damage_taken_share_pct": return stats.averageDamageTakenShare
+        default: return 0.0
+        }
+    }
+
+    /// Synchronous baseline lookup (baselines are already loaded)
+    private func getBaselineSync(role: String, classTag: String, metric: String) -> Baseline? {
+        guard let dataManager = dataManager else { return nil }
+
+        // Since baselines are already loaded, we can use a simple Task to get them
+        var result: Baseline?
+        let semaphore = DispatchSemaphore(value: 0)
+
+        Task {
+            do {
+                result = try await dataManager.getBaseline(
+                    role: role, classTag: classTag, metric: metric)
+            } catch {
+                result = nil
+            }
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        return result
+    }
+
+    /// Formats metric values for display
+    private func formatValue(_ value: Double, for metric: String) -> String {
+        switch metric {
+        case "kill_participation_pct", "team_damage_pct", "objective_participation_pct",
+            "damage_taken_share_pct":
+            return String(format: "%.0f%%", value * 100)
+        case "cs_per_min", "vision_score_per_min":
+            return String(format: "%.1f", value)
+        case "deaths_per_game":
+            return String(format: "%.1f", value)
+        default:
+            return String(format: "%.1f", value)
+        }
+    }
+
+    /// Gets performance color based on level
+    private func getPerformanceColor(_ level: Baseline.PerformanceLevel) -> Color {
+        switch level {
+        case .excellent: return DesignSystem.Colors.accent
+        case .good: return DesignSystem.Colors.primary
+        case .needsImprovement: return DesignSystem.Colors.secondary
         }
     }
 }
@@ -539,6 +666,26 @@ public struct ChampionStats {
     public var averageObjectiveParticipation: Double
     public var averageTeamDamagePercent: Double
     public var averageDamageTakenShare: Double
+}
+
+public struct ChampionKPIDisplay {
+    public let metric: String
+    public let value: String
+    public let performanceLevel: Baseline.PerformanceLevel
+    public let color: Color
+
+    public var displayName: String {
+        switch metric {
+        case "cs_per_min": return "CS/Min"
+        case "deaths_per_game": return "Deaths"
+        case "kill_participation_pct": return "Kill Part."
+        case "team_damage_pct": return "Damage %"
+        case "vision_score_per_min": return "Vision"
+        case "objective_participation_pct": return "Objectives"
+        case "damage_taken_share_pct": return "Dmg Taken"
+        default: return metric
+        }
+    }
 }
 
 public struct KPIMetric {
