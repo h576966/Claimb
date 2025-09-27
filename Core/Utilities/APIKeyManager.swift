@@ -2,64 +2,58 @@ import Foundation
 
 /// Manages API keys in a centralized way
 enum APIKeyManager {
-    /// Gets the Riot API key from build settings or environment
-    static var riotAPIKey: String {
+    /// Gets the App Shared Token for Supabase edge function authentication
+    static var appSharedToken: String {
         // 1. Try to get from build settings (Info.plist)
-        if let key = Bundle.main.object(forInfoDictionaryKey: "RIOT_API_KEY") as? String,
-            !key.isEmpty
+        if let token = Bundle.main.object(forInfoDictionaryKey: "APP_SHARED_TOKEN") as? String,
+            !token.isEmpty
         {
-            return key
+            return token
         }
 
         // 2. Try to get from environment variables
-        if let key = ProcessInfo.processInfo.environment["RIOT_API_KEY"], !key.isEmpty {
-            return key
+        if let token = ProcessInfo.processInfo.environment["APP_SHARED_TOKEN"], !token.isEmpty {
+            return token
         }
 
         // 3. Try to get from UserDefaults (for development/testing)
-        if let key = UserDefaults.standard.string(forKey: "RIOT_API_KEY"), !key.isEmpty {
-            return key
+        if let token = UserDefaults.standard.string(forKey: "APP_SHARED_TOKEN"), !token.isEmpty {
+            return token
         }
 
-        // 4. If no key found, return placeholder that will cause clear error
+        // 4. If no token found, return placeholder that will cause clear error
+        return "PLACEHOLDER_APP_SHARED_TOKEN"
+    }
+
+    /// Check if we have a valid App Shared Token
+    static var hasValidAppSharedToken: Bool {
+        return appSharedToken != "PLACEHOLDER_APP_SHARED_TOKEN" && !appSharedToken.isEmpty
+    }
+
+    // MARK: - Legacy Methods (for backward compatibility during transition)
+    
+    /// Legacy method - now returns placeholder since we use Proxy service
+    static var riotAPIKey: String {
         return "PLACEHOLDER_API_KEY"
     }
 
-    /// Gets the OpenAI API key from build settings or environment
+    /// Legacy method - now returns placeholder since we use Proxy service
     static var openAIAPIKey: String {
-        // 1. Try to get from build settings (Info.plist)
-        if let key = Bundle.main.object(forInfoDictionaryKey: "OPENAI_API_KEY") as? String,
-            !key.isEmpty
-        {
-            return key
-        }
-
-        // 2. Try to get from environment variables
-        if let key = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !key.isEmpty {
-            return key
-        }
-
-        // 3. Try to get from UserDefaults (for development/testing)
-        if let key = UserDefaults.standard.string(forKey: "OPENAI_API_KEY"), !key.isEmpty {
-            return key
-        }
-
-        // 4. If no key found, return placeholder that will cause clear error
         return "PLACEHOLDER_OPENAI_API_KEY"
     }
 
-    /// Check if we have a valid Riot API key
-    static var hasValidRiotAPIKey: Bool {
-        return riotAPIKey != "PLACEHOLDER_API_KEY" && !riotAPIKey.isEmpty
-    }
-
-    /// Check if we have a valid OpenAI API key
-    static var hasValidOpenAIAPIKey: Bool {
-        return openAIAPIKey != "PLACEHOLDER_OPENAI_API_KEY" && !openAIAPIKey.isEmpty
-    }
-
-    /// Check if we have a valid API key (legacy method for backward compatibility)
+    /// Legacy method - now checks App Shared Token
     static var hasValidAPIKey: Bool {
-        return hasValidRiotAPIKey
+        return hasValidAppSharedToken
+    }
+
+    /// Legacy method - now returns false since we use Proxy service
+    static var hasValidRiotAPIKey: Bool {
+        return false
+    }
+
+    /// Legacy method - now returns false since we use Proxy service
+    static var hasValidOpenAIAPIKey: Bool {
+        return false
     }
 }

@@ -34,7 +34,7 @@ export OPENAI_API_KEY="sk-your-key-here"
 ```
 
 Then restart your terminal or run:
-```bash
+```bashy
 source ~/.zshrc  # or ~/.bash_profile
 ```
 

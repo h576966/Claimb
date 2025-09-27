@@ -175,7 +175,7 @@ struct CoachingView: View {
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
     }
-    
+
     private var coachingErrorCard: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
@@ -190,7 +190,7 @@ struct CoachingView: View {
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
-            
+
             Button("Try Again") {
                 Task { await analyzePerformance() }
             }
@@ -210,22 +210,22 @@ struct CoachingView: View {
             guard let viewModel = matchDataViewModel else {
                 throw OpenAIError.invalidResponse
             }
-            
+
             let recentMatches = viewModel.getRecentMatches(limit: 20)
             let primaryRole = userSession.selectedPrimaryRole
-            
+
             // Generate coaching insights using OpenAI
             let insights = try await openAIService.generateCoachingInsights(
                 summoner: summoner,
                 matches: recentMatches,
                 primaryRole: primaryRole
             )
-            
+
             await MainActor.run {
                 self.coachingInsights = insights
                 self.isAnalyzing = false
             }
-            
+
         } catch {
             await MainActor.run {
                 self.coachingError = ErrorHandler.userFriendlyMessage(for: error)

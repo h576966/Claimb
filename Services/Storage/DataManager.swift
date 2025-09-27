@@ -54,7 +54,7 @@ public class DataManager {
     public static func create(with modelContext: ModelContext) -> DataManager {
         return DataManager(
             modelContext: modelContext,
-            riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+            riotClient: RiotProxyClient(),
             dataDragonService: DataDragonService()
         )
     }
