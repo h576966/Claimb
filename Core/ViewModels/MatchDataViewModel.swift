@@ -469,31 +469,12 @@ public class MatchDataViewModel {
             let newDeaths =
                 (current.averageDeaths * Double(current.gamesPlayed - 1)
                     + Double(participant.deaths)) / Double(current.gamesPlayed)
-            let newKillParticipation =
-                (current.averageKillParticipation * Double(current.gamesPlayed - 1)
-                    + participant.killParticipation) / Double(current.gamesPlayed)
-            let newTeamDamagePercent =
-                (current.averageTeamDamagePercent * Double(current.gamesPlayed - 1)
-                    + participant.teamDamagePercentage) / Double(current.gamesPlayed)
-            let newObjectiveParticipation =
-                (current.averageObjectiveParticipation * Double(current.gamesPlayed - 1)
-                    + participant.objectiveParticipationPercentage) / Double(current.gamesPlayed)
-            let newDamageTakenShare =
-                (current.averageDamageTakenShare * Double(current.gamesPlayed - 1)
-                    + participant.damageTakenSharePercentage) / Double(current.gamesPlayed)
-            let newGoldPerMin =
-                (current.averageGoldPerMin * Double(current.gamesPlayed - 1)
-                    + participant.goldPerMinute) / Double(current.gamesPlayed)
-
             championStats[champion.name]?.averageKDA = newKDA
             championStats[champion.name]?.averageCS = newCS
             championStats[champion.name]?.averageVisionScore = newVision
             championStats[champion.name]?.averageDeaths = newDeaths
-            championStats[champion.name]?.averageKillParticipation = newKillParticipation
-            championStats[champion.name]?.averageTeamDamagePercent = newTeamDamagePercent
-            championStats[champion.name]?.averageObjectiveParticipation = newObjectiveParticipation
-            championStats[champion.name]?.averageDamageTakenShare = newDamageTakenShare
-            championStats[champion.name]?.averageGoldPerMin = newGoldPerMin
+            // Note: Other metrics (kill participation, team damage, etc.) are calculated 
+            // directly from match data in getChampionKPIDisplay to avoid duplication with KPICalculationService
         }
 
         // Filter champions with at least minimum games and calculate win rates
@@ -602,8 +583,28 @@ public class MatchDataViewModel {
             ]
         )
 
+        // Get champion-specific matches for this role
+        let championMatches = getChampionMatches(for: championStat.champion, role: role)
+        
+        guard !championMatches.isEmpty else {
+            ClaimbLogger.debug(
+                "No matches found for champion",
+                service: AppConstants.LoggingServices.matchDataViewModel,
+                metadata: [
+                    "champion": championStat.champion.name,
+                    "role": role,
+                ]
+            )
+            return []
+        }
+
         let results = keyMetrics.compactMap { metric in
-            let value = getStatValue(from: championStat, for: metric)
+            let value = calculateChampionMetricValue(
+                metric: metric,
+                matches: championMatches,
+                champion: championStat.champion,
+                role: role
+            )
 
             // Try to get baseline for specific class, fallback to "ALL"
             let baseline =
@@ -650,17 +651,63 @@ public class MatchDataViewModel {
         return results
     }
 
-    /// Maps ChampionStats properties to metric values
-    private func getStatValue(from stats: ChampionStats, for metric: String) -> Double {
+    /// Gets champion-specific matches for a role
+    private func getChampionMatches(for champion: Champion, role: String) -> [Match] {
+        return currentMatches.filter { match in
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+                return false
+            }
+            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            return participant.championId == champion.id && actualRole == role
+        }
+    }
+
+    /// Calculates metric value using KPICalculationService logic (reused to avoid duplication)
+    private func calculateChampionMetricValue(metric: String, matches: [Match], champion: Champion, role: String) -> Double {
+        let participants = matches.compactMap { match in
+            match.participants.first(where: { 
+                $0.puuid == summoner.puuid && $0.championId == champion.id 
+            })
+        }
+        
+        guard !participants.isEmpty else { return 0.0 }
+        
         switch metric {
-        case "cs_per_min": return stats.averageCS
-        case "deaths_per_game": return stats.averageDeaths
-        case "kill_participation_pct": return stats.averageKillParticipation
-        case "team_damage_pct": return stats.averageTeamDamagePercent
-        case "vision_score_per_min": return stats.averageVisionScore
-        case "objective_participation_pct": return stats.averageObjectiveParticipation
-        case "damage_taken_share_pct": return stats.averageDamageTakenShare
-        default: return 0.0
+        case "cs_per_min":
+            return participants.map { participant in
+                let match = matches.first { $0.participants.contains(participant) }
+                let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
+                return gameDurationMinutes > 0
+                    ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
+            }.reduce(0, +) / Double(participants.count)
+            
+        case "deaths_per_game":
+            return participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
+            
+        case "kill_participation_pct":
+            return participants.map { participant in
+                let match = matches.first { $0.participants.contains(participant) }
+                let teamKills = match?.participants
+                    .filter { $0.teamId == participant.teamId }
+                    .reduce(0) { $0 + $1.kills } ?? 0
+                return teamKills > 0
+                    ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
+            }.reduce(0, +) / Double(participants.count)
+            
+        case "vision_score_per_min":
+            return participants.map { $0.visionScorePerMinute }.reduce(0, +) / Double(participants.count)
+            
+        case "team_damage_pct":
+            return participants.map { $0.teamDamagePercentage }.reduce(0, +) / Double(participants.count)
+            
+        case "objective_participation_pct":
+            return participants.map { $0.objectiveParticipationPercentage }.reduce(0, +) / Double(participants.count)
+            
+        case "damage_taken_share_pct":
+            return participants.map { $0.damageTakenSharePercentage }.reduce(0, +) / Double(participants.count)
+            
+        default:
+            return 0.0
         }
     }
 
