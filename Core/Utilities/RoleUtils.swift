@@ -11,16 +11,13 @@ struct RoleUtils {
     private static var seenRoleLogs: Set<String> = []
     /// Normalizes role names from Riot API to our standard 5 roles
     /// Uses Riot's teamPosition field directly - excludes games with missing teamPosition
-    static func normalizeRole(_ role: String, lane: String? = nil, teamPosition: String? = nil) -> String {
+    static func normalizeRole(teamPosition: String?) -> String {
         // Use Riot's teamPosition field directly - no fallback logic
         guard let teamPosition = teamPosition, !teamPosition.isEmpty else {
             ClaimbLogger.warning(
                 "Missing teamPosition, excluding game", service: "RoleUtils",
-                metadata: [
-                    "role": role,
-                    "lane": lane ?? "unknown",
-                    "teamPosition": teamPosition ?? "nil"
-                ])
+                metadata: ["teamPosition": teamPosition ?? "nil"]
+            )
             return "UNKNOWN"  // This will be filtered out
         }
 
@@ -34,14 +31,10 @@ struct RoleUtils {
         default:
             ClaimbLogger.warning(
                 "Unknown teamPosition, excluding game", service: "RoleUtils",
-                metadata: ["teamPosition": teamPosition])
+                metadata: ["teamPosition": teamPosition]
+            )
             return "UNKNOWN"  // This will be filtered out
         }
-    }
-
-    /// Legacy method for backward compatibility
-    static func normalizeRole(_ role: String) -> String {
-        return normalizeRole(role, lane: nil, teamPosition: nil)
     }
 
     /// Returns the display name for a normalized role
