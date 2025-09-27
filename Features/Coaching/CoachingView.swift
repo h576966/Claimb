@@ -13,8 +13,10 @@ struct CoachingView: View {
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
+    @State private var openAIService = OpenAIService()
     @State private var isAnalyzing = false
     @State private var coachingInsights: String = ""
+    @State private var coachingError: String = ""
 
     var body: some View {
         ZStack {
@@ -73,6 +75,8 @@ struct CoachingView: View {
                 // Coaching Insights
                 if !coachingInsights.isEmpty {
                     coachingInsightsCard
+                } else if !coachingError.isEmpty {
+                    coachingErrorCard
                 } else {
                     generateInsightsCard
                 }
@@ -156,12 +160,12 @@ struct CoachingView: View {
                 .font(DesignSystem.Typography.title)
                 .foregroundColor(DesignSystem.Colors.primary)
 
-            Text("Get Personalized Insights")
+            Text("Get AI Coaching Insights")
                 .font(DesignSystem.Typography.title3)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
 
             Text(
-                "Tap 'Analyze' to get AI-powered coaching recommendations based on your recent performance"
+                "Tap 'Analyze' to get personalized coaching recommendations powered by OpenAI based on your recent performance"
             )
             .font(DesignSystem.Typography.body)
             .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -171,36 +175,62 @@ struct CoachingView: View {
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
     }
+    
+    private var coachingErrorCard: some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(DesignSystem.Typography.title)
+                .foregroundColor(DesignSystem.Colors.error)
+
+            Text("Analysis Failed")
+                .font(DesignSystem.Typography.title3)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+
+            Text(coachingError)
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            Button("Try Again") {
+                Task { await analyzePerformance() }
+            }
+            .buttonStyle(ClaimbButtonStyle())
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+    }
 
     private func analyzePerformance() async {
         isAnalyzing = true
         coachingInsights = ""
+        coachingError = ""
 
-        // Simulate AI analysis
-        try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
-
-        // Generate mock insights based on recent matches
-        guard let viewModel = matchDataViewModel else { return }
-        let recentMatches = viewModel.getRecentMatches(limit: 10)
-        let wins = recentMatches.compactMap { match in
-            match.participants.first(where: { $0.puuid == summoner.puuid })?.win
-        }.filter { $0 }.count
-
-        let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
-
-        await MainActor.run {
-            if winRate >= 0.6 {
-                self.coachingInsights =
-                    "Great performance! You're maintaining a strong win rate. Focus on consistency and consider expanding your champion pool to stay versatile."
-            } else if winRate >= 0.4 {
-                self.coachingInsights =
-                    "Solid foundation! Work on decision-making in team fights and focus on improving your CS to gain more gold advantage."
-            } else {
-                self.coachingInsights =
-                    "Room for improvement! Focus on fundamentals like last-hitting, map awareness, and positioning. Consider reviewing your recent games to identify patterns."
+        do {
+            guard let viewModel = matchDataViewModel else {
+                throw OpenAIError.invalidResponse
             }
-
-            self.isAnalyzing = false
+            
+            let recentMatches = viewModel.getRecentMatches(limit: 20)
+            let primaryRole = userSession.selectedPrimaryRole
+            
+            // Generate coaching insights using OpenAI
+            let insights = try await openAIService.generateCoachingInsights(
+                summoner: summoner,
+                matches: recentMatches,
+                primaryRole: primaryRole
+            )
+            
+            await MainActor.run {
+                self.coachingInsights = insights
+                self.isAnalyzing = false
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.coachingError = ErrorHandler.userFriendlyMessage(for: error)
+                self.isAnalyzing = false
+            }
         }
     }
 
