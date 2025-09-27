@@ -469,11 +469,31 @@ public class MatchDataViewModel {
             let newDeaths =
                 (current.averageDeaths * Double(current.gamesPlayed - 1)
                     + Double(participant.deaths)) / Double(current.gamesPlayed)
+            let newKillParticipation =
+                (current.averageKillParticipation * Double(current.gamesPlayed - 1)
+                    + participant.killParticipation) / Double(current.gamesPlayed)
+            let newTeamDamagePercent =
+                (current.averageTeamDamagePercent * Double(current.gamesPlayed - 1)
+                    + participant.teamDamagePercentage) / Double(current.gamesPlayed)
+            let newObjectiveParticipation =
+                (current.averageObjectiveParticipation * Double(current.gamesPlayed - 1)
+                    + participant.objectiveParticipation) / Double(current.gamesPlayed)
+            let newDamageTakenShare =
+                (current.averageDamageTakenShare * Double(current.gamesPlayed - 1)
+                    + participant.damageTakenShare) / Double(current.gamesPlayed)
+            let newGoldPerMin =
+                (current.averageGoldPerMin * Double(current.gamesPlayed - 1)
+                    + participant.goldPerMinute) / Double(current.gamesPlayed)
 
             championStats[champion.name]?.averageKDA = newKDA
             championStats[champion.name]?.averageCS = newCS
             championStats[champion.name]?.averageVisionScore = newVision
             championStats[champion.name]?.averageDeaths = newDeaths
+            championStats[champion.name]?.averageKillParticipation = newKillParticipation
+            championStats[champion.name]?.averageTeamDamagePercent = newTeamDamagePercent
+            championStats[champion.name]?.averageObjectiveParticipation = newObjectiveParticipation
+            championStats[champion.name]?.averageDamageTakenShare = newDamageTakenShare
+            championStats[champion.name]?.averageGoldPerMin = newGoldPerMin
         }
 
         // Filter champions with at least minimum games and calculate win rates
@@ -590,7 +610,12 @@ public class MatchDataViewModel {
                 getBaselineSync(role: baselineRole, classTag: championClass, metric: metric)
                 ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
 
-            let performanceLevel = baseline?.getPerformanceLevel(value) ?? .needsImprovement
+            // For deaths, lower is better, so invert the performance level
+            let performanceLevel = if metric == "deaths_per_game" {
+                baseline?.getInvertedPerformanceLevel(value) ?? .needsImprovement
+            } else {
+                baseline?.getPerformanceLevel(value) ?? .needsImprovement
+            }
 
             ClaimbLogger.debug(
                 "KPI calculation",
