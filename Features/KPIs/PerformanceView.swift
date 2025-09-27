@@ -117,7 +117,7 @@ struct PerformanceView: View {
                     RoleSelectorView(
                         selectedRole: Binding(
                             get: { userSession.selectedPrimaryRole },
-                            set: { userSession.selectedPrimaryRole = $0 }
+                            set: { userSession.updatePrimaryRole($0) }
                         ),
                         roleStats: viewModel.roleStats,
                         onTap: {
@@ -159,7 +159,7 @@ struct PerformanceView: View {
                 RoleSelectorView(
                     selectedRole: Binding(
                         get: { userSession.selectedPrimaryRole },
-                        set: { userSession.selectedPrimaryRole = $0 }
+                        set: { userSession.updatePrimaryRole($0) }
                     ),
                     roleStats: viewModel.roleStats,
                     onTap: {
