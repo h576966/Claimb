@@ -244,6 +244,10 @@ struct ExpandableChampionStatsCard: View {
     let viewModel: MatchDataViewModel
     let isExpanded: Bool
     let onToggle: () -> Void
+    
+    /// Cached KPI results to prevent recalculation on every render
+    @State private var cachedKPIs: [MatchDataViewModel.ChampionKPIDisplay] = []
+    @State private var lastCalculatedRole: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -310,6 +314,24 @@ struct ExpandableChampionStatsCard: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
                 .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
         )
+        .onAppear {
+            calculateKPIsIfNeeded()
+        }
+        .onChange(of: userSession.selectedPrimaryRole) { _, _ in
+            calculateKPIsIfNeeded()
+        }
+    }
+    
+    /// Calculate KPIs only when role changes or first time
+    private func calculateKPIsIfNeeded() {
+        let currentRole = userSession.selectedPrimaryRole
+        if lastCalculatedRole != currentRole {
+            lastCalculatedRole = currentRole
+            cachedKPIs = viewModel.getChampionKPIDisplay(
+                for: championStat, 
+                role: currentRole
+            )
+        }
     }
 
     private var expandedContentView: some View {
@@ -328,10 +350,7 @@ struct ExpandableChampionStatsCard: View {
                 }
 
                 // Role-specific KPIs
-                let championKPIs = viewModel.getChampionKPIDisplay(
-                    for: championStat, role: userSession.selectedPrimaryRole)
-
-                if championKPIs.isEmpty {
+                if cachedKPIs.isEmpty {
                     Text("No KPI data available for this champion")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -344,7 +363,7 @@ struct ExpandableChampionStatsCard: View {
                             GridItem(.flexible()),
                         ], spacing: DesignSystem.Spacing.sm
                     ) {
-                        ForEach(championKPIs, id: \.metric) { kpi in
+                        ForEach(cachedKPIs, id: \.metric) { kpi in
                             VStack(spacing: DesignSystem.Spacing.xs) {
                                 Text(kpi.value)
                                     .font(DesignSystem.Typography.bodyBold)
