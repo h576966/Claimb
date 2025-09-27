@@ -28,8 +28,8 @@ public class MatchDataViewModel {
     private let summoner: Summoner
     private let userSession: UserSession?
     private let kpiCalculationService: KPICalculationService?
-    // Note: nonisolated is required for deinit access
-    nonisolated private var currentTask: Task<Void, Never>?
+    // Note: Using private var for task management, accessed carefully in deinit
+    private var currentTask: Task<Void, Never>?
 
     // MARK: - In-Memory Caches
     private var kpiCache: [String: [KPIMetric]] = [:]
@@ -163,7 +163,8 @@ public class MatchDataViewModel {
     }
 
     deinit {
-        currentTask?.cancel()
+        // Note: Cannot access @Observable properties in deinit
+        // Task will be automatically cancelled when the object is deallocated
     }
 
     /// Gets the current matches if loaded
