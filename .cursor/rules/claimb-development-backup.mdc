@@ -27,18 +27,6 @@ rule "reuse_first" {
   then = "REUSE FIRST - Check existing functions/patterns/structure. Extend before creating new. Strive to smallest possible code changes."
 }
 
-rule "simplicity_first" {
-  description = "Eliminate over-abstraction and complexity"
-  when = "designing architecture or refactoring code"
-  then = "SIMPLICITY FIRST - Use direct integration over service layers. Prefer static loading over database queries. Use generics to eliminate code duplication. Challenge every abstraction - does it add real value?"
-}
-
-rule "dry_principle" {
-  description = "Don't Repeat Yourself through smart patterns"
-  when = "writing repetitive code"
-  then = "DRY - Use factory patterns, generics, and direct model integration. If you see the same pattern 3+ times, abstract it. Eliminate boilerplate through language features."
-}
-
 rule "no_assumptions" {
   description = "Never assume, always verify"
   when = "writing code or making suggestions"
@@ -77,16 +65,16 @@ rule "ui_state_pattern" {
   then = "Use UIState<T> enum with cases: idle, loading, loaded(T), error(Error), empty(String). Use ClaimbContentWrapper for consistent UI state rendering. Example: ClaimbContentWrapper(state: viewModel.championState, loadingMessage: \"Loading...\", emptyMessage: \"No data found\", retryAction: { Task { await viewModel.loadData() } }) { data in /* content */ }"
 }
 
-rule "datamanager_pattern" {
-  description = "Use DataManager with factory method for data operations"
+rule "data_coordinator_pattern" {
+  description = "Use DataCoordinator for centralized data loading"
   when = "loading data in views"
-  then = "Use DataManager.create(with: modelContext) for consistent instantiation. DataManager handles request deduplication and returns UIState<T> for consistent state handling. Avoid direct service usage in views."
+  then = "Inject DataCoordinator via environment. Use loadMatches(), loadChampions(), calculateRoleStats() methods. Avoid direct DataManager usage in views. DataCoordinator returns UIState<T> for consistent state handling."
 }
 
 rule "view_models" {
   description = "Structure view models properly"
   when = "creating view models"
-  then = "Use @MainActor @Observable view models with intents like load(), selectRole(_:), save(). No storage or networking in Views. Use DataManager for data operations. Example: @MainActor @Observable class ChampionDataViewModel { var championState: UIState<[Champion]> = .idle }"
+  then = "Use @MainActor @Observable view models with intents like load(), selectRole(_:), save(). No storage or networking in Views. Use DataCoordinator for data operations. Example: @MainActor @Observable class ChampionDataViewModel { var championState: UIState<[Champion]> = .idle }"
 }
 
 rule "cancellation" {
@@ -166,7 +154,7 @@ rule "error_handling" {
 rule "structured_logging" {
   description = "Use ClaimbLogger for all logging"
   when = "adding logging"
-  then = "Use ClaimbLogger.debug/info/warning/error with service parameter and metadata. Example: ClaimbLogger.info(\"Loading matches\", service: \"DataManager\", metadata: [\"summoner\": summoner.gameName]). No print statements in production."
+  then = "Use ClaimbLogger.debug/info/warning/error with service parameter and metadata. Example: ClaimbLogger.info(\"Loading matches\", service: \"DataCoordinator\", metadata: [\"summoner\": summoner.gameName]). No print statements in production."
 }
 
 rule "error_handler" {
@@ -194,7 +182,7 @@ rule "ui_states" {
 rule "file_structure" {
   description = "Follow organized file structure"
   when = "organizing code"
-  then = "Core/DesignSystem, Core/Utilities, Core/ViewModels, Core/Views. Models/. Services/{Riot, DataDragon, Storage, Coaching}. Features/{Champions, Coaching, KPIs, Onboarding}. ClaimbTests/ for tests. Resources/{Prompts, Strings}."
+  then = "Core/DesignSystem, Core/Utilities, Core/Services, Core/ViewModels, Core/Views. Models/. Services/{Riot, DataDragon, Storage, Coaching}. Features/{Champions, Coaching, KPIs, Onboarding}. ClaimbTests/ for tests. Resources/{Prompts, Strings}."
 }
 
 rule "naming_conventions" {
@@ -220,7 +208,7 @@ rule "file_length" {
 rule "champion_data" {
   description = "Handle champion data correctly"
   when = "working with champion data"
-  then = "Use champion IDs for API calls, names for display. Handle 'Unknown Champion' cases gracefully. Load champion data from Data Dragon. Champion class mapping is integrated into Champion model."
+  then = "Use champion IDs for API calls, names for display. Handle 'Unknown Champion' cases gracefully. Load champion data from Data Dragon. Use proper champion class mapping for baselines."
 }
 
 rule "match_data" {
@@ -255,6 +243,12 @@ rule "no_legacy_apis" {
   then = "DO NOT use NavigationView - use NavigationStack. DO NOT use ObservableObject for new view models - prefer @Observable."
 }
 
+rule "no_hardcoded_delays" {
+  description = "Don't hardcode API delays"
+  when = "implementing rate limiting"
+  then = "DO NOT hardcode fixed delays for rate limiting - implement proper token-bucket algorithm with backoff."
+}
+
 ## CODING STANDARDS
 
 rule "plan_before_coding" {
@@ -273,4 +267,12 @@ rule "documentation_approach" {
   description = "Keep documentation light and contextual"
   when = "writing documentation"
   then = "Keep docs light unless explicitly requested. Focus on 'why' rather than 'what'. Write lightweight ADRs for architectural decisions. Maintain context for future developers."
+}
+
+## PROHIBITED ACTIONS
+
+rule "no_dev_server_commands" {
+  description = "Don't run dev server commands"
+  when = "running commands"
+  then = "NEVER run npm/yarn start commands - assume dev servers always running"
 }

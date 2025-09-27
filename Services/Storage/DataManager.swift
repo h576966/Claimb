@@ -37,7 +37,7 @@ public class DataManager {
         self.riotClient = riotClient
         self.dataDragonService = dataDragonService
     }
-    
+
     /// Factory method to create DataManager with default dependencies
     /// Eliminates boilerplate by providing standard RiotClient and DataDragonService instances
     public static func create(with modelContext: ModelContext) -> DataManager {
@@ -47,9 +47,9 @@ public class DataManager {
             dataDragonService: DataDragonService()
         )
     }
-    
+
     // MARK: - Request Deduplication Helper
-    
+
     /// Generic helper for request deduplication
     /// Eliminates code duplication across different request types
     private func deduplicateRequest<T>(
@@ -63,7 +63,7 @@ public class DataManager {
                 metadata: ["requestKey": key])
             return await existingTask.value
         }
-        
+
         // Create new task
         let task = Task<UIState<T>, Never> {
             defer {
@@ -71,11 +71,11 @@ public class DataManager {
                 requestTasks.removeValue(forKey: key)
                 activeRequests.remove(key)
             }
-            
+
             activeRequests.insert(key)
             return await operation()
         }
-        
+
         requestTasks[key] = task
         return await task.value
     }
@@ -1127,7 +1127,7 @@ public class DataManager {
     /// Loads matches with deduplication
     public func loadMatches(for summoner: Summoner, limit: Int = 100) async -> UIState<[Match]> {
         let requestKey = "matches_\(summoner.puuid)_\(limit)"
-        
+
         return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info(
                 "Loading matches", service: "DataManager",
@@ -1183,7 +1183,7 @@ public class DataManager {
     /// Loads champions with deduplication
     public func loadChampions() async -> UIState<[Champion]> {
         let requestKey = "champions"
-        
+
         return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info("Loading champions", service: "DataManager")
 
@@ -1210,7 +1210,7 @@ public class DataManager {
         -> UIState<Summoner>
     {
         let requestKey = "summoner_\(gameName)_\(tagLine)_\(region)"
-        
+
         return await deduplicateRequest(key: requestKey) {
 
             ClaimbLogger.info(
@@ -1243,7 +1243,7 @@ public class DataManager {
     /// Loads baseline data with deduplication
     public func loadBaselineData() async -> UIState<Void> {
         let requestKey = "baseline_data"
-        
+
         return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info("Loading baseline data", service: "DataManager")
 
