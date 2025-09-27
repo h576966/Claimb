@@ -391,7 +391,7 @@ public class MatchDataViewModel {
                 continue
             }
 
-            let normalizedRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            let normalizedRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane, teamPosition: participant.teamPosition)
             let isWin = participant.win
 
             if roleStats[normalizedRole] == nil {
@@ -428,7 +428,12 @@ public class MatchDataViewModel {
 
             guard let champion = champion else { continue }
 
-            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
+            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane, teamPosition: participant.teamPosition)
+
+            // Skip games with unknown/invalid teamPosition
+            if actualRole == "UNKNOWN" {
+                continue
+            }
 
             // Only include champions played in the selected role
             if actualRole != role {
@@ -663,8 +668,8 @@ public class MatchDataViewModel {
             else {
                 return false
             }
-            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane)
-            return participant.championId == champion.id && actualRole == role
+            let actualRole = RoleUtils.normalizeRole(participant.role, lane: participant.lane, teamPosition: participant.teamPosition)
+            return participant.championId == champion.id && actualRole == role && actualRole != "UNKNOWN"
         }
     }
 
