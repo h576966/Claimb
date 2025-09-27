@@ -68,11 +68,7 @@ public class UserSession {
         // Try to find the summoner in the database
         Task {
             do {
-                let dataManager = DataManager(
-                    modelContext: modelContext,
-                    riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                    dataDragonService: DataDragonService()
-                )
+                let dataManager = DataManager.create(with: modelContext)
 
                 // Look for existing summoner by checking all summoners
                 let allSummoners = try await dataManager.getAllSummoners()
@@ -111,11 +107,7 @@ public class UserSession {
     private func recreateSummonerFromCredentials(gameName: String, tagLine: String, region: String)
         async throws
     {
-        let dataManager = DataManager(
-            modelContext: modelContext,
-            riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-            dataDragonService: DataDragonService()
-        )
+        let dataManager = DataManager.create(with: modelContext)
 
         // Recreate the summoner
         let summonerState = await dataManager.createOrUpdateSummoner(
@@ -235,11 +227,7 @@ public class UserSession {
         guard let currentSummoner = currentSummoner else { return }
 
         do {
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                dataDragonService: DataDragonService()
-            )
+            let dataManager = DataManager.create(with: modelContext)
 
             // Refresh summoner data
             let refreshedSummonerState = await dataManager.createOrUpdateSummoner(

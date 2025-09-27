@@ -186,11 +186,7 @@ struct LoginView: View {
 
         do {
             // Create DataManager
-            let dataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                dataDragonService: DataDragonService()
-            )
+            let dataManager = DataManager.create(with: userSession.modelContext)
 
             // Create or update summoner
             let summonerState = await dataManager.createOrUpdateSummoner(

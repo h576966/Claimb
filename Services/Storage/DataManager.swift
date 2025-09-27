@@ -40,6 +40,16 @@ public class DataManager {
         self.riotClient = riotClient
         self.dataDragonService = dataDragonService
     }
+    
+    /// Factory method to create DataManager with default dependencies
+    /// Eliminates boilerplate by providing standard RiotClient and DataDragonService instances
+    public static func create(with modelContext: ModelContext) -> DataManager {
+        return DataManager(
+            modelContext: modelContext,
+            riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
+            dataDragonService: DataDragonService()
+        )
+    }
 
     // MARK: - Summoner Management
 
@@ -1032,7 +1042,6 @@ public class DataManager {
         }
     }
 
-
     // MARK: - Private JSON Loading Methods
 
     private func loadBaselineJSON() async throws -> [BaselineData] {
@@ -1044,7 +1053,6 @@ public class DataManager {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode([BaselineData].self, from: data)
     }
-
 
     // MARK: - Cache Management
 
@@ -1386,7 +1394,6 @@ private struct BaselineData: Codable {
     let p40: Double
     let p60: Double
 }
-
 
 // MARK: - DataManager Errors
 

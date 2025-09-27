@@ -197,7 +197,7 @@ struct BaselineTestView: View {
             baselineCount = baselines.count
 
             // Champion class mappings are now loaded directly from JSON in Champion model
-            championMappingCount = 171 // Total number of champions
+            championMappingCount = 171  // Total number of champions
         } catch {
             errorMessage = "Failed to load counts: \(error.localizedDescription)"
         }
@@ -278,10 +278,7 @@ struct BaselineTestView: View {
             testResults.append("✅ Found \(matches.count) matches for analysis")
 
             // Test KPI calculation
-            let dataManager = DataManager(
-                modelContext: modelContext,
-                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                dataDragonService: DataDragonService())
+            let dataManager = DataManager.create(with: modelContext)
             let kpiService = KPICalculationService(dataManager: dataManager)
             let kpis = try await kpiService.calculateRoleKPIs(
                 matches: matches, role: "DUO_CARRY", summoner: summoner)

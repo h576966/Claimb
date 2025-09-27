@@ -40,11 +40,7 @@ public class MatchDataViewModel {
 
         // Initialize KPI calculation service if userSession is provided
         if let userSession = userSession {
-            let kpiDataManager = DataManager(
-                modelContext: userSession.modelContext,
-                riotClient: RiotHTTPClient(apiKey: APIKeyManager.riotAPIKey),
-                dataDragonService: DataDragonService()
-            )
+            let kpiDataManager = DataManager.create(with: userSession.modelContext)
             self.kpiCalculationService = KPICalculationService(dataManager: kpiDataManager)
         } else {
             self.kpiCalculationService = nil
