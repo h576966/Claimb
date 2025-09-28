@@ -197,11 +197,19 @@ public class ProxyService {
 
     /// Fetches summoner data by PUUID
     public func riotSummoner(puuid: String, region: String = "europe") async throws -> Data {
+        ClaimbLogger.debug(
+            "Platform parameter mapping for summoner", service: "ProxyService",
+            metadata: [
+                "puuid": puuid,
+                "platform": region,  // This is actually a platform code (euw1, na1, etc.)
+                "note": "Summoner-V4 API requires platform parameter, not region"
+            ])
+        
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/summoner"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "puuid", value: puuid),
-            .init(name: "region", value: region),
+            .init(name: "platform", value: region),  // Summoner-V4 needs platform, not region
         ]
 
         var req = URLRequest(url: comps.url!)
