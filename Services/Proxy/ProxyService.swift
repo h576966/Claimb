@@ -16,11 +16,25 @@ public class ProxyService {
     // MARK: - Properties
 
     private let baseURL: URL
+    private let urlSession: URLSession
 
     // MARK: - Initialization
 
     public init() {
         self.baseURL = AppConfig.baseURL
+        
+        // Create a custom URLSession with optimized configuration for network reliability
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 45.0  // 45 seconds timeout (increased for edge function)
+        config.timeoutIntervalForResource = 90.0  // 90 seconds total timeout
+        config.waitsForConnectivity = true  // Wait for network connectivity
+        config.allowsCellularAccess = true
+        config.httpMaximumConnectionsPerHost = 6  // Allow multiple connections
+        config.urlCache = nil  // Disable caching for API calls
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        
+        // Create URLSession with custom configuration
+        self.urlSession = URLSession(configuration: config)
     }
 
     // MARK: - Riot API Methods
@@ -197,10 +211,17 @@ public class ProxyService {
         -> (Data, URLResponse)
     {
         var lastError: Error?
+        
+        // Check network connectivity before making requests
+        if !await isNetworkReachable() {
+            ClaimbLogger.warning("Network not reachable, waiting for connectivity", service: "ProxyService")
+            // Wait for network connectivity
+            try await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+        }
 
         for attempt in 0...maxRetries {
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await urlSession.data(for: request)
 
                 // Check if it's a network error that we should retry
                 if let httpResponse = response as? HTTPURLResponse {
@@ -211,13 +232,22 @@ public class ProxyService {
                         // Server errors - retry with backoff
                         if attempt < maxRetries {
                             let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
+                            
+                            // Try to parse error response from edge function
+                            var errorDetails = ""
+                            if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                               let error = errorData["error"] as? String {
+                                errorDetails = " - Edge function error: \(error)"
+                            }
+                            
                             ClaimbLogger.warning(
-                                "Server error \(httpResponse.statusCode), retrying in \(backoffTime)s",
+                                "Server error \(httpResponse.statusCode), retrying in \(backoffTime)s\(errorDetails)",
                                 service: "ProxyService",
                                 metadata: [
                                     "attempt": String(attempt + 1),
                                     "maxRetries": String(maxRetries),
                                     "statusCode": String(httpResponse.statusCode),
+                                    "errorDetails": errorDetails,
                                 ]
                             )
                             try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
@@ -229,6 +259,45 @@ public class ProxyService {
                             let backoffTime = pow(3.0, Double(attempt))  // 1s, 3s, 9s
                             ClaimbLogger.warning(
                                 "Rate limited, retrying in \(backoffTime)s",
+                                service: "ProxyService",
+                                metadata: [
+                                    "attempt": String(attempt + 1),
+                                    "maxRetries": String(maxRetries),
+                                ]
+                            )
+                            try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
+                            continue
+                        }
+                    case 502:
+                        // Bad Gateway - edge function issue, retry with backoff
+                        if attempt < maxRetries {
+                            let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
+                            
+                            // Try to parse error response from edge function
+                            var errorDetails = ""
+                            if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                               let error = errorData["error"] as? String {
+                                errorDetails = " - Edge function error: \(error)"
+                            }
+                            
+                            ClaimbLogger.warning(
+                                "Bad Gateway (502) - Edge function issue, retrying in \(backoffTime)s\(errorDetails)",
+                                service: "ProxyService",
+                                metadata: [
+                                    "attempt": String(attempt + 1),
+                                    "maxRetries": String(maxRetries),
+                                    "errorDetails": errorDetails,
+                                ]
+                            )
+                            try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
+                            continue
+                        }
+                    case 504:
+                        // Gateway Timeout - edge function timeout, retry with backoff
+                        if attempt < maxRetries {
+                            let backoffTime = pow(3.0, Double(attempt))  // 3s, 9s, 27s
+                            ClaimbLogger.warning(
+                                "Gateway Timeout (504) - Edge function timeout, retrying in \(backoffTime)s",
                                 service: "ProxyService",
                                 metadata: [
                                     "attempt": String(attempt + 1),
@@ -252,7 +321,8 @@ public class ProxyService {
                 // Check if it's a network error we should retry
                 switch error.code {
                 case .networkConnectionLost, .notConnectedToInternet, .timedOut,
-                    .cannotConnectToHost:
+                    .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
+                    .resourceUnavailable, .secureConnectionFailed, .serverCertificateUntrusted:
                     if attempt < maxRetries {
                         let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
                         ClaimbLogger.warning(
@@ -313,6 +383,21 @@ public enum ProxyError: Error, LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
+        }
+    }
+    
+    /// Checks if network is reachable by attempting a simple connection
+    private func isNetworkReachable() async -> Bool {
+        guard let url = URL(string: "https://www.apple.com") else { return false }
+        
+        do {
+            let (_, response) = try await urlSession.data(for: URLRequest(url: url))
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+            return true
+        } catch {
+            return false
         }
     }
 }

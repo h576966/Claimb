@@ -237,9 +237,32 @@ public class DataManager {
             let refreshedMatches = try await getMatches(for: summoner)
             return .loaded(refreshedMatches)
         } catch {
-            ClaimbLogger.error(
-                "Failed to force refresh matches", service: "DataManager", error: error)
-            return .error(error)
+            // If force refresh fails due to network, fall back to cached data
+            ClaimbLogger.warning(
+                "Force refresh failed, falling back to cached data", service: "DataManager",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "summoner": summoner.gameName,
+                ])
+
+            do {
+                let cachedMatches = try await getMatches(for: summoner)
+                if !cachedMatches.isEmpty {
+                    ClaimbLogger.info(
+                        "Using cached matches as fallback", service: "DataManager",
+                        metadata: ["cachedCount": String(cachedMatches.count)])
+                    return .loaded(cachedMatches)
+                } else {
+                    ClaimbLogger.error(
+                        "No cached data available and network failed", service: "DataManager",
+                        error: error)
+                    return .error(error)
+                }
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to load cached matches", service: "DataManager", error: error)
+                return .error(error)
+            }
         }
     }
 
@@ -740,7 +763,23 @@ public class DataManager {
                                 "count": String(existingMatches.count),
                                 "lastUpdated": summoner.lastUpdated.description,
                             ])
-                        try await self.refreshMatchesInternal(for: summoner)
+
+                        // Try to refresh, but don't fail if network is unavailable
+                        do {
+                            try await self.refreshMatchesInternal(for: summoner)
+                            ClaimbLogger.info(
+                                "Successfully refreshed matches from network",
+                                service: "DataManager")
+                        } catch {
+                            // Network failed, but we have cached data - log warning and continue
+                            ClaimbLogger.warning(
+                                "Network refresh failed, using cached data", service: "DataManager",
+                                metadata: [
+                                    "error": error.localizedDescription,
+                                    "cachedCount": String(existingMatches.count),
+                                ])
+                            // Continue with cached data instead of failing
+                        }
                     } else {
                         ClaimbLogger.info(
                             "Using cached matches (no refresh needed)", service: "DataManager",
@@ -751,11 +790,13 @@ public class DataManager {
                     }
                 }
 
-                // Get all matches after loading
+                // Get all matches after loading (will include cached data if network failed)
                 let loadedMatches = try await self.getMatches(for: summoner, limit: limit)
                 return .loaded(loadedMatches)
 
             } catch {
+                // This catch block should only handle critical errors (database issues, etc.)
+                // Network failures are now handled above
                 ClaimbLogger.error(
                     "Failed to load matches", service: "DataManager", error: error)
                 return .error(error)
@@ -854,9 +895,32 @@ public class DataManager {
             let refreshedMatches = try await getMatches(for: summoner)
             return .loaded(refreshedMatches)
         } catch {
-            ClaimbLogger.error(
-                "Failed to refresh matches", service: "DataManager", error: error)
-            return .error(error)
+            // If refresh fails due to network, fall back to cached data
+            ClaimbLogger.warning(
+                "Refresh failed, falling back to cached data", service: "DataManager",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "summoner": summoner.gameName,
+                ])
+
+            do {
+                let cachedMatches = try await getMatches(for: summoner)
+                if !cachedMatches.isEmpty {
+                    ClaimbLogger.info(
+                        "Using cached matches as fallback", service: "DataManager",
+                        metadata: ["cachedCount": String(cachedMatches.count)])
+                    return .loaded(cachedMatches)
+                } else {
+                    ClaimbLogger.error(
+                        "No cached data available and network failed", service: "DataManager",
+                        error: error)
+                    return .error(error)
+                }
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to load cached matches", service: "DataManager", error: error)
+                return .error(error)
+            }
         }
     }
 

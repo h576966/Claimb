@@ -51,5 +51,11 @@ enum AppConfig {
         req.addValue(
             UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
             forHTTPHeaderField: "X-Claimb-Device")
+
+        // Add headers for better connection handling
+        req.addValue("application/json", forHTTPHeaderField: "Accept")
+        req.addValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
+        req.addValue("keep-alive", forHTTPHeaderField: "Connection")
+        req.addValue("Claimb/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
     }
 }
