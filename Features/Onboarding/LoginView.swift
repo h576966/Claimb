@@ -11,7 +11,7 @@ import SwiftUI
 struct LoginView: View {
     let userSession: UserSession
     @State private var gameName = ""
-    @State private var tagLine = "8778"
+    @State private var tagLine = "EUW"
     @State private var selectedRegion = "euw1"
     @State private var isLoading = false
     @State private var errorMessage: String?

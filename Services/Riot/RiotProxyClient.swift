@@ -21,26 +21,8 @@ public class RiotProxyClient: RiotClient {
     public func getAccountByRiotId(gameName: String, tagLine: String, region: String) async throws
         -> RiotAccountResponse
     {
-        // TODO: Remove this workaround once edge function supports /riot/account endpoint
-        // For now, we'll use a mock PUUID for testing
-        ClaimbLogger.warning(
-            "Using mock account response - edge function missing /riot/account endpoint", 
-            service: "RiotProxyClient",
-            metadata: [
-                "gameName": gameName,
-                "tagLine": tagLine,
-                "region": region
-            ])
-        
-        // Create a mock response for testing
-        // In production, this should be replaced with actual API call
-        let mockPuuid = "ar2TadQSVp8G1WMy7p5r5vxtF93yop1_fnIivdfa4AikuvSJLCHIKrt1aKf7oa28-KWU1hJ1F_E6rQ"
-        
-        return RiotAccountResponse(
-            puuid: mockPuuid,
-            gameName: gameName,
-            tagLine: tagLine
-        )
+        let data = try await proxyService.riotAccount(gameName: gameName, tagLine: tagLine, region: region)
+        return try JSONDecoder().decode(RiotAccountResponse.self, from: data)
     }
     
     public func getSummonerByPuuid(puuid: String, region: String) async throws
