@@ -213,7 +213,8 @@ public class ProxyService {
         var lastError: Error?
         
         // Check network connectivity before making requests
-        if !await isNetworkReachable() {
+        let isReachable = await isNetworkReachable()
+        if !isReachable {
             ClaimbLogger.warning("Network not reachable, waiting for connectivity", service: "ProxyService")
             // Wait for network connectivity
             try await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
@@ -363,6 +364,21 @@ public class ProxyService {
                     domain: "ProxyService", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Request failed after all retries"]))
     }
+    
+    /// Checks if network is reachable by attempting a simple connection
+    private func isNetworkReachable() async -> Bool {
+        guard let url = URL(string: "https://www.apple.com") else { return false }
+        
+        do {
+            let (_, response) = try await urlSession.data(for: URLRequest(url: url))
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
 }
 
 // MARK: - Proxy Errors
@@ -383,21 +399,6 @@ public enum ProxyError: Error, LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
-        }
-    }
-    
-    /// Checks if network is reachable by attempting a simple connection
-    private func isNetworkReachable() async -> Bool {
-        guard let url = URL(string: "https://www.apple.com") else { return false }
-        
-        do {
-            let (_, response) = try await urlSession.data(for: URLRequest(url: url))
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode == 200
-            }
-            return true
-        } catch {
-            return false
         }
     }
 }

@@ -107,7 +107,7 @@ public class UserSession {
     private func recreateSummonerFromCredentials(gameName: String, tagLine: String, region: String)
         async throws
     {
-        let dataManager = DataManager.create(with: modelContext)
+        let dataManager = DataManager.shared(with: modelContext)
 
         // Recreate the summoner
         let summonerState = await dataManager.createOrUpdateSummoner(
@@ -226,7 +226,7 @@ public class UserSession {
     public func refreshSummoner() async {
         guard let currentSummoner = currentSummoner else { return }
 
-        let dataManager = DataManager.create(with: modelContext)
+        let dataManager = DataManager.shared(with: modelContext)
 
         // Refresh summoner data
         let refreshedSummonerState = await dataManager.createOrUpdateSummoner(
