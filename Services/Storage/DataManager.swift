@@ -6,9 +6,9 @@
 //
 
 import Foundation
+import Observation
 import SwiftData
 import SwiftUI
-import Observation
 
 /// Manages SwiftData operations with cache-first offline strategy
 @MainActor
@@ -370,7 +370,7 @@ public class DataManager {
         do {
             // Load baseline data first if not already loaded
             await loadBaselineData()
-            
+
             ClaimbLogger.info(
                 "Bulk loading initial matches", service: "DataManager",
                 metadata: [
