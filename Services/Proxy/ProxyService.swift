@@ -42,6 +42,13 @@ public class ProxyService {
         config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
         config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
         
+        // QUIC-specific optimizations for simulator
+        #if DEBUG
+        // In debug mode, add additional network debugging
+        config.timeoutIntervalForRequest = 60.0  // Longer timeout for debugging
+        config.timeoutIntervalForResource = 120.0  // Extended resource timeout
+        #endif
+        
         // Create URLSession with custom configuration
         self.urlSession = URLSession(configuration: config)
     }

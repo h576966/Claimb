@@ -28,6 +28,7 @@
 		F31B71FB2E7DEFEF003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F353A01C2E897C4C0073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F353B8972E87FA5300046F0B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35E2E712E6E0C0B009DDF39 /* Claimb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Claimb.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35E2E802E6E0C0C009DDF39 /* ClaimbTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,6 +96,11 @@
 			sourceTree = "<group>";
 		};
 		F3539F832E895ED80073B155 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F353A0212E897C4C0073B155 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -283,6 +289,10 @@
 					ProjectRef = F3867B262E7B25AD00B2ECF4 /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F353A0212E897C4C0073B155 /* Products */;
+					ProjectRef = F353A01C2E897C4C0073B155 /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F3288AD82E84739B0073DB01 /* Products */;
 					ProjectRef = F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */;
 				},
@@ -420,6 +430,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
+					"NETWORK_DEBUG=1",
 					"$(inherited)",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
