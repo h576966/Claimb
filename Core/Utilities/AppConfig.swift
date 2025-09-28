@@ -34,13 +34,11 @@ enum AppConfig {
 
     static var anonKey: String {
         let key = str("SupabaseAnonKey")
-        print("DEBUG: SupabaseAnonKey = '\(key.isEmpty ? "EMPTY" : "\(key.prefix(10))...")'")
         return key
     }
 
     static var appToken: String {
         let token = str("AppSharedToken")
-        print("DEBUG: AppSharedToken = '\(token.isEmpty ? "EMPTY" : "\(token.prefix(10))...")'")
         return token
     }
 

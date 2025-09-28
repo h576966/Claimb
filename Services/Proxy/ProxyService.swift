@@ -134,11 +134,22 @@ public class ProxyService {
 
     /// Fetches detailed match data
     public func riotMatchDetails(matchId: String, region: String = "europe") async throws -> Data {
+        // Convert platform code to region code for edge function
+        let regionCode = platformToRegion(region)
+        ClaimbLogger.debug(
+            "Platform to region mapping for match details", service: "ProxyService",
+            metadata: [
+                "matchId": matchId,
+                "platform": region,  // This is actually a platform code (euw1, na1, etc.)
+                "regionCode": regionCode,  // Converted to region code (europe, americas)
+                "note": "Match-V5 API requires region codes, not platform codes"
+            ])
+        
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/match"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "matchId", value: matchId),
-            .init(name: "region", value: region),
+            .init(name: "region", value: regionCode),
         ]
 
         var req = URLRequest(url: comps.url!)
