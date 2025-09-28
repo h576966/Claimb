@@ -60,11 +60,24 @@ public class ProxyService {
     public func riotMatches(
         puuid: String, region: String = "europe", count: Int = 10, start: Int = 0
     ) async throws -> [String] {
+        // Convert platform code to region code for edge function
+        let regionCode = platformToRegion(region)
+        ClaimbLogger.debug(
+            "Platform to region mapping for matches", service: "ProxyService",
+            metadata: [
+                "puuid": puuid,
+                "platform": region,  // This is actually a platform code (euw1, na1, etc.)
+                "regionCode": regionCode,  // Converted to region code (europe, americas)
+                "count": String(count),
+                "start": String(start),
+                "note": "Match-V5 API requires region codes, not platform codes"
+            ])
+        
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/matches"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "puuid", value: puuid),
-            .init(name: "region", value: region),
+            .init(name: "region", value: regionCode),
             .init(name: "count", value: String(count)),
             .init(name: "start", value: String(start)),
         ]
