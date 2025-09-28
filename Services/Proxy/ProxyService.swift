@@ -110,15 +110,25 @@ public class ProxyService {
         }
 
         do {
-            let response = try JSONDecoder().decode(Response.self, from: data)
+            // Try to decode as simple array first (new format from edge function)
+            let matchIds = try JSONDecoder().decode([String].self, from: data)
             ClaimbLogger.info(
                 "Proxy: Retrieved match IDs", service: "ProxyService",
-                metadata: ["count": String(response.ids.count), "puuid": response.puuid])
-            return response.ids
+                metadata: ["count": String(matchIds.count), "puuid": puuid])
+            return matchIds
         } catch {
-            ClaimbLogger.error(
-                "Proxy: Failed to decode match IDs response", service: "ProxyService", error: error)
-            throw ProxyError.decodingError(error)
+            // Fallback: try to decode as complex object (old format)
+            do {
+                let response = try JSONDecoder().decode(Response.self, from: data)
+                ClaimbLogger.info(
+                    "Proxy: Retrieved match IDs (legacy format)", service: "ProxyService",
+                    metadata: ["count": String(response.ids.count), "puuid": response.puuid])
+                return response.ids
+            } catch {
+                ClaimbLogger.error(
+                    "Proxy: Failed to decode match IDs response", service: "ProxyService", error: error)
+                throw ProxyError.decodingError(error)
+            }
         }
     }
 
