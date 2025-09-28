@@ -28,7 +28,7 @@ public class OpenAIService {
     ) async throws -> String {
 
         // Validate proxy service availability
-        guard APIKeyManager.hasValidAppSharedToken else {
+        guard !AppConfig.appToken.isEmpty else {
             throw OpenAIError.invalidAPIKey
         }
 

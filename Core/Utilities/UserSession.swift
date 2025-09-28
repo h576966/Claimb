@@ -68,7 +68,7 @@ public class UserSession {
         // Try to find the summoner in the database
         Task {
             do {
-                let dataManager = DataManager.create(with: modelContext)
+                let dataManager = DataManager.shared(with: modelContext)
 
                 // Look for existing summoner by checking all summoners
                 let allSummoners = try await dataManager.getAllSummoners()

@@ -56,7 +56,8 @@ enum AppConstants {
         static let championDataLoader = "ChampionDataLoader"
         static let baselineDataLoader = "BaselineDataLoader"
         static let matchParser = "MatchParser"
-        static let riotHTTPClient = "RiotHTTPClient"
+        static let proxyService = "ProxyService"
+        static let riotProxyClient = "RiotProxyClient"
         static let roleUtils = "RoleUtils"
         static let claimbApp = "ClaimbApp"
     }

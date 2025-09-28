@@ -140,7 +140,7 @@ struct ClaimbApp: App {
         ClaimbLogger.info("Clearing cache for Team DMG fix", service: "ClaimbApp")
 
         do {
-            let dataManager = DataManager.create(with: sharedModelContainer.mainContext)
+            let dataManager = DataManager.shared(with: sharedModelContainer.mainContext)
 
             // Clear match data to force fresh fetch with correct Team DMG values
             try await dataManager.clearMatchData()

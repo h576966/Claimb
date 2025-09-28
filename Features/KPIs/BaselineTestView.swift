@@ -278,7 +278,7 @@ struct BaselineTestView: View {
             testResults.append("✅ Found \(matches.count) matches for analysis")
 
             // Test KPI calculation
-            let dataManager = DataManager.create(with: modelContext)
+            let dataManager = DataManager.shared(with: modelContext)
             let kpiService = KPICalculationService(dataManager: dataManager)
             let kpis = try await kpiService.calculateRoleKPIs(
                 matches: matches, role: "DUO_CARRY", summoner: summoner)

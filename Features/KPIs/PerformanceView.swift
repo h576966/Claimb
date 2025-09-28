@@ -224,7 +224,7 @@ struct PerformanceView: View {
 
     private func initializeViewModel() {
         if matchDataViewModel == nil {
-            let dataManager = DataManager.create(with: modelContext)
+            let dataManager = DataManager.shared(with: modelContext)
             matchDataViewModel = MatchDataViewModel(
                 dataManager: dataManager,
                 summoner: summoner,

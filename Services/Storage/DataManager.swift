@@ -13,6 +13,9 @@ import SwiftUI
 @MainActor
 @Observable
 public class DataManager {
+    // MARK: - Singleton
+    private static var sharedInstance: DataManager?
+
     private let modelContext: ModelContext
     private let riotClient: RiotClient
     private let dataDragonService: DataDragonServiceProtocol
@@ -34,7 +37,7 @@ public class DataManager {
     public var lastRefreshTime: Date?
     public var errorMessage: String?
 
-    public init(
+    private init(
         modelContext: ModelContext, riotClient: RiotClient,
         dataDragonService: DataDragonServiceProtocol
     ) {
@@ -49,14 +52,31 @@ public class DataManager {
         self.baselineDataLoader = BaselineDataLoader(modelContext: modelContext)
     }
 
-    /// Factory method to create DataManager with default dependencies
-    /// Eliminates boilerplate by providing standard RiotClient and DataDragonService instances
-    public static func create(with modelContext: ModelContext) -> DataManager {
-        return DataManager(
+    /// Gets the shared DataManager instance, creating it if needed
+    /// Ensures all views use the same instance for proper request deduplication
+    public static func shared(with modelContext: ModelContext) -> DataManager {
+        if let existing = sharedInstance {
+            return existing
+        }
+
+        let instance = DataManager(
             modelContext: modelContext,
             riotClient: RiotProxyClient(),
             dataDragonService: DataDragonService()
         )
+
+        sharedInstance = instance
+        return instance
+    }
+
+    /// Factory method to create DataManager with default dependencies (deprecated - use shared instead)
+    /// Eliminates boilerplate by providing standard RiotClient and DataDragonService instances
+    @available(
+        *, deprecated,
+        message: "Use DataManager.shared(with:) instead to prevent multiple instances"
+    )
+    public static func create(with modelContext: ModelContext) -> DataManager {
+        return shared(with: modelContext)
     }
 
     // MARK: - Request Deduplication Helper
@@ -89,6 +109,35 @@ public class DataManager {
 
         requestTasks[key] = task
         return await task.value
+    }
+
+    /// Internal deduplication helper for methods that don't return UIState
+    private func deduplicateRequestInternal<T>(
+        key: String,
+        operation: @escaping @MainActor () async throws -> T
+    ) async throws -> T {
+        // Check if request is already in progress
+        if let existingTask = requestTasks[key] as? Task<T, Error> {
+            ClaimbLogger.debug(
+                "Request already in progress, waiting for result", service: "DataManager",
+                metadata: ["requestKey": key])
+            return try await existingTask.value
+        }
+
+        // Create new task
+        let task = Task<T, Error> { @MainActor in
+            defer {
+                // Clean up when task completes
+                requestTasks.removeValue(forKey: key)
+                activeRequests.remove(key)
+            }
+
+            activeRequests.insert(key)
+            return try await operation()
+        }
+
+        requestTasks[key] = task
+        return try await task.value
     }
 
     // MARK: - Summoner Management
@@ -196,90 +245,95 @@ public class DataManager {
 
     /// Refreshes match data for a summoner with efficient incremental fetching
     public func refreshMatchesInternal(for summoner: Summoner) async throws {
-        isLoading = true
-        errorMessage = nil
+        let requestKey = "refresh_matches_\(summoner.puuid)"
 
-        do {
-            // Get existing matches to determine how many new ones to fetch
-            let existingMatches = try await getMatches(for: summoner)
-            let existingMatchIds = Set(existingMatches.map { $0.matchId })
+        // Use deduplication to prevent concurrent refresh requests
+        return try await deduplicateRequestInternal(key: requestKey) {
+            self.isLoading = true
+            self.errorMessage = nil
 
-            // Efficient incremental fetching strategy
-            let targetCount = maxMatchesPerSummoner
-            let currentCount = existingMatches.count
+            do {
+                // Get existing matches to determine how many new ones to fetch
+                let existingMatches = try await self.getMatches(for: summoner)
+                let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
-            // Only fetch if we're below target or if matches are very old
-            guard currentCount < targetCount else {
+                // Efficient incremental fetching strategy
+                let targetCount = self.maxMatchesPerSummoner
+                let currentCount = existingMatches.count
+
+                // Only fetch if we're below target or if matches are very old
+                guard currentCount < targetCount else {
+                    ClaimbLogger.debug(
+                        "Already at target match count, skipping refresh", service: "DataManager",
+                        metadata: [
+                            "currentCount": String(currentCount),
+                            "targetCount": String(targetCount),
+                        ])
+                    return
+                }
+
+                // Calculate how many new matches to fetch
+                let neededMatches = targetCount - currentCount
+                let fetchCount = min(neededMatches, 20)  // Conservative: fetch max 20 new matches per refresh
+
                 ClaimbLogger.debug(
-                    "Already at target match count, skipping refresh", service: "DataManager",
+                    "Incremental fetch: need \(neededMatches), fetching \(fetchCount) new matches",
+                    service: "DataManager",
                     metadata: [
                         "currentCount": String(currentCount),
-                        "targetCount": String(targetCount),
-                    ])
-                return
-            }
+                        "neededMatches": String(neededMatches),
+                        "fetchCount": String(fetchCount),
+                    ]
+                )
 
-            // Calculate how many new matches to fetch
-            let neededMatches = targetCount - currentCount
-            let fetchCount = min(neededMatches, 20)  // Conservative: fetch max 20 new matches per refresh
+                let matchHistory = try await self.riotClient.getMatchHistory(
+                    puuid: summoner.puuid,
+                    region: summoner.region,
+                    count: fetchCount
+                )
 
-            ClaimbLogger.debug(
-                "Incremental fetch: need \(neededMatches), fetching \(fetchCount) new matches",
-                service: "DataManager",
-                metadata: [
-                    "currentCount": String(currentCount),
-                    "neededMatches": String(neededMatches),
-                    "fetchCount": String(fetchCount),
-                ]
-            )
+                var newMatchesCount = 0
+                var skippedMatchesCount = 0
+                for matchId in matchHistory.history {
+                    // Skip if we already have this match
+                    if existingMatchIds.contains(matchId) {
+                        continue
+                    }
 
-            let matchHistory = try await riotClient.getMatchHistory(
-                puuid: summoner.puuid,
-                region: summoner.region,
-                count: fetchCount
-            )
-
-            var newMatchesCount = 0
-            var skippedMatchesCount = 0
-            for matchId in matchHistory.history {
-                // Skip if we already have this match
-                if existingMatchIds.contains(matchId) {
-                    continue
+                    do {
+                        try await self.processMatch(
+                            matchId: matchId, region: summoner.region, summoner: summoner)
+                        newMatchesCount += 1
+                    } catch MatchFilterError.irrelevantMatch {
+                        skippedMatchesCount += 1
+                        // Continue processing other matches
+                    }
                 }
 
-                do {
-                    try await processMatch(
-                        matchId: matchId, region: summoner.region, summoner: summoner)
-                    newMatchesCount += 1
-                } catch MatchFilterError.irrelevantMatch {
-                    skippedMatchesCount += 1
-                    // Continue processing other matches
+                ClaimbLogger.dataOperation(
+                    "Added new matches", count: newMatchesCount, service: "DataManager")
+
+                if skippedMatchesCount > 0 {
+                    ClaimbLogger.debug(
+                        "Skipped irrelevant matches", service: "DataManager",
+                        metadata: [
+                            "skippedCount": String(skippedMatchesCount),
+                            "addedCount": String(newMatchesCount),
+                        ])
                 }
+
+                try await self.cleanupOldMatches(for: summoner)
+                summoner.lastUpdated = Date()
+                self.lastRefreshTime = Date()
+                try self.modelContext.save()
+
+            } catch {
+                self.errorMessage = "Failed to refresh matches: \(error.localizedDescription)"
+                throw error
             }
 
-            ClaimbLogger.dataOperation(
-                "Added new matches", count: newMatchesCount, service: "DataManager")
-
-            if skippedMatchesCount > 0 {
-                ClaimbLogger.debug(
-                    "Skipped irrelevant matches", service: "DataManager",
-                    metadata: [
-                        "skippedCount": String(skippedMatchesCount),
-                        "addedCount": String(newMatchesCount),
-                    ])
-            }
-
-            try await cleanupOldMatches(for: summoner)
-            summoner.lastUpdated = Date()
-            lastRefreshTime = Date()
-            try modelContext.save()
-
-        } catch {
-            errorMessage = "Failed to refresh matches: \(error.localizedDescription)"
-            throw error
+            self.isLoading = false
         }
-
-        isLoading = false
     }
 
     /// Loads initial match data for a summoner (bulk load for first time)

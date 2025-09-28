@@ -30,7 +30,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **UI Framework**: SwiftUI 6.0
 - **Data Persistence**: SwiftData
 - **Networking**: URLSession with async/await
-- **APIs**: Riot Games API, Data Dragon API
+- **APIs**: Supabase Edge Functions (Riot Games API, Data Dragon API, OpenAI API)
 
 ### **Design Principles**
 - **Local-First**: All data stored locally, no backend required
@@ -53,7 +53,8 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Role-Based Analysis**: Track performance by role (Top, Jungle, Mid, ADC, Support)
 - **Baseline Comparisons**: Compare performance against role-specific baselines
 
-### **✅ Recently Completed (Architecture Simplification)**
+### **✅ Recently Completed (Architecture Modernization)**
+- **Supabase Edge Function Integration**: Secure API calls through server-side proxy
 - **Simplified Architecture**: Eliminated over-abstraction and reduced complexity by 25%
 - **Generic Request Deduplication**: Unified system replacing 4 specialized queues
 - **Factory Pattern**: DataManager factory method eliminating 44+ lines of boilerplate
@@ -61,8 +62,32 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **UIState Pattern**: Standardized loading, error, and empty states across all views
 - **Structured Logging**: Comprehensive logging with ClaimbLogger
 - **Performance Optimizations**: Static JSON loading over database queries
+- **Secure API Management**: Server-side API key management with JWT authentication
 
 ## 🏗️ **Recent Architecture Improvements**
+
+### **Latest Supabase Integration (September 2025)**
+We recently completed a major architecture modernization by integrating Supabase edge functions for secure API management:
+
+#### **🔐 Secure API Architecture**
+- **Supabase Edge Functions**: All external API calls now routed through secure server-side proxy
+- **Server-Side API Keys**: Riot Games API, Data Dragon API, and OpenAI API keys managed server-side
+- **JWT Authentication**: Secure authentication using Supabase anon key
+- **App Token Security**: Additional security layer with custom app token
+- **Zero Client Exposure**: No API keys ever exposed to the client application
+
+#### **🚀 New Services Architecture**
+- **ProxyService**: Centralized service for all API calls through Supabase edge functions
+- **RiotProxyClient**: Riot API communication via secure proxy
+- **OpenAIService**: AI coaching insights via secure proxy
+- **AppConfig**: Centralized configuration management for Supabase credentials
+
+#### **📊 Benefits Achieved**
+- **Enhanced Security**: API keys never exposed to client
+- **Simplified Configuration**: Single set of Supabase credentials needed
+- **Centralized Management**: All API keys managed in one place
+- **Rate Limiting**: Server-side rate limiting and caching
+- **Cost Control**: Better monitoring and control of API usage
 
 ### **Latest Simplification Achievements (September 2025)**
 We recently completed a comprehensive architecture cleanup that reduced codebase complexity by **36%** while maintaining all functionality:
@@ -116,7 +141,7 @@ Result: faster warm starts, less redundant work and noise, and safer logs with m
 ### **Prerequisites**
 - macOS 15+ with Xcode 16+
 - iOS 18+ device or simulator
-- Riot Games API key (for development)
+- Supabase edge function access (API keys managed server-side)
 
 ### **Installation**
 1. Clone the repository:
@@ -130,8 +155,10 @@ Result: faster warm starts, less redundant work and noise, and safer logs with m
    open Claimb.xcodeproj
    ```
 
-3. Configure your Riot API key in build settings:
-   - Add `RIOT_API_KEY` to your build settings
+3. Configure your Supabase credentials in build settings:
+   - Add `CLAIMB_FUNCTION_BASE_URL` to your build settings
+   - Add `SUPABASE_ANON_KEY` to your build settings  
+   - Add `APP_SHARED_TOKEN` to your build settings
    - Never commit API keys to version control
 
 4. Build and run on your device or simulator
@@ -176,8 +203,9 @@ Claimb/
 │   └── Onboarding/          # Login and role selection
 ├── Models/                  # SwiftData models
 ├── Services/                # External service integrations
-│   ├── Riot/                # Riot API client
+│   ├── Riot/                # Riot API client (via proxy)
 │   ├── DataDragon/          # Data Dragon service
+│   ├── Proxy/               # Supabase edge function proxy
 │   ├── Storage/             # Data management
 │   └── Coaching/            # Baseline and analysis
 ├── Tests/                   # Test suites
@@ -191,9 +219,11 @@ Claimb/
 - **MatchParser**: Focused match and participant data parsing (292 lines)
 - **ChampionDataLoader**: Champion data management and loading (~90 lines)
 - **BaselineDataLoader**: Baseline data management (~110 lines)
-- **RiotHTTPClient**: Handles all Riot API communication with proper rate limiting
+- **ProxyService**: Secure API calls through Supabase edge functions
+- **RiotProxyClient**: Riot API communication via proxy service
 - **DataDragonService**: Manages static game data and champion information
 - **KPICalculationService**: Performance analysis and coaching insights
+- **OpenAIService**: AI coaching insights via proxy service
 - **UserSession**: Session management and persistent login with role persistence
 
 ### **Architecture Principles**
@@ -231,29 +261,29 @@ The app includes comprehensive test views for development:
 
 ## 🌐 **API Integration**
 
-### **Riot Games API**
-- **Account-v1**: Player account lookup with proper regional routing
-- **Summoner-v4**: Summoner profile data
-- **Match-v5**: Match history and details
-- **Rate Limiting**: Token-bucket algorithm with exponential backoff
+### **Supabase Edge Functions**
+- **Secure Proxy**: All API calls routed through Supabase edge functions
+- **Server-Side API Keys**: Riot Games API, Data Dragon API, and OpenAI API keys managed server-side
+- **JWT Authentication**: Secure authentication using Supabase anon key
+- **App Token**: Additional security layer with custom app token
 
-### **Data Dragon API**
-- **Champion Data**: Names, titles, and metadata
-- **Champion Icons**: High-resolution champion images
-- **Version Management**: Patch-specific data locking
+### **Supported APIs**
+- **Riot Games API**: Account lookup, summoner data, match history and details
+- **Data Dragon API**: Champion data, icons, and version management
+- **OpenAI API**: AI coaching insights and analysis
 
-### **Rate Limiting**
-- **Dual-Window Limiter**: Respects Riot's rate limits per region
-- **Exponential Backoff**: Handles 429 responses gracefully
-- **Caching Strategy**: URLCache for static data, SwiftData for dynamic content
+### **Rate Limiting & Caching**
+- **Server-Side Rate Limiting**: Handled by Supabase edge functions
+- **Client-Side Caching**: URLCache for static data, SwiftData for dynamic content
+- **Request Deduplication**: Prevents duplicate API calls
 
 ## 🔒 **Privacy & Security**
 
 ### **Data Handling**
 - **Local Storage**: All data stored on device using SwiftData
-- **No Backend**: No data sent to external servers
-- **API Keys**: Stored securely in iOS Keychain
-- **Offline Mode**: Full functionality without internet
+- **Secure API Calls**: All external API calls routed through Supabase edge functions
+- **API Keys**: Managed server-side, never exposed to client
+- **Offline Mode**: Full functionality without internet after initial sync
 
 ### **Permissions**
 - **Network**: Required for API calls and data sync

@@ -185,7 +185,7 @@ struct LoginView: View {
         errorMessage = nil
 
         // Create DataManager
-        let dataManager = DataManager.create(with: userSession.modelContext)
+        let dataManager = DataManager.shared(with: userSession.modelContext)
 
         // Create or update summoner
         let summonerState = await dataManager.createOrUpdateSummoner(

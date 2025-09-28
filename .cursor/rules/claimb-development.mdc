@@ -140,13 +140,13 @@ rule "http_caching" {
 rule "riot_api_client" {
   description = "Use Riot API client properly"
   when = "making API calls"
-  then = "All calls via RiotHTTPClient. Use dual-window rate limiter per region, honoring response headers. Implement exponential backoff on 429. Don't hardcode fixed delays."
+  then = "All calls via RiotProxyClient through Supabase edge function. Rate limiting and exponential backoff handled by ProxyService. Don't hardcode fixed delays."
 }
 
 rule "rate_limiting" {
   description = "Implement proper rate limiting"
   when = "handling API rate limits"
-  then = "Use token-bucket + backoff algorithm. Respect 429 headers from Riot API. Implement dual windows (e.g., dev keys: 20 req/s and 100 per 2 minutes per region). Don't hardcode '1.2s delay'."
+  then = "Rate limiting handled by Supabase edge function proxy. Use ProxyService with exponential backoff retry logic for network failures. Don't hardcode fixed delays."
 }
 
 rule "data_dragon" {
@@ -200,7 +200,7 @@ rule "file_structure" {
 rule "naming_conventions" {
   description = "Use descriptive naming"
   when = "naming files and components"
-  then = "Use descriptive names for views: ChampionView, PerformanceView, CoachingView. Use descriptive names for services: RiotHTTPClient, DataDragonService, DataManager. Use descriptive names for models: Summoner, Match, Participant, Champion."
+  then = "Use descriptive names for views: ChampionView, PerformanceView, CoachingView. Use descriptive names for services: RiotProxyClient, ProxyService, DataDragonService, DataManager. Use descriptive names for models: Summoner, Match, Participant, Champion."
 }
 
 rule "code_comments" {

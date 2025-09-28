@@ -51,7 +51,7 @@ public class MatchDataViewModel {
 
         // Initialize KPI calculation service if userSession is provided
         if let userSession = userSession {
-            let kpiDataManager = DataManager.create(with: userSession.modelContext)
+            let kpiDataManager = DataManager.shared(with: userSession.modelContext)
             self.kpiCalculationService = KPICalculationService(dataManager: kpiDataManager)
         } else {
             self.kpiCalculationService = nil
@@ -669,7 +669,8 @@ public class MatchDataViewModel {
                 return false
             }
             let actualRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-            return participant.championId == champion.id && actualRole == role && actualRole != "UNKNOWN"
+            return participant.championId == champion.id && actualRole == role
+                && actualRole != "UNKNOWN"
         }
     }
 
@@ -720,9 +721,14 @@ public class MatchDataViewModel {
                 } else {
                     // Fallback calculation: participant damage / team total damage
                     let match = matches.first { $0.participants.contains(participant) }
-                    let teamParticipants = match?.participants.filter { $0.teamId == participant.teamId } ?? []
-                    let teamTotalDamage = teamParticipants.reduce(0) { $0 + $1.totalDamageDealtToChampions }
-                    return teamTotalDamage > 0 ? Double(participant.totalDamageDealtToChampions) / Double(teamTotalDamage) : 0.0
+                    let teamParticipants =
+                        match?.participants.filter { $0.teamId == participant.teamId } ?? []
+                    let teamTotalDamage = teamParticipants.reduce(0) {
+                        $0 + $1.totalDamageDealtToChampions
+                    }
+                    return teamTotalDamage > 0
+                        ? Double(participant.totalDamageDealtToChampions) / Double(teamTotalDamage)
+                        : 0.0
                 }
             }.reduce(0, +) / Double(participants.count)
 
