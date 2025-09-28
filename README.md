@@ -82,12 +82,20 @@ We recently completed a major architecture modernization by integrating Supabase
 - **OpenAIService**: AI coaching insights via secure proxy
 - **AppConfig**: Centralized configuration management for Supabase credentials
 
+#### **🤖 AI Coaching Optimization (Latest)**
+- **GPT-5 Mini Integration**: Optimized for reasoning models with low effort settings
+- **Structured Responses**: JSON-formatted coaching tips with word count constraints
+- **Efficient Token Usage**: 2000 max tokens with reasoning optimization
+- **Fast Response Times**: ~13 second response times for coaching insights
+- **Concise System Prompts**: "Be concise and practical" for focused advice
+
 #### **📊 Benefits Achieved**
 - **Enhanced Security**: API keys never exposed to client
 - **Simplified Configuration**: Single set of Supabase credentials needed
 - **Centralized Management**: All API keys managed in one place
 - **Rate Limiting**: Server-side rate limiting and caching
 - **Cost Control**: Better monitoring and control of API usage
+- **AI Coaching**: Working GPT-5 Mini integration with optimized parameters
 
 ### **Latest Simplification Achievements (September 2025)**
 We recently completed a comprehensive architecture cleanup that reduced codebase complexity by **36%** while maintaining all functionality:
@@ -223,7 +231,7 @@ Claimb/
 - **RiotProxyClient**: Riot API communication via proxy service
 - **DataDragonService**: Manages static game data and champion information
 - **KPICalculationService**: Performance analysis and coaching insights
-- **OpenAIService**: AI coaching insights via proxy service
+- **OpenAIService**: AI coaching insights via proxy service (GPT-5 Mini optimized)
 - **UserSession**: Session management and persistent login with role persistence
 
 ### **Architecture Principles**
@@ -270,7 +278,7 @@ The app includes comprehensive test views for development:
 ### **Supported APIs**
 - **Riot Games API**: Account lookup, summoner data, match history and details
 - **Data Dragon API**: Champion data, icons, and version management
-- **OpenAI API**: AI coaching insights and analysis
+- **OpenAI API**: AI coaching insights and analysis via GPT-5 Mini (optimized)
 
 ### **Rate Limiting & Caching**
 - **Server-Side Rate Limiting**: Handled by Supabase edge functions
