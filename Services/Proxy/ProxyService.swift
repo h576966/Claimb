@@ -278,8 +278,8 @@ public class ProxyService {
     /// Generates AI coaching insights with enhanced parameters
     public func aiCoach(
         prompt: String,
-        temperature: Double = 0.5,
-        model: String = "gpt-4-mini"
+        model: String = "gpt-4o-mini",
+        maxOutputTokens: Int = 1000
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
@@ -288,8 +288,8 @@ public class ProxyService {
 
         let requestBody: [String: Any] = [
             "prompt": prompt,
-            "temperature": temperature,
-            "model": model
+            "model": model,
+            "max_output_tokens": maxOutputTokens
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
