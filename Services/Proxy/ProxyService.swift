@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import UIKit
 import Observation
+import UIKit
 
 /// Proxy service for secure API calls through Supabase edge function
 @MainActor
@@ -23,7 +23,7 @@ public class ProxyService {
 
     public init() {
         self.baseURL = AppConfig.baseURL
-        
+
         // Create a custom URLSession with optimized configuration for network reliability
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 45.0  // 45 seconds timeout (increased for edge function)
@@ -33,7 +33,7 @@ public class ProxyService {
         config.httpMaximumConnectionsPerHost = 6  // Allow multiple connections
         config.urlCache = nil  // Disable caching for API calls
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        
+
         // Enhanced network resilience settings
         config.httpShouldUsePipelining = false  // Disable HTTP pipelining for better reliability
         config.httpShouldSetCookies = false  // Disable cookie handling for API calls
@@ -42,14 +42,14 @@ public class ProxyService {
         config.networkServiceType = .responsiveData  // Optimize for responsive data
         config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
         config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
-        
+
         // QUIC-specific optimizations for simulator
         #if DEBUG
-        // In debug mode, add additional network debugging
-        config.timeoutIntervalForRequest = 60.0  // Longer timeout for debugging
-        config.timeoutIntervalForResource = 120.0  // Extended resource timeout
+            // In debug mode, add additional network debugging
+            config.timeoutIntervalForRequest = 60.0  // Longer timeout for debugging
+            config.timeoutIntervalForResource = 120.0  // Extended resource timeout
         #endif
-        
+
         // Create URLSession with custom configuration
         self.urlSession = URLSession(configuration: config)
     }
@@ -70,9 +70,9 @@ public class ProxyService {
                 "regionCode": regionCode,  // Converted to region code (europe, americas)
                 "count": String(count),
                 "start": String(start),
-                "note": "Match-V5 API requires region codes, not platform codes"
+                "note": "Match-V5 API requires region codes, not platform codes",
             ])
-        
+
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/matches"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
@@ -126,7 +126,8 @@ public class ProxyService {
                 return response.ids
             } catch {
                 ClaimbLogger.error(
-                    "Proxy: Failed to decode match IDs response", service: "ProxyService", error: error)
+                    "Proxy: Failed to decode match IDs response", service: "ProxyService",
+                    error: error)
                 throw ProxyError.decodingError(error)
             }
         }
@@ -142,9 +143,9 @@ public class ProxyService {
                 "matchId": matchId,
                 "platform": region,  // This is actually a platform code (euw1, na1, etc.)
                 "regionCode": regionCode,  // Converted to region code (europe, americas)
-                "note": "Match-V5 API requires region codes, not platform codes"
+                "note": "Match-V5 API requires region codes, not platform codes",
             ])
-        
+
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/match"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
@@ -186,7 +187,9 @@ public class ProxyService {
     }
 
     /// Fetches account data by Riot ID (gameName + tagLine)
-    public func riotAccount(gameName: String, tagLine: String, region: String = "europe") async throws -> Data {
+    public func riotAccount(gameName: String, tagLine: String, region: String = "europe")
+        async throws -> Data
+    {
         // Convert platform code to region code for edge function
         let regionCode = platformToRegion(region)
         ClaimbLogger.debug(
@@ -195,7 +198,7 @@ public class ProxyService {
                 "platform": region,
                 "regionCode": regionCode,
                 "gameName": gameName,
-                "tagLine": tagLine
+                "tagLine": tagLine,
             ])
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/account"), resolvingAgainstBaseURL: false)!
@@ -236,9 +239,9 @@ public class ProxyService {
             metadata: [
                 "puuid": puuid,
                 "platform": region,  // This is actually a platform code (euw1, na1, etc.)
-                "note": "Summoner-V4 API requires platform parameter, not region"
+                "note": "Summoner-V4 API requires platform parameter, not region",
             ])
-        
+
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/summoner"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
@@ -323,11 +326,12 @@ public class ProxyService {
         -> (Data, URLResponse)
     {
         var lastError: Error?
-        
+
         // Check network connectivity before making requests
         let isReachable = await isNetworkReachable()
         if !isReachable {
-            ClaimbLogger.warning("Network not reachable, waiting for connectivity", service: "ProxyService")
+            ClaimbLogger.warning(
+                "Network not reachable, waiting for connectivity", service: "ProxyService")
             // Wait for network connectivity
             try await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
         }
@@ -345,14 +349,16 @@ public class ProxyService {
                         // Server errors - retry with backoff
                         if attempt < maxRetries {
                             let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
-                            
+
                             // Try to parse error response from edge function
                             var errorDetails = ""
-                            if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                               let error = errorData["error"] as? String {
+                            if let errorData = try? JSONSerialization.jsonObject(with: data)
+                                as? [String: Any],
+                                let error = errorData["error"] as? String
+                            {
                                 errorDetails = " - Edge function error: \(error)"
                             }
-                            
+
                             ClaimbLogger.warning(
                                 "Server error \(httpResponse.statusCode), retrying in \(backoffTime)s\(errorDetails)",
                                 service: "ProxyService",
@@ -385,14 +391,16 @@ public class ProxyService {
                         // Bad Gateway - edge function issue, retry with backoff
                         if attempt < maxRetries {
                             let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
-                            
+
                             // Try to parse error response from edge function
                             var errorDetails = ""
-                            if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                               let error = errorData["error"] as? String {
+                            if let errorData = try? JSONSerialization.jsonObject(with: data)
+                                as? [String: Any],
+                                let error = errorData["error"] as? String
+                            {
                                 errorDetails = " - Edge function error: \(error)"
                             }
-                            
+
                             ClaimbLogger.warning(
                                 "Bad Gateway (502) - Edge function issue, retrying in \(backoffTime)s\(errorDetails)",
                                 service: "ProxyService",
@@ -476,11 +484,11 @@ public class ProxyService {
                     domain: "ProxyService", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Request failed after all retries"]))
     }
-    
+
     /// Checks if network is reachable by attempting a simple connection
     private func isNetworkReachable() async -> Bool {
         guard let url = URL(string: "https://www.apple.com") else { return false }
-        
+
         do {
             let (_, response) = try await urlSession.data(for: URLRequest(url: url))
             if let httpResponse = response as? HTTPURLResponse {
