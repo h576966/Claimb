@@ -275,14 +275,22 @@ public class ProxyService {
 
     // MARK: - OpenAI API Methods
 
-    /// Generates AI coaching insights
-    public func aiCoach(prompt: String) async throws -> String {
+    /// Generates AI coaching insights with enhanced parameters
+    public func aiCoach(
+        prompt: String,
+        temperature: Double = 0.5,
+        model: String = "gpt-4-mini"
+    ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
         AppConfig.addAuthHeaders(&req)
 
-        let requestBody = ["prompt": prompt]
+        let requestBody: [String: Any] = [
+            "prompt": prompt,
+            "temperature": temperature,
+            "model": model
+        ]
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         ClaimbLogger.apiRequest("Proxy: ai/coach", method: "POST", service: "ProxyService")
