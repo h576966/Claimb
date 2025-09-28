@@ -142,14 +142,33 @@ public class ProxyService {
         return data
     }
 
+    /// Maps platform codes to region codes for Riot API calls
+    private func platformToRegion(_ platform: String) -> String {
+        switch platform.lowercased() {
+        case "euw1", "eun1": return "europe"
+        case "na1": return "americas"
+        default: return "europe"  // Default fallback
+        }
+    }
+
     /// Fetches account data by Riot ID (gameName + tagLine)
     public func riotAccount(gameName: String, tagLine: String, region: String = "europe") async throws -> Data {
+        // Convert platform code to region code for edge function
+        let regionCode = platformToRegion(region)
+        ClaimbLogger.debug(
+            "Platform to region mapping", service: "ProxyService",
+            metadata: [
+                "platform": region,
+                "regionCode": regionCode,
+                "gameName": gameName,
+                "tagLine": tagLine
+            ])
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/account"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "gameName", value: gameName),
             .init(name: "tagLine", value: tagLine),
-            .init(name: "region", value: region),
+            .init(name: "region", value: regionCode),
         ]
 
         var req = URLRequest(url: comps.url!)
