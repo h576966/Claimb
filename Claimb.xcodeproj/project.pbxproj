@@ -33,6 +33,8 @@
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3867B262E7B25AD00B2ECF4 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3911DA32E89445800B33B6A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3911DE72E8958C600B33B6A /* Claimb-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Claimb-Info.plist"; sourceTree = "<group>"; };
 		F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -99,6 +101,7 @@
 		F35E2E682E6E0C0A009DDF39 = {
 			isa = PBXGroup;
 			children = (
+				F3911DE72E8958C600B33B6A /* Claimb-Info.plist */,
 				F35E2E732E6E0C0B009DDF39 /* . */,
 				F35E2E832E6E0C0C009DDF39 /* ClaimbTests */,
 				F35E2E722E6E0C0B009DDF39 /* Products */,
@@ -121,6 +124,11 @@
 			sourceTree = "<group>";
 		};
 		F3867B2A2E7B25AD00B2ECF4 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3911DA72E89445800B33B6A /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -269,6 +277,10 @@
 					ProjectRef = F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F3911DA72E89445800B33B6A /* Products */;
+					ProjectRef = F3911DA32E89445800B33B6A /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F3E629182E7AAA2000DF2F2D /* Products */;
 					ProjectRef = F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */;
 				},
@@ -356,7 +368,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_SHARED_TOKEN = aVerySecretToken;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLAIMB_FUNCTION_BASE_URL = "https://vqwgvfqrkoqgbwimiagi.supabase.co/functions/v1/claimb-function";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -411,6 +425,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxd2d2ZnFya29xZ2J3aW1pYWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTYwNTIsImV4cCI6MjA2NzY3MjA1Mn0.vBkevqMe1kfzdZCgrqjsFRRY46_N-NoiPS9EMKU3EjA";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -420,7 +435,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_SHARED_TOKEN = aVerySecretToken;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLAIMB_FUNCTION_BASE_URL = "https://vqwgvfqrkoqgbwimiagi.supabase.co/functions/v1/claimb-function";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -468,6 +485,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxd2d2ZnFya29xZ2J3aW1pYWdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTYwNTIsImV4cCI6MjA2NzY3MjA1Mn0.vBkevqMe1kfzdZCgrqjsFRRY46_N-NoiPS9EMKU3EjA";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -484,6 +502,7 @@
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Claimb-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -519,6 +538,7 @@
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Claimb-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

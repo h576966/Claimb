@@ -15,13 +15,12 @@ public class ProxyService {
     
     // MARK: - Properties
     
-    private let baseURL = URL(string: "https://vqwgvfqrkoqgbwimiagi.functions.supabase.co/claimb-function")!
-    private let appToken: String
+    private let baseURL: URL
     
     // MARK: - Initialization
     
     public init() {
-        self.appToken = APIKeyManager.appSharedToken
+        self.baseURL = AppConfig.baseURL
     }
     
     // MARK: - Riot API Methods
@@ -37,8 +36,7 @@ public class ProxyService {
         ]
         
         var req = URLRequest(url: comps.url!)
-        req.addValue("Bearer \(appToken)", forHTTPHeaderField: "Authorization")
-        req.addValue(deviceHeader(), forHTTPHeaderField: "X-Claimb-Device")
+        AppConfig.addAuthHeaders(&req)
         
         ClaimbLogger.apiRequest("Proxy: riot/matches", method: "GET", service: "ProxyService")
         
@@ -77,8 +75,7 @@ public class ProxyService {
         ]
         
         var req = URLRequest(url: comps.url!)
-        req.addValue("Bearer \(appToken)", forHTTPHeaderField: "Authorization")
-        req.addValue(deviceHeader(), forHTTPHeaderField: "X-Claimb-Device")
+        AppConfig.addAuthHeaders(&req)
         
         ClaimbLogger.apiRequest("Proxy: riot/match", method: "GET", service: "ProxyService")
         
@@ -107,8 +104,7 @@ public class ProxyService {
         ]
         
         var req = URLRequest(url: comps.url!)
-        req.addValue("Bearer \(appToken)", forHTTPHeaderField: "Authorization")
-        req.addValue(deviceHeader(), forHTTPHeaderField: "X-Claimb-Device")
+        AppConfig.addAuthHeaders(&req)
         
         ClaimbLogger.apiRequest("Proxy: riot/summoner", method: "GET", service: "ProxyService")
         
@@ -135,8 +131,7 @@ public class ProxyService {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.addValue("Bearer \(appToken)", forHTTPHeaderField: "Authorization")
-        req.addValue(deviceHeader(), forHTTPHeaderField: "X-Claimb-Device")
+        AppConfig.addAuthHeaders(&req)
         
         let requestBody = ["prompt": prompt]
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -170,10 +165,6 @@ public class ProxyService {
     }
     
     // MARK: - Private Methods
-    
-    private func deviceHeader() -> String {
-        UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
-    }
 }
 
 // MARK: - Proxy Errors
