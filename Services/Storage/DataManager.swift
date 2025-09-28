@@ -278,7 +278,7 @@ public class DataManager {
 
             do {
                 // Ensure baseline data is loaded
-                await loadBaselineData()
+                _ = await loadBaselineData()
                 // Get existing matches to determine how many new ones to fetch
                 let existingMatches = try await self.getMatches(for: summoner)
                 let existingMatchIds = Set(existingMatches.map { $0.matchId })
@@ -369,7 +369,7 @@ public class DataManager {
 
         do {
             // Load baseline data first if not already loaded
-            await loadBaselineData()
+            _ = await loadBaselineData()
 
             ClaimbLogger.info(
                 "Bulk loading initial matches", service: "DataManager",

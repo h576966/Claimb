@@ -139,12 +139,13 @@ struct ClaimbApp: App {
     /// Performs selective migration instead of nuclear database clearing
     /// Preserves all user data (summoners, matches, participants, champions, baselines)
     private static func performSelectiveMigration() {
-        ClaimbLogger.info("Starting selective migration (preserving all user data)", service: "ClaimbApp")
+        ClaimbLogger.info(
+            "Starting selective migration (preserving all user data)", service: "ClaimbApp")
 
         // For now, we don't need to clear anything since our models are stable
         // This method can be extended in the future if specific migrations are needed
         // For example: clearing specific fields, updating data formats, etc.
-        
+
         ClaimbLogger.info(
             "Selective migration completed - all user data preserved", service: "ClaimbApp")
     }
