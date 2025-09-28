@@ -278,7 +278,7 @@ public class DataManager {
 
             do {
                 // Ensure baseline data is loaded
-                _ = await loadBaselineData()
+                _ = await self.loadBaselineData()
                 // Get existing matches to determine how many new ones to fetch
                 let existingMatches = try await self.getMatches(for: summoner)
                 let existingMatchIds = Set(existingMatches.map { $0.matchId })
