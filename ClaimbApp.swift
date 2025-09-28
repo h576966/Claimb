@@ -5,9 +5,9 @@
 //  Created by Niklas Johansson on 2025-09-07.
 //
 
+import Foundation
 import SwiftData
 import SwiftUI
-import Foundation
 
 @main
 struct ClaimbApp: App {
@@ -34,15 +34,15 @@ struct ClaimbApp: App {
 
         if lastVersion != currentVersion {
             ClaimbLogger.warning(
-                "Version mismatch detected, clearing database", service: "ClaimbApp")
+                "Version mismatch detected, performing selective migration", service: "ClaimbApp")
             // Check if we have existing data before clearing
             let hasExistingData = UserDefaults.standard.string(forKey: "summonerName") != nil
             if hasExistingData {
                 ClaimbLogger.warning(
-                    "Clearing database with existing user data", service: "ClaimbApp")
+                    "Migrating database with existing user data", service: "ClaimbApp")
             }
-            // Clear the database for breaking changes but preserve static data
-            ClaimbApp.clearDatabasePreservingStaticData()
+            // Perform selective migration instead of nuclear clearing
+            ClaimbApp.performSelectiveMigration()
             UserDefaults.standard.set(currentVersion, forKey: "ClaimbDataVersion")
         } else {
             ClaimbLogger.debug("Database version matches, no clearing needed", service: "ClaimbApp")
@@ -136,69 +136,17 @@ struct ClaimbApp: App {
             "Database cleared for migration, login credentials preserved", service: "ClaimbApp")
     }
 
-    /// Clears the database while preserving login credentials and static data (baselines, champions)
-    private static func clearDatabasePreservingStaticData() {
-        ClaimbLogger.info("Starting database clear (preserving static data)", service: "ClaimbApp")
+    /// Performs selective migration instead of nuclear database clearing
+    /// Preserves all user data (summoners, matches, participants, champions, baselines)
+    private static func performSelectiveMigration() {
+        ClaimbLogger.info("Starting selective migration (preserving all user data)", service: "ClaimbApp")
 
-        // Preserve login credentials before clearing
-        let savedGameName = UserDefaults.standard.string(forKey: "summonerName")
-        let savedTagLine = UserDefaults.standard.string(forKey: "tagline")
-        let savedRegion = UserDefaults.standard.string(forKey: "region")
-
+        // For now, we don't need to clear anything since our models are stable
+        // This method can be extended in the future if specific migrations are needed
+        // For example: clearing specific fields, updating data formats, etc.
+        
         ClaimbLogger.info(
-            "Preserving credentials and static data", service: "ClaimbApp",
-            metadata: [
-                "gameName": savedGameName ?? "nil",
-                "tagLine": savedTagLine ?? "nil",
-                "region": savedRegion ?? "nil",
-            ])
-
-        // Clear all UserDefaults first
-        let domain = Bundle.main.bundleIdentifier!
-        UserDefaults.standard.removePersistentDomain(forName: domain)
-        UserDefaults.standard.synchronize()
-
-        ClaimbLogger.info("UserDefaults cleared", service: "ClaimbApp")
-
-        // Restore login credentials after clearing
-        if let gameName = savedGameName {
-            UserDefaults.standard.set(gameName, forKey: "summonerName")
-            ClaimbLogger.debug(
-                "Restored gameName", service: "ClaimbApp", metadata: ["gameName": gameName])
-        }
-        if let tagLine = savedTagLine {
-            UserDefaults.standard.set(tagLine, forKey: "tagline")
-            ClaimbLogger.debug(
-                "Restored tagLine", service: "ClaimbApp", metadata: ["tagLine": tagLine])
-        }
-        if let region = savedRegion {
-            UserDefaults.standard.set(region, forKey: "region")
-            ClaimbLogger.debug(
-                "Restored region", service: "ClaimbApp", metadata: ["region": region])
-        }
-
-        // Remove the database file to force recreation
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            .first!
-        let storeURL = documentsPath.appendingPathComponent("default.store")
-
-        // Remove all possible database files
-        try? FileManager.default.removeItem(at: storeURL)
-        try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("wal"))
-        try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("shm"))
-
-        // Also clear from Application Support directory (where SwiftData actually stores files)
-        let appSupportPath = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let appSupportStoreURL = appSupportPath.appendingPathComponent("default.store")
-
-        try? FileManager.default.removeItem(at: appSupportStoreURL)
-        try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("wal"))
-        try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("shm"))
-
-        ClaimbLogger.info(
-            "Database cleared for migration, login credentials preserved, static data will be reloaded", service: "ClaimbApp")
+            "Selective migration completed - all user data preserved", service: "ClaimbApp")
     }
 
     /// Clears cache programmatically for Team DMG fix
