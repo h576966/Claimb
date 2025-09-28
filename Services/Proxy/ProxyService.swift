@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import Observation
 
 /// Proxy service for secure API calls through Supabase edge function
 @MainActor

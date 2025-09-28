@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 
 /// OpenAI API service for generating coaching insights
 @MainActor

@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import Observation
 
 /// User session related errors
 public enum UserSessionError: Error, LocalizedError {

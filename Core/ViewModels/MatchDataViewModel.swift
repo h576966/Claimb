@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import Observation
 
 /// Unified view model for all data loading and statistics
 @MainActor

@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import Observation
 
 /// Manages SwiftData operations with cache-first offline strategy
 @MainActor

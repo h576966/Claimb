@@ -72,7 +72,7 @@ public struct GlowCSpinner: View {
 // MARK: - Preview
 #Preview {
     ZStack {
-        DesignSystem.Colors.background.ignoresSafeArea()
+        Color.black.ignoresSafeArea()
         GlowCSpinner(size: 140)
     }
 }
