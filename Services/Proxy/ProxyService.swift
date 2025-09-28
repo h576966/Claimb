@@ -141,6 +141,40 @@ public class ProxyService {
         return data
     }
 
+    /// Fetches account data by Riot ID (gameName + tagLine)
+    public func riotAccount(gameName: String, tagLine: String, region: String = "europe") async throws -> Data {
+        var comps = URLComponents(
+            url: baseURL.appendingPathComponent("riot/account"), resolvingAgainstBaseURL: false)!
+        comps.queryItems = [
+            .init(name: "gameName", value: gameName),
+            .init(name: "tagLine", value: tagLine),
+            .init(name: "region", value: region),
+        ]
+
+        var req = URLRequest(url: comps.url!)
+        AppConfig.addAuthHeaders(&req)
+
+        ClaimbLogger.apiRequest("Proxy: riot/account", method: "GET", service: "ProxyService")
+
+        let (data, resp) = try await performRequestWithRetry(req)
+
+        guard let httpResponse = resp as? HTTPURLResponse else {
+            throw ProxyError.invalidResponse
+        }
+
+        ClaimbLogger.apiResponse(
+            "Proxy: riot/account", statusCode: httpResponse.statusCode, service: "ProxyService")
+
+        guard httpResponse.statusCode == 200 else {
+            throw ProxyError.httpError(httpResponse.statusCode)
+        }
+
+        ClaimbLogger.info(
+            "Proxy: Retrieved account data", service: "ProxyService",
+            metadata: ["gameName": gameName, "tagLine": tagLine, "bytes": String(data.count)])
+        return data
+    }
+
     /// Fetches summoner data by PUUID
     public func riotSummoner(puuid: String, region: String = "europe") async throws -> Data {
         var comps = URLComponents(
