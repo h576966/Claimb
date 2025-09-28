@@ -33,6 +33,15 @@ public class ProxyService {
         config.urlCache = nil  // Disable caching for API calls
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         
+        // Enhanced network resilience settings
+        config.httpShouldUsePipelining = false  // Disable HTTP pipelining for better reliability
+        config.httpShouldSetCookies = false  // Disable cookie handling for API calls
+        config.httpCookieAcceptPolicy = .never  // Never accept cookies
+        config.httpMaximumConnectionsPerHost = 4  // Reduced for better stability
+        config.networkServiceType = .responsiveData  // Optimize for responsive data
+        config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
+        config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
+        
         // Create URLSession with custom configuration
         self.urlSession = URLSession(configuration: config)
     }
