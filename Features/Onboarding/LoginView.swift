@@ -32,9 +32,9 @@ struct LoginView: View {
                     // App Icon and Title
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // App Icon
-                        Image(systemName: "gamecontroller.fill")
-                            .font(DesignSystem.Typography.largeTitle)
-                            .foregroundColor(DesignSystem.Colors.primary)
+                        Image("AppIcon")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
                             .frame(width: 80, height: 80)
                             .background(DesignSystem.Colors.cardBackground)
                             .cornerRadius(DesignSystem.CornerRadius.medium)
@@ -59,19 +59,26 @@ struct LoginView: View {
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
                                 .font(DesignSystem.Typography.title3)
 
-                            TextField("Enter your summoner name", text: $gameName)
-                                .textFieldStyle(PlainTextFieldStyle())
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                                .accentColor(DesignSystem.Colors.primary)
-                                .padding(DesignSystem.Spacing.md)
-                                .background(DesignSystem.Colors.cardBackground)
-                                .cornerRadius(DesignSystem.CornerRadius.small)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                        .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-                                )
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                            ZStack(alignment: .leading) {
+                                if gameName.isEmpty {
+                                    Text("Enter your summoner name")
+                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                        .padding(DesignSystem.Spacing.md)
+                                }
+                                TextField("", text: $gameName)
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    .accentColor(DesignSystem.Colors.primary)
+                                    .padding(DesignSystem.Spacing.md)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
+                            .background(DesignSystem.Colors.cardBackground)
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                            )
                         }
 
                         // Tag Line Input
@@ -80,19 +87,26 @@ struct LoginView: View {
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
                                 .font(DesignSystem.Typography.title3)
 
-                            TextField("Enter your tag", text: $tagLine)
-                                .textFieldStyle(PlainTextFieldStyle())
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                                .accentColor(DesignSystem.Colors.primary)
-                                .padding(DesignSystem.Spacing.md)
-                                .background(DesignSystem.Colors.cardBackground)
-                                .cornerRadius(DesignSystem.CornerRadius.small)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                        .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-                                )
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                            ZStack(alignment: .leading) {
+                                if tagLine.isEmpty {
+                                    Text("Enter your tag")
+                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                        .padding(DesignSystem.Spacing.md)
+                                }
+                                TextField("", text: $tagLine)
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    .accentColor(DesignSystem.Colors.primary)
+                                    .padding(DesignSystem.Spacing.md)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
+                            .background(DesignSystem.Colors.cardBackground)
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                            )
                         }
 
                         // Region Selection
