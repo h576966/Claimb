@@ -9,6 +9,22 @@ import Observation
 import SwiftData
 import SwiftUI
 
+// MARK: - Coaching Tab Enum
+
+enum CoachingTab: String, CaseIterable {
+    case postGame = "Post-Game"
+    case performance = "Performance"
+    
+    var title: String {
+        switch self {
+        case .postGame:
+            return "Post-Game"
+        case .performance:
+            return "Performance"
+        }
+    }
+}
+
 // MARK: - CoachingViewModel
 
 @MainActor
@@ -32,6 +48,7 @@ class CoachingViewModel {
     var performanceSummaryError: String = ""
     var lastAnalyzedMatchId: PersistentIdentifier?
     var performanceSummaryUpdateCounter: Int = 0
+    var selectedCoachingTab: CoachingTab = .postGame
 
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
@@ -299,27 +316,76 @@ struct CoachingView: View {
         )
     }
 
-    private func coachingContentView(matches: [Match]) -> some View {
-        ScrollView {
-            VStack(spacing: DesignSystem.Spacing.lg) {
-                // Recent Matches Summary (Simplified)
-                recentMatchesCard(matches: matches)
-
-                // Post-Game Analysis Card
-                postGameAnalysisCard()
-
-                // Performance Summary Card
-                performanceSummaryCard()
-
-                // Legacy coaching insights (for backward compatibility)
-                if let response = viewModel?.coachingResponse {
-                    legacyCoachingInsightsCard(response: response)
-                } else if let error = viewModel?.coachingError, !error.isEmpty {
-                    coachingErrorCard
+    private var coachingTabSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(CoachingTab.allCases, id: \.self) { tab in
+                Button(action: {
+                    viewModel?.selectedCoachingTab = tab
+                }) {
+                    Text(tab.title)
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.medium)
+                        .foregroundColor(
+                            viewModel?.selectedCoachingTab == tab
+                                ? DesignSystem.Colors.textPrimary
+                                : DesignSystem.Colors.textSecondary
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DesignSystem.Spacing.md)
+                        .background(
+                            viewModel?.selectedCoachingTab == tab
+                                ? DesignSystem.Colors.cardBackground
+                                : Color.clear
+                        )
+                        .overlay(
+                            Rectangle()
+                                .frame(height: 2)
+                                .foregroundColor(
+                                    viewModel?.selectedCoachingTab == tab
+                                        ? DesignSystem.Colors.primary
+                                        : Color.clear
+                                ),
+                            alignment: .bottom
+                        )
                 }
+                .buttonStyle(PlainButtonStyle())
             }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.bottom, DesignSystem.Spacing.xl)
+        }
+        .background(DesignSystem.Colors.background)
+        .cornerRadius(DesignSystem.CornerRadius.small)
+        .padding(.horizontal, DesignSystem.Spacing.lg)
+        .padding(.top, DesignSystem.Spacing.md)
+        .padding(.bottom, DesignSystem.Spacing.sm)
+    }
+
+    private func coachingContentView(matches: [Match]) -> some View {
+        VStack(spacing: 0) {
+            // Coaching Tab Selector
+            coachingTabSelector
+            
+            // Content based on selected tab
+            ScrollView {
+                VStack(spacing: DesignSystem.Spacing.lg) {
+                    // Recent Matches Summary (Simplified)
+                    recentMatchesCard(matches: matches)
+
+                    // Selected coaching content
+                    if viewModel?.selectedCoachingTab == .postGame {
+                        postGameAnalysisCard()
+                    } else {
+                        performanceSummaryCard()
+                    }
+
+                    // Legacy coaching insights (for backward compatibility)
+                    if let response = viewModel?.coachingResponse {
+                        legacyCoachingInsightsCard(response: response)
+                    } else if let error = viewModel?.coachingError, !error.isEmpty {
+                        coachingErrorCard
+                    }
+                }
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.bottom, DesignSystem.Spacing.xl)
+            }
         }
     }
 
