@@ -47,7 +47,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Champion Data**: Complete champion database (171 champions) with Data Dragon integration
 - **Performance Analytics**: KPI-focused dashboard with role-specific metrics
 - **Champion Pool Analysis**: Track champion performance and win rates
-- **AI Coaching**: Post-game analysis with personalized insights
+- **AI Coaching**: Dual-focused coaching with post-game analysis and performance summaries
 - **Offline Caching**: 50 matches cached per summoner with background refresh
 - **Region Support**: EUW, NA, EUNE with proper API routing
 - **Role-Based Analysis**: Track performance by role (Top, Jungle, Mid, ADC, Support)
@@ -82,12 +82,14 @@ We recently completed a major architecture modernization by integrating Supabase
 - **OpenAIService**: AI coaching insights via secure proxy
 - **AppConfig**: Centralized configuration management for Supabase credentials
 
-#### **🤖 AI Coaching Optimization (Latest)**
-- **GPT-5 Mini Integration**: Optimized for reasoning models with low effort settings
-- **Structured Responses**: JSON-formatted coaching tips with word count constraints
-- **Efficient Token Usage**: 2000 max tokens with reasoning optimization
-- **Fast Response Times**: ~13 second response times for coaching insights
-- **Concise System Prompts**: "Be concise and practical" for focused advice
+#### **🤖 AI Coaching Redesign (Latest)**
+- **Dual-Focused Coaching**: Separate post-game analysis and performance summary
+- **Post-Game Analysis**: Champion-focused insights for most recent game only
+- **Performance Summary**: Role-focused trends over last 10 games with diversity metrics
+- **Champion Pool Integration**: Leverages existing "Best Performing Champions" logic
+- **Smart Auto-Triggers**: Post-game analysis auto-generates on new matches
+- **Simplified UI**: Two focused cards instead of complex multi-section layout
+- **Performance Section Cleanup**: Removed role/champion diversity from display (moved to coaching)
 
 #### **📊 Benefits Achieved**
 - **Enhanced Security**: API keys never exposed to client
@@ -95,7 +97,8 @@ We recently completed a major architecture modernization by integrating Supabase
 - **Centralized Management**: All API keys managed in one place
 - **Rate Limiting**: Server-side rate limiting and caching
 - **Cost Control**: Better monitoring and control of API usage
-- **AI Coaching**: Working GPT-5 Mini integration with optimized parameters
+- **Focused Coaching**: Actionable insights instead of overwhelming stats
+- **Smart Data Usage**: Leverages existing champion pool and KPI calculations
 
 ### **Latest Simplification Achievements (September 2025)**
 We recently completed a comprehensive architecture cleanup that reduced codebase complexity by **36%** while maintaining all functionality:
@@ -137,7 +140,38 @@ We recently completed a comprehensive architecture cleanup that reduced codebase
 
 Result: faster warm starts, less redundant work and noise, and safer logs with minimal added complexity.
 
+### **🧠 Coaching System Redesign (Planned)**
+
+We're implementing a comprehensive redesign of the coaching system to provide more focused, actionable insights:
+
+#### **🎯 Post-Game Analysis (Champion-Focused)**
+- **Auto-Trigger**: Automatically generates analysis for most recent game when new matches are loaded
+- **Champion-Specific**: Focuses on the actual champion played in that game
+- **Champion Pool Integration**: Leverages existing "Best Performing Champions" logic from Champion section
+- **Actionable Advice**: 2-3 specific things to improve for next game
+- **Champion Pool Nudging**: Suggests avoiding low win-rate champions in ranked
+
+#### **📊 Performance Summary (Role-Focused)**
+- **Scope**: Exactly 10 games, auto-updates every 5 games
+- **Role Analysis**: Focuses on roles actually played in last 10 games (regardless of primary role)
+- **Diversity Context**: Includes role/champion diversity metrics in analysis
+- **Trend Focus**: Improvements made and areas of concern over time
+- **Complementary**: Avoids overlap with existing Performance section
+
+#### **🔧 Technical Implementation**
+- **Data Reuse**: Leverages existing KPICalculationService and champion pool logic
+- **Smart Updates**: Only analyzes when there's new data, avoids redundant analysis
+- **Simplified UI**: Two focused cards instead of complex multi-section layout
+- **Performance Section Cleanup**: Removes role/champion diversity from display (moved to coaching)
+
+#### **📈 Benefits**
+- **More Actionable**: Focused advice instead of overwhelming statistics
+- **Champion-Aware**: Integrates champion pool insights for better recommendations
+- **Efficient**: Reuses existing data and calculations
+- **User-Friendly**: Simplified interface with clear, focused insights
+
 ### **🔄 In Development**
+- **Coaching Redesign Implementation**: Dual-focused coaching system
 - **Testing Infrastructure**: Unit tests for critical components
 - **Advanced Performance Metrics**: Trend analysis and improvement suggestions
 - **Champion Pool Optimization**: Meta-based recommendations
@@ -299,31 +333,40 @@ The app includes comprehensive test views for development:
 
 ## 📈 **Roadmap**
 
-### **Phase 2: Testing Infrastructure (Current)**
+### **Phase 2: Coaching Redesign (Current)**
+- [ ] Implement dual-focused coaching system (post-game + performance summary)
+- [ ] Update OpenAIService for champion-focused post-game analysis
+- [ ] Update OpenAIService for role-focused performance summary
+- [ ] Integrate champion pool logic from Champion section
+- [ ] Simplify CoachingView UI to two focused cards
+- [ ] Remove role/champion diversity from Performance section display
+- [ ] Add smart auto-trigger logic for post-game analysis
+
+### **Phase 3: Testing Infrastructure (Next)**
 - [ ] Unit tests for DataManager and critical components
 - [ ] View model testing with mock services
 - [ ] UI snapshot testing for design system components
 - [ ] Integration tests for API services
 
-### **Phase 3: Advanced Analytics (Next)**
+### **Phase 4: Advanced Analytics**
 - [ ] Performance trend analysis
 - [ ] Goal setting and tracking
 - [ ] Comparison with peer performance
 - [ ] Detailed match breakdowns
 
-### **Phase 4: Champion Pool Optimization**
+### **Phase 5: Champion Pool Optimization**
 - [ ] Meta-based champion recommendations
 - [ ] Pool synergy analysis
 - [ ] Counter-pick suggestions
 - [ ] Role-specific guidance
 
-### **Phase 5: Premium Features**
+### **Phase 6: Premium Features**
 - [ ] StoreKit 2 integration
 - [ ] Unlimited analysis quota
 - [ ] Advanced coaching features
 - [ ] Export and sharing capabilities
 
-### **Phase 6: Platform Expansion**
+### **Phase 7: Platform Expansion**
 - [ ] iPad support with NavigationSplitView
 - [ ] macOS Catalyst support
 - [ ] Apple Watch companion app

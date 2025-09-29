@@ -88,6 +88,64 @@ public struct CoachingResponse: Codable {
     }
 }
 
+/// Post-game analysis response focused on champion-specific advice
+public struct PostGameAnalysis: Codable {
+    public let championName: String
+    public let gameResult: String
+    public let kda: String
+    public let keyTakeaways: [String]
+    public let championSpecificAdvice: String
+    public let championPoolAdvice: String?
+    public let nextGameFocus: [String]
+
+    public init(
+        championName: String,
+        gameResult: String,
+        kda: String,
+        keyTakeaways: [String],
+        championSpecificAdvice: String,
+        championPoolAdvice: String?,
+        nextGameFocus: [String]
+    ) {
+        self.championName = championName
+        self.gameResult = gameResult
+        self.kda = kda
+        self.keyTakeaways = keyTakeaways
+        self.championSpecificAdvice = championSpecificAdvice
+        self.championPoolAdvice = championPoolAdvice
+        self.nextGameFocus = nextGameFocus
+    }
+}
+
+/// Performance summary response focused on role-based trends
+public struct PerformanceSummary: Codable {
+    public let overallScore: Int
+    public let improvementsMade: [String]
+    public let areasOfConcern: [String]
+    public let roleDiversity: String
+    public let championDiversity: String
+    public let focusAreas: [String]
+    public let progressionInsights: String
+
+    public init(
+        overallScore: Int,
+        improvementsMade: [String],
+        areasOfConcern: [String],
+        roleDiversity: String,
+        championDiversity: String,
+        focusAreas: [String],
+        progressionInsights: String
+    ) {
+        self.overallScore = overallScore
+        self.improvementsMade = improvementsMade
+        self.areasOfConcern = areasOfConcern
+        self.roleDiversity = roleDiversity
+        self.championDiversity = championDiversity
+        self.focusAreas = focusAreas
+        self.progressionInsights = progressionInsights
+    }
+}
+
 /// OpenAI API service for generating coaching insights
 @MainActor
 @Observable
@@ -144,6 +202,103 @@ public class OpenAIService {
 
         // Parse structured JSON response
         return try parseCoachingResponse(responseText)
+    }
+
+    /// Generates post-game analysis focused on champion-specific advice
+    public func generatePostGameAnalysis(
+        match: Match,
+        summoner: Summoner,
+        kpiService: KPICalculationService
+    ) async throws -> PostGameAnalysis {
+
+        // Validate proxy service availability
+        guard !AppConfig.appToken.isEmpty else {
+            throw OpenAIError.invalidAPIKey
+        }
+
+        // Get participant data for the summoner
+        guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+        else {
+            throw OpenAIError.invalidResponse
+        }
+
+        // Get champion data
+        let championName = getChampionName(for: participant.championId)
+        let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+
+        // Get champion-specific performance data
+        let championPerformance = await getChampionPerformance(
+            summoner: summoner,
+            championId: participant.championId,
+            role: role,
+            kpiService: kpiService
+        )
+
+        // Create post-game analysis prompt
+        let prompt = createPostGamePrompt(
+            match: match,
+            participant: participant,
+            summoner: summoner,
+            championName: championName,
+            role: role,
+            championPerformance: championPerformance
+        )
+
+        // Make API request
+        let proxyService = ProxyService()
+        let responseText = try await proxyService.aiCoach(
+            prompt: prompt,
+            model: "gpt-4o-mini",
+            maxOutputTokens: 500  // Shorter response for post-game analysis
+        )
+
+        // Parse response
+        return try parsePostGameResponse(responseText)
+    }
+
+    /// Generates performance summary focused on role-based trends
+    public func generatePerformanceSummary(
+        matches: [Match],
+        summoner: Summoner,
+        kpiService: KPICalculationService
+    ) async throws -> PerformanceSummary {
+
+        // Validate proxy service availability
+        guard !AppConfig.appToken.isEmpty else {
+            throw OpenAIError.invalidAPIKey
+        }
+
+        // Get diversity metrics
+        let diversityMetrics = kpiService.calculateDiversityMetrics(
+            matches: matches,
+            summoner: summoner
+        )
+
+        // Get role-based performance trends
+        let roleTrends = await getRoleTrends(
+            matches: matches,
+            summoner: summoner,
+            kpiService: kpiService
+        )
+
+        // Create performance summary prompt
+        let prompt = createPerformanceSummaryPrompt(
+            matches: matches,
+            summoner: summoner,
+            diversityMetrics: diversityMetrics,
+            roleTrends: roleTrends
+        )
+
+        // Make API request
+        let proxyService = ProxyService()
+        let responseText = try await proxyService.aiCoach(
+            prompt: prompt,
+            model: "gpt-4o-mini",
+            maxOutputTokens: 800  // Longer response for performance summary
+        )
+
+        // Parse response
+        return try parsePerformanceSummaryResponse(responseText)
     }
 
     /// Legacy method for backward compatibility
@@ -346,6 +501,202 @@ public class OpenAIService {
         } catch {
             ClaimbLogger.error(
                 "Failed to parse coaching response", service: "OpenAIService",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "responseLength": String(responseText.count),
+                ])
+            throw OpenAIError.invalidResponse
+        }
+    }
+
+    // MARK: - Post-Game Analysis Helpers
+
+    private func getChampionName(for championId: Int) -> String {
+        // TODO: Integrate with champion data from Champion section
+        // For now, return a placeholder
+        return "Champion \(championId)"
+    }
+
+    private func getChampionPerformance(
+        summoner: Summoner,
+        championId: Int,
+        role: String,
+        kpiService: KPICalculationService
+    ) async -> [String: Double] {
+        // TODO: Get champion-specific performance data
+        // This would integrate with existing champion pool logic
+        return [:]
+    }
+
+    private func createPostGamePrompt(
+        match: Match,
+        participant: Participant,
+        summoner: Summoner,
+        championName: String,
+        role: String,
+        championPerformance: [String: Double]
+    ) -> String {
+        let gameResult = participant.win ? "Victory" : "Defeat"
+        let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+        let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
+
+        return """
+            You are an expert League of Legends coach. Provide a concise post-game analysis focused on the champion played and actionable advice for the next game.
+
+            **CRITICAL INSTRUCTIONS:**
+            - Response MUST be valid JSON matching the exact schema below
+            - Focus on champion-specific advice
+            - Keep analysis concise (500 tokens max)
+            - Provide 2-3 specific things to focus on next game
+
+            **Game Data:**
+            Player: \(summoner.gameName)#\(summoner.tagLine)
+            Champion: \(championName)
+            Role: \(role)
+            Result: \(gameResult)
+            KDA: \(kda)
+            CS: \(cs)
+            Game Duration: \(match.gameDuration / 60) minutes
+
+            **REQUIRED JSON RESPONSE SCHEMA:**
+            {
+              "championName": "\(championName)",
+              "gameResult": "\(gameResult)",
+              "kda": "\(kda)",
+              "keyTakeaways": ["string", "string", "string"],
+              "championSpecificAdvice": "string",
+              "championPoolAdvice": "string or null",
+              "nextGameFocus": ["string", "string"]
+            }
+
+            **ANALYSIS GUIDELINES:**
+            - Champion-specific: Focus on how to play \(championName) better
+            - Champion pool: Suggest avoiding low win-rate champions if applicable
+            - Next game: 2 specific things to improve
+            - Keep advice actionable and specific
+
+            Respond ONLY with valid JSON. No additional text.
+            """
+    }
+
+    private func parsePostGameResponse(_ responseText: String) throws -> PostGameAnalysis {
+        let cleanText =
+            responseText
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let data = cleanText.data(using: .utf8) else {
+            throw OpenAIError.invalidResponse
+        }
+
+        do {
+            let response = try JSONDecoder().decode(PostGameAnalysis.self, from: data)
+            ClaimbLogger.debug(
+                "Successfully parsed post-game response", service: "OpenAIService",
+                metadata: [
+                    "championName": response.championName,
+                    "gameResult": response.gameResult,
+                ])
+            return response
+        } catch {
+            ClaimbLogger.error(
+                "Failed to parse post-game response", service: "OpenAIService",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "responseLength": String(responseText.count),
+                ])
+            throw OpenAIError.invalidResponse
+        }
+    }
+
+    // MARK: - Performance Summary Helpers
+
+    private func getRoleTrends(
+        matches: [Match],
+        summoner: Summoner,
+        kpiService: KPICalculationService
+    ) async -> [String: String] {
+        // TODO: Analyze role-based performance trends over last 10 games
+        return [:]
+    }
+
+    private func createPerformanceSummaryPrompt(
+        matches: [Match],
+        summoner: Summoner,
+        diversityMetrics: (roleCount: Int, championCount: Int),
+        roleTrends: [String: String]
+    ) -> String {
+        let recentMatches = Array(matches.prefix(10))
+        let wins = recentMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })?.win
+        }.filter { $0 }.count
+
+        let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
+
+        return """
+            You are an expert League of Legends coach. Analyze the player's performance over the last 10 games and provide role-focused insights.
+
+            **CRITICAL INSTRUCTIONS:**
+            - Response MUST be valid JSON matching the exact schema below
+            - Focus on role-based trends and improvements
+            - Include diversity context in analysis
+            - Keep analysis concise but comprehensive
+
+            **Performance Data:**
+            Player: \(summoner.gameName)#\(summoner.tagLine)
+            Games Analyzed: \(recentMatches.count)
+            Win Rate: \(String(format: "%.1f", winRate * 100))%
+            Roles Played: \(diversityMetrics.roleCount) different roles
+            Champions Played: \(diversityMetrics.championCount) different champions
+
+            **REQUIRED JSON RESPONSE SCHEMA:**
+            {
+              "overallScore": 7,
+              "improvementsMade": ["string", "string"],
+              "areasOfConcern": ["string", "string"],
+              "roleDiversity": "string",
+              "championDiversity": "string",
+              "focusAreas": ["string", "string"],
+              "progressionInsights": "string"
+            }
+
+            **ANALYSIS GUIDELINES:**
+            - Overall score: 1-10 based on recent performance trends
+            - Improvements: What's getting better over time
+            - Concerns: What's declining or needs attention
+            - Diversity: Comment on role/champion variety
+            - Focus areas: 2-3 specific things to work on
+            - Progression: Overall trend analysis
+
+            Respond ONLY with valid JSON. No additional text.
+            """
+    }
+
+    private func parsePerformanceSummaryResponse(_ responseText: String) throws
+        -> PerformanceSummary
+    {
+        let cleanText =
+            responseText
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let data = cleanText.data(using: .utf8) else {
+            throw OpenAIError.invalidResponse
+        }
+
+        do {
+            let response = try JSONDecoder().decode(PerformanceSummary.self, from: data)
+            ClaimbLogger.debug(
+                "Successfully parsed performance summary response", service: "OpenAIService",
+                metadata: [
+                    "overallScore": String(response.overallScore)
+                ])
+            return response
+        } catch {
+            ClaimbLogger.error(
+                "Failed to parse performance summary response", service: "OpenAIService",
                 metadata: [
                     "error": error.localizedDescription,
                     "responseLength": String(responseText.count),

@@ -25,6 +25,17 @@ class CoachingViewModel {
     var coachingError: String = ""
     var matchState: UIState<[Match]> = .idle
 
+    // MARK: - New Dual-Focused Coaching State
+    var postGameAnalysis: PostGameAnalysis?
+    var performanceSummary: PerformanceSummary?
+    var postGameError: String = ""
+    var performanceSummaryError: String = ""
+    var lastAnalyzedMatchId: PersistentIdentifier?
+    var performanceSummaryUpdateCounter: Int = 0
+
+    // MARK: - Performance Summary Update Logic
+    private let performanceSummaryUpdateInterval = 5  // Update every 5 games
+
     init(dataManager: DataManager, summoner: Summoner) {
         self.dataManager = dataManager
         self.summoner = summoner
@@ -47,6 +58,13 @@ class CoachingViewModel {
                     "summoner": summoner.gameName,
                     "matchCount": String(matches.count),
                 ])
+
+            // Auto-trigger post-game analysis for most recent game
+            await autoTriggerPostGameAnalysis(matches: matches)
+
+            // Check if performance summary needs updating
+            await checkPerformanceSummaryUpdate(matches: matches)
+
         } catch {
             matchState = .error(error)
             ClaimbLogger.error(
@@ -116,6 +134,121 @@ class CoachingViewModel {
         }
         return []
     }
+
+    // MARK: - New Dual-Focused Coaching Methods
+
+    /// Auto-triggers post-game analysis for the most recent game
+    private func autoTriggerPostGameAnalysis(matches: [Match]) async {
+        guard !matches.isEmpty else { return }
+
+        let mostRecentMatch = matches[0]
+
+        // Only generate analysis if this is a new match
+        if mostRecentMatch.id != lastAnalyzedMatchId {
+            lastAnalyzedMatchId = mostRecentMatch.id
+
+            ClaimbLogger.info(
+                "Auto-triggering post-game analysis", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchId": String(describing: mostRecentMatch.id),
+                    "championId": String(
+                        mostRecentMatch.participants.first(where: { $0.puuid == summoner.puuid })?
+                            .championId ?? 0),
+                ])
+
+            await generatePostGameAnalysis(for: mostRecentMatch)
+        }
+    }
+
+    /// Checks if performance summary needs updating based on game count
+    private func checkPerformanceSummaryUpdate(matches: [Match]) async {
+        let recentMatches = Array(matches.prefix(10))
+
+        // Update counter based on number of games
+        let newCounter = recentMatches.count
+
+        // Only update if we've crossed a 5-game boundary
+        if newCounter != performanceSummaryUpdateCounter
+            && newCounter % performanceSummaryUpdateInterval == 0
+        {
+
+            performanceSummaryUpdateCounter = newCounter
+
+            ClaimbLogger.info(
+                "Auto-updating performance summary", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "gameCount": String(newCounter),
+                ])
+
+            await generatePerformanceSummary(matches: recentMatches)
+        }
+    }
+
+    /// Generates post-game analysis for a specific match
+    func generatePostGameAnalysis(for match: Match) async {
+        isAnalyzing = true
+        postGameError = ""
+
+        do {
+            let analysis = try await openAIService.generatePostGameAnalysis(
+                match: match,
+                summoner: summoner,
+                kpiService: kpiService
+            )
+
+            postGameAnalysis = analysis
+
+            ClaimbLogger.info(
+                "Post-game analysis completed", service: "CoachingViewModel",
+                metadata: [
+                    "championName": analysis.championName,
+                    "gameResult": analysis.gameResult,
+                ])
+
+        } catch {
+            postGameError = ErrorHandler.userFriendlyMessage(for: error)
+            ClaimbLogger.error(
+                "Post-game analysis failed", service: "CoachingViewModel",
+                error: error)
+        }
+
+        isAnalyzing = false
+    }
+
+    /// Generates performance summary for last 10 games
+    func generatePerformanceSummary(matches: [Match]) async {
+        let recentMatches = Array(matches.prefix(10))
+
+        guard !recentMatches.isEmpty else {
+            performanceSummaryError = "Not enough games for performance summary"
+            return
+        }
+
+        do {
+            let summary = try await openAIService.generatePerformanceSummary(
+                matches: recentMatches,
+                summoner: summoner,
+                kpiService: kpiService
+            )
+
+            performanceSummary = summary
+
+            ClaimbLogger.info(
+                "Performance summary completed", service: "CoachingViewModel",
+                metadata: [
+                    "overallScore": String(summary.overallScore),
+                    "gameCount": String(recentMatches.count),
+                ])
+
+        } catch {
+            performanceSummaryError = ErrorHandler.userFriendlyMessage(for: error)
+            ClaimbLogger.error(
+                "Performance summary failed", service: "CoachingViewModel",
+                error: error)
+        }
+    }
 }
 
 struct CoachingView: View {
@@ -159,13 +292,7 @@ struct CoachingView: View {
         SharedHeaderView(
             summoner: summoner,
             title: "Coaching",
-            actionButton: SharedHeaderView.ActionButton(
-                title: viewModel?.isAnalyzing == true ? "Analyzing..." : "Analyze",
-                icon: "brain.head.profile",
-                action: { Task { await analyzePerformance() } },
-                isLoading: viewModel?.isAnalyzing ?? false,
-                isDisabled: !(viewModel?.hasMatches ?? false)
-            ),
+            actionButton: nil,  // Remove manual analyze button - auto-triggering handles this
             onLogout: {
                 userSession.logout()
             }
@@ -175,16 +302,20 @@ struct CoachingView: View {
     private func coachingContentView(matches: [Match]) -> some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.lg) {
-                // Recent Matches Summary
+                // Recent Matches Summary (Simplified)
                 recentMatchesCard(matches: matches)
 
-                // Enhanced Coaching Insights
+                // Post-Game Analysis Card
+                postGameAnalysisCard()
+
+                // Performance Summary Card
+                performanceSummaryCard()
+
+                // Legacy coaching insights (for backward compatibility)
                 if let response = viewModel?.coachingResponse {
-                    enhancedCoachingInsightsCard(response: response)
+                    legacyCoachingInsightsCard(response: response)
                 } else if let error = viewModel?.coachingError, !error.isEmpty {
                     coachingErrorCard
-                } else {
-                    generateInsightsCard
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
@@ -244,7 +375,7 @@ struct CoachingView: View {
         .cornerRadius(DesignSystem.CornerRadius.medium)
     }
 
-    private func enhancedCoachingInsightsCard(response: CoachingResponse) -> some View {
+    private func legacyCoachingInsightsCard(response: CoachingResponse) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
             // Header with Overall Score
             HStack {
@@ -303,6 +434,311 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+    }
+
+    // MARK: - New Dual-Focused Coaching Cards
+
+    private func postGameAnalysisCard() -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            HStack {
+                Text("Post-Game Analysis")
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                Spacer()
+
+                if viewModel?.isAnalyzing == true {
+                    GlowCSpinner(size: 20)
+                }
+            }
+
+            if let analysis = viewModel?.postGameAnalysis {
+                postGameAnalysisContent(analysis: analysis)
+            } else if let error = viewModel?.postGameError, !error.isEmpty {
+                postGameErrorContent(error: error)
+            } else {
+                postGameEmptyContent()
+            }
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+    }
+
+    private func postGameAnalysisContent(analysis: PostGameAnalysis) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            // Game Result & Champion Info
+            HStack {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                    Text(analysis.championName)
+                        .font(DesignSystem.Typography.title2)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                    Text("\(analysis.gameResult) • \(analysis.kda)")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+
+                Spacer()
+
+                // Result indicator
+                Circle()
+                    .fill(
+                        analysis.gameResult.lowercased().contains("win")
+                            ? DesignSystem.Colors.accent : DesignSystem.Colors.error
+                    )
+                    .frame(width: 12, height: 12)
+            }
+
+            // Key Takeaways
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("Key Takeaways")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                ForEach(Array(analysis.keyTakeaways.enumerated()), id: \.offset) {
+                    index, takeaway in
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                        Text("\(index + 1).")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.primary)
+                            .frame(width: 16, alignment: .leading)
+
+                        Text(takeaway)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                }
+            }
+
+            // Champion-Specific Advice
+            if !analysis.championSpecificAdvice.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Champion-Specific Advice")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                    Text(analysis.championSpecificAdvice)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                }
+            }
+
+            // Champion Pool Advice (if available)
+            if let championPoolAdvice = analysis.championPoolAdvice, !championPoolAdvice.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Champion Pool")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.warning)
+
+                    Text(championPoolAdvice)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                }
+            }
+
+            // Next Game Focus
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("Next Game Focus")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.accent)
+
+                ForEach(Array(analysis.nextGameFocus.enumerated()), id: \.offset) { index, focus in
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                        Image(systemName: "target")
+                            .foregroundColor(DesignSystem.Colors.accent)
+                            .font(.caption)
+
+                        Text(focus)
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func postGameErrorContent(error: String) -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.error)
+
+            Text("Analysis Failed")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+
+            Text(error)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func postGameEmptyContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "gamecontroller")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+
+            Text("Play a game to get post-game analysis")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func performanceSummaryCard() -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            HStack {
+                Text("Performance Summary")
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                Spacer()
+
+                if viewModel?.isAnalyzing == true {
+                    GlowCSpinner(size: 20)
+                }
+            }
+
+            if let summary = viewModel?.performanceSummary {
+                performanceSummaryContent(summary: summary)
+            } else if let error = viewModel?.performanceSummaryError, !error.isEmpty {
+                performanceSummaryErrorContent(error: error)
+            } else {
+                performanceSummaryEmptyContent()
+            }
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+    }
+
+    private func performanceSummaryContent(summary: PerformanceSummary) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            // Overall Score
+            HStack {
+                Text("Overall Score")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                Spacer()
+
+                Text("\(summary.overallScore)/10")
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(scoreColor(summary.overallScore))
+            }
+
+            // Improvements Made
+            if !summary.improvementsMade.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Improvements Made")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.accent)
+
+                    ForEach(Array(summary.improvementsMade.enumerated()), id: \.offset) {
+                        index, improvement in
+                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundColor(DesignSystem.Colors.accent)
+                                .font(.caption)
+
+                            Text(improvement)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                        }
+                    }
+                }
+            }
+
+            // Areas of Concern
+            if !summary.areasOfConcern.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Areas of Concern")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.warning)
+
+                    ForEach(Array(summary.areasOfConcern.enumerated()), id: \.offset) {
+                        index, concern in
+                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(DesignSystem.Colors.warning)
+                                .font(.caption)
+
+                            Text(concern)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                        }
+                    }
+                }
+            }
+
+            // Focus Areas
+            if !summary.focusAreas.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Focus Areas")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.primary)
+
+                    ForEach(Array(summary.focusAreas.enumerated()), id: \.offset) { index, focus in
+                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                            Text("\(index + 1).")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .frame(width: 16, alignment: .leading)
+
+                            Text(focus)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                        }
+                    }
+                }
+            }
+
+            // Progression Insights
+            if !summary.progressionInsights.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Progression")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.secondary)
+
+                    Text(summary.progressionInsights)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                }
+            }
+        }
+    }
+
+    private func performanceSummaryErrorContent(error: String) -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.error)
+
+            Text("Summary Failed")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+
+            Text(error)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func performanceSummaryEmptyContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(DesignSystem.Typography.title2)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+
+            Text("Play more games for performance summary")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
     }
 
     private var generateInsightsCard: some View {

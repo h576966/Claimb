@@ -53,14 +53,6 @@ struct KPICard: View {
                     Text("Target: \(formattedTarget)")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
-                } else if kpi.metric == "primary_role_consistency"
-                    || kpi.metric == "champion_pool_size"
-                {
-                    // Show hardcoded targets for fundamental metrics
-                    let hardcodedTarget = getHardcodedTarget(for: kpi.metric)
-                    Text("Target: \(hardcodedTarget)")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
         }
@@ -88,30 +80,15 @@ struct KPICard: View {
             "damage_taken_share_pct":
             // Convert decimal to percentage (0.45 -> 45%)
             return String(format: "%.0f%%", value * 100)
-        case "primary_role_consistency":
-            // Already a percentage, no decimal needed
-            return String(format: "%.0f%%", value)
         case "cs_per_min", "vision_score_per_min":
             return String(format: "%.1f", value)
         case "deaths_per_game":
             return String(format: "%.1f", value)
-        case "champion_pool_size":
-            return String(format: "%.0f", value)
         default:
             return String(format: "%.1f", value)
         }
     }
 
-    private func getHardcodedTarget(for metric: String) -> String {
-        switch metric {
-        case "primary_role_consistency":
-            return "80%"  // Target for excellent role consistency
-        case "champion_pool_size":
-            return "3"  // Target for excellent champion pool size
-        default:
-            return "N/A"
-        }
-    }
 }
 
 // MARK: - Performance View

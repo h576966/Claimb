@@ -20,6 +20,40 @@ public class KPICalculationService {
 
     // MARK: - Public Methods
 
+    /// Calculates diversity metrics for coaching analysis (last 10 games)
+    func calculateDiversityMetrics(
+        matches: [Match],
+        summoner: Summoner
+    ) -> (roleCount: Int, championCount: Int) {
+        let recentMatches = Array(matches.prefix(10))
+
+        guard !recentMatches.isEmpty else { return (0, 0) }
+
+        // Count unique roles
+        let uniqueRoles = Set(
+            recentMatches.compactMap { match in
+                match.participants.first(where: { $0.puuid == summoner.puuid })
+                    .map { RoleUtils.normalizeRole(teamPosition: $0.teamPosition) }
+            }
+        ).count
+
+        // Count unique champions
+        let allParticipants = recentMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })
+        }
+        let uniqueChampions = Set(allParticipants.map { $0.championId }).count
+
+        ClaimbLogger.debug(
+            "Diversity Metrics Calculated", service: "KPICalculationService",
+            metadata: [
+                "roleCount": String(uniqueRoles),
+                "championCount": String(uniqueChampions),
+                "totalGames": String(recentMatches.count),
+            ])
+
+        return (uniqueRoles, uniqueChampions)
+    }
+
     /// Calculates all KPIs for a specific role and matches
     func calculateRoleKPIs(
         matches: [Match],
@@ -95,26 +129,8 @@ public class KPICalculationService {
                 ))
         }
 
-        // Add Primary Role Consistency KPI (last 20 games)
-        let primaryRoleConsistency = calculatePrimaryRoleConsistency(
-            matches: matches, primaryRole: role, summoner: summoner)
-        kpis.append(
-            await createKPIMetric(
-                metric: "primary_role_consistency",
-                value: primaryRoleConsistency,
-                role: role,
-                matches: matches
-            ))
-
-        // Add Champion Pool Size KPI (last 20 games) - role independent
-        let championPoolSize = calculateChampionPoolSize(matches: matches, summoner: summoner)
-        kpis.append(
-            await createKPIMetric(
-                metric: "champion_pool_size",
-                value: championPoolSize,
-                role: role,
-                matches: matches
-            ))
+        // Note: Role Consistency and Champion Pool Size are now calculated for coaching use only
+        // and are not displayed in the Performance section
 
         return kpis
     }
@@ -155,37 +171,34 @@ public class KPICalculationService {
     private func calculatePrimaryRoleConsistency(
         matches: [Match], primaryRole: String, summoner: Summoner
     ) -> Double {
-        // Get last 20 games
-        let recentMatches = Array(matches.prefix(20))
+        // Get last 10 games for coaching analysis
+        let recentMatches = Array(matches.prefix(10))
 
         guard !recentMatches.isEmpty else { return 0.0 }
 
-        // Count games played in primary role
-        let primaryRoleGames = recentMatches.compactMap { match in
-            match.participants.first(where: {
-                $0.puuid == summoner.puuid
-                    && RoleUtils.normalizeRole(teamPosition: $0.teamPosition) == primaryRole
-            })
-        }.count
+        // Count unique roles played in last 10 games
+        let uniqueRoles = Set(
+            recentMatches.compactMap { match in
+                match.participants.first(where: { $0.puuid == summoner.puuid })
+                    .map { RoleUtils.normalizeRole(teamPosition: $0.teamPosition) }
+            }
+        ).count
 
-        let consistency = Double(primaryRoleGames) / Double(recentMatches.count) * 100.0
-
-        // Debug logging for role consistency calculation
+        // Debug logging for simplified role consistency calculation
         ClaimbLogger.debug(
-            "Role Consistency Calculation", service: "KPICalculationService",
+            "Role Diversity Calculation", service: "KPICalculationService",
             metadata: [
                 "primaryRole": primaryRole,
                 "totalGames": String(recentMatches.count),
-                "primaryRoleGames": String(primaryRoleGames),
-                "consistency": String(format: "%.1f", consistency),
+                "uniqueRoles": String(uniqueRoles),
             ])
 
-        return consistency
+        return Double(uniqueRoles)
     }
 
     private func calculateChampionPoolSize(matches: [Match], summoner: Summoner) -> Double {
-        // Get last 20 games
-        let recentMatches = Array(matches.prefix(20))
+        // Get last 10 games for coaching analysis
+        let recentMatches = Array(matches.prefix(10))
 
         // Get all participants for the summoner across all roles
         let allParticipants = recentMatches.compactMap { match in
@@ -195,14 +208,13 @@ public class KPICalculationService {
         // Count unique champions
         let uniqueChampions = Set(allParticipants.map { $0.championId }).count
 
-        // Debug logging for champion pool size calculation
+        // Debug logging for simplified champion pool size calculation
         ClaimbLogger.debug(
-            "Champion Pool Size Calculation", service: "KPICalculationService",
+            "Champion Diversity Calculation", service: "KPICalculationService",
             metadata: [
                 "totalGames": String(recentMatches.count),
                 "participantCount": String(allParticipants.count),
                 "uniqueChampions": String(uniqueChampions),
-                "championIds": allParticipants.map { String($0.championId) }.joined(separator: ","),
             ])
 
         return Double(uniqueChampions)
@@ -225,15 +237,8 @@ public class KPICalculationService {
         // Try to get baseline data for this metric and role
         let baseline = await getBaselineForMetric(metric: metric, role: role)
 
-        // For Role Consistency and Champion Pool Size, use hardcoded targets if no baseline found
-        let finalBaseline: Baseline?
-        if baseline == nil
-            && (metric == "primary_role_consistency" || metric == "champion_pool_size")
-        {
-            finalBaseline = createHardcodedBaseline(for: metric)
-        } else {
-            finalBaseline = baseline
-        }
+        // Use baseline if available
+        let finalBaseline = baseline
 
         let (performanceLevel, color) = getPerformanceLevelWithBaseline(
             value: value,
@@ -333,8 +338,8 @@ public class KPICalculationService {
         -> (Baseline.PerformanceLevel, Color)
     {
         if let baseline = baseline {
-            // Special handling for Deaths per Game and Champion Pool Size - lower is better
-            if metric == "deaths_per_game" || metric == "champion_pool_size" {
+            // Special handling for Deaths per Game - lower is better
+            if metric == "deaths_per_game" {
                 if value <= baseline.p40 {
                     return (.excellent, DesignSystem.Colors.accent)
                 } else if value < baseline.mean {
@@ -407,59 +412,9 @@ public class KPICalculationService {
             } else {
                 return (.needsImprovement, DesignSystem.Colors.secondary)
             }
-        case "primary_role_consistency":
-            // Hardcoded target values for role consistency (accepted exception - these values are fundamental and don't change)
-            if value > 80.0 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value > 70.0 {
-                return (.good, DesignSystem.Colors.white)
-            } else if value >= 65.0 {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            } else {
-                return (.needsImprovement, DesignSystem.Colors.secondary)
-            }
-        case "champion_pool_size":
-            // Hardcoded target values for champion pool size (accepted exception - these values are fundamental and don't change)
-            if value <= 3 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value <= 5 {
-                return (.good, DesignSystem.Colors.white)
-            } else {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            }
         default:
             return (.needsImprovement, DesignSystem.Colors.textSecondary)
         }
     }
 
-    /// Creates hardcoded baseline values for Role Consistency and Champion Pool Size
-    /// These are fundamental metrics with well-established target values that don't change
-    private func createHardcodedBaseline(for metric: String) -> Baseline? {
-        switch metric {
-        case "primary_role_consistency":
-            // Role Consistency targets: 80%+ excellent, 70%+ good, 65% needs improvement
-            return Baseline(
-                role: "ALL",
-                classTag: "ALL",
-                metric: metric,
-                mean: 70.0,  // Average role consistency
-                median: 75.0,  // Median role consistency
-                p40: 65.0,  // 40th percentile (needs improvement threshold)
-                p60: 80.0  // 60th percentile (excellent threshold)
-            )
-        case "champion_pool_size":
-            // Champion Pool Size targets: 1-3 excellent, 4-5 good, 6+ needs improvement
-            return Baseline(
-                role: "ALL",
-                classTag: "ALL",
-                metric: metric,
-                mean: 4.0,  // Average champion pool size
-                median: 3.0,  // Median champion pool size
-                p40: 3.0,  // 40th percentile (excellent threshold)
-                p60: 5.0  // 60th percentile (good threshold)
-            )
-        default:
-            return nil
-        }
-    }
 }
