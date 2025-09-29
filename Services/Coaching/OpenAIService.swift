@@ -196,7 +196,7 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",  // Updated to match edge function
+            model: "gpt-5-mini",  // Updated to use latest GPT-5 Mini model
             maxOutputTokens: 1000  // Sufficient tokens for structured response
         )
 
@@ -248,7 +248,7 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             maxOutputTokens: 500  // Shorter response for post-game analysis
         )
 
@@ -293,7 +293,7 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             maxOutputTokens: 800  // Longer response for performance summary
         )
 

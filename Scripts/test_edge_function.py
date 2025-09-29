@@ -120,7 +120,7 @@ class EdgeFunctionTester:
         """Test /ai/coach endpoint"""
         data = {
             "prompt": "Test coaching prompt",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "max_output_tokens": 100
         }
         return self.test_endpoint("ai/coach", method="POST", data=data)
