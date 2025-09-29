@@ -209,20 +209,44 @@ class CoachingViewModel {
         postGameError = ""
 
         do {
-            let analysis = try await openAIService.generatePostGameAnalysis(
-                match: match,
-                summoner: summoner,
-                kpiService: kpiService
-            )
+            let matchId = String(describing: match.id)
+            
+            // Check cache first
+            if let cachedAnalysis = try await dataManager.getCachedPostGameAnalysis(
+                for: summoner,
+                matchId: matchId
+            ) {
+                postGameAnalysis = cachedAnalysis
+                ClaimbLogger.debug(
+                    "Using cached post-game analysis", service: "CoachingViewModel",
+                    metadata: [
+                        "summoner": summoner.gameName,
+                        "matchId": matchId
+                    ])
+            } else {
+                // Generate new analysis
+                let analysis = try await openAIService.generatePostGameAnalysis(
+                    match: match,
+                    summoner: summoner,
+                    kpiService: kpiService
+                )
 
-            postGameAnalysis = analysis
+                // Cache the response
+                try await dataManager.cachePostGameAnalysis(
+                    analysis,
+                    for: summoner,
+                    matchId: matchId
+                )
 
-            ClaimbLogger.info(
-                "Post-game analysis completed", service: "CoachingViewModel",
-                metadata: [
-                    "championName": analysis.championName,
-                    "gameResult": analysis.gameResult,
-                ])
+                postGameAnalysis = analysis
+
+                ClaimbLogger.info(
+                    "Post-game analysis completed", service: "CoachingViewModel",
+                    metadata: [
+                        "championName": analysis.championName,
+                        "gameResult": analysis.gameResult,
+                    ])
+            }
 
         } catch {
             postGameError = ErrorHandler.userFriendlyMessage(for: error)
@@ -244,20 +268,39 @@ class CoachingViewModel {
         }
 
         do {
-            let summary = try await openAIService.generatePerformanceSummary(
-                matches: recentMatches,
-                summoner: summoner,
-                kpiService: kpiService
-            )
+            // Check cache first
+            if let cachedSummary = try await dataManager.getCachedPerformanceSummary(
+                for: summoner
+            ) {
+                performanceSummary = cachedSummary
+                ClaimbLogger.debug(
+                    "Using cached performance summary", service: "CoachingViewModel",
+                    metadata: [
+                        "summoner": summoner.gameName
+                    ])
+            } else {
+                // Generate new summary
+                let summary = try await openAIService.generatePerformanceSummary(
+                    matches: recentMatches,
+                    summoner: summoner,
+                    kpiService: kpiService
+                )
 
-            performanceSummary = summary
+                // Cache the response
+                try await dataManager.cachePerformanceSummary(
+                    summary,
+                    for: summoner
+                )
 
-            ClaimbLogger.info(
-                "Performance summary completed", service: "CoachingViewModel",
-                metadata: [
-                    "overallScore": String(summary.overallScore),
-                    "gameCount": String(recentMatches.count),
-                ])
+                performanceSummary = summary
+
+                ClaimbLogger.info(
+                    "Performance summary completed", service: "CoachingViewModel",
+                    metadata: [
+                        "overallScore": String(summary.overallScore),
+                        "gameCount": String(recentMatches.count),
+                    ])
+            }
 
         } catch {
             performanceSummaryError = ErrorHandler.userFriendlyMessage(for: error)

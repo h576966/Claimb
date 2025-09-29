@@ -577,6 +577,120 @@ public class DataManager {
         ClaimbLogger.info("Cache clear completed", service: "DataManager")
     }
 
+    // MARK: - Coaching Response Cache Management
+
+    /// Caches a PostGameAnalysis response
+    public func cachePostGameAnalysis(
+        _ analysis: PostGameAnalysis,
+        for summoner: Summoner,
+        matchId: String,
+        expirationHours: Int = 24
+    ) async throws {
+        let jsonData = try JSONEncoder().encode(analysis)
+        let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
+        
+        let cache = CoachingResponseCache(
+            summonerPuuid: summoner.puuid,
+            responseType: "postGame",
+            matchId: matchId,
+            responseJSON: jsonString,
+            expirationHours: expirationHours
+        )
+        
+        modelContext.insert(cache)
+        try modelContext.save()
+        
+        ClaimbLogger.debug(
+            "Cached post-game analysis", service: "DataManager",
+            metadata: [
+                "summoner": summoner.gameName,
+                "matchId": matchId
+            ]
+        )
+    }
+
+    /// Caches a PerformanceSummary response
+    public func cachePerformanceSummary(
+        _ summary: PerformanceSummary,
+        for summoner: Summoner,
+        expirationHours: Int = 24
+    ) async throws {
+        let jsonData = try JSONEncoder().encode(summary)
+        let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
+        
+        let cache = CoachingResponseCache(
+            summonerPuuid: summoner.puuid,
+            responseType: "performance",
+            responseJSON: jsonString,
+            expirationHours: expirationHours
+        )
+        
+        modelContext.insert(cache)
+        try modelContext.save()
+        
+        ClaimbLogger.debug(
+            "Cached performance summary", service: "DataManager",
+            metadata: [
+                "summoner": summoner.gameName
+            ]
+        )
+    }
+
+    /// Retrieves cached PostGameAnalysis for a specific match
+    public func getCachedPostGameAnalysis(
+        for summoner: Summoner,
+        matchId: String
+    ) async throws -> PostGameAnalysis? {
+        let descriptor = FetchDescriptor<CoachingResponseCache>()
+        let allCaches = try modelContext.fetch(descriptor)
+        
+        let cached = allCaches.first { cache in
+            cache.summonerPuuid == summoner.puuid &&
+            cache.responseType == "postGame" &&
+            cache.matchId == matchId &&
+            cache.isValid
+        }
+        
+        return try cached?.getPostGameAnalysis()
+    }
+
+    /// Retrieves cached PerformanceSummary
+    public func getCachedPerformanceSummary(
+        for summoner: Summoner
+    ) async throws -> PerformanceSummary? {
+        let descriptor = FetchDescriptor<CoachingResponseCache>()
+        let allCaches = try modelContext.fetch(descriptor)
+        
+        let cached = allCaches.first { cache in
+            cache.summonerPuuid == summoner.puuid &&
+            cache.responseType == "performance" &&
+            cache.isValid
+        }
+        
+        return try cached?.getPerformanceSummary()
+    }
+
+    /// Cleans up expired coaching responses
+    public func cleanupExpiredCoachingResponses() async throws {
+        let descriptor = FetchDescriptor<CoachingResponseCache>()
+        let allCaches = try modelContext.fetch(descriptor)
+        
+        let expired = allCaches.filter { !$0.isValid }
+        for cache in expired {
+            modelContext.delete(cache)
+        }
+        
+        if !expired.isEmpty {
+            try modelContext.save()
+            ClaimbLogger.debug(
+                "Cleaned up expired coaching responses", service: "DataManager",
+                metadata: [
+                    "expiredCount": String(expired.count)
+                ]
+            )
+        }
+    }
+
     /// Clears only match data while preserving summoner and champion data
     public func clearMatchData() async throws {
         ClaimbLogger.info("Clearing match data...", service: "DataManager")

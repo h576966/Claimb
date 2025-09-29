@@ -19,6 +19,7 @@ struct ClaimbApp: App {
             Participant.self,
             Champion.self,
             Baseline.self,
+            CoachingResponseCache.self,
         ])
 
         // Check if we need to clear the database due to model changes
