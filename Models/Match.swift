@@ -46,7 +46,8 @@ public class Match {
 
     // Computed properties
     public var gameDurationMinutes: Double {
-        return Double(gameDuration) / 60.0
+        let result = Double(gameDuration) / 60.0
+        return result.isNaN ? 0.0 : result
     }
 
     public var gameDate: Date {

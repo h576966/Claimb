@@ -14,7 +14,7 @@ import SwiftUI
 enum CoachingTab: String, CaseIterable {
     case postGame = "Post-Game"
     case performance = "Performance"
-    
+
     var title: String {
         switch self {
         case .postGame:
@@ -49,7 +49,7 @@ class CoachingViewModel {
     var lastAnalyzedMatchId: PersistentIdentifier?
     var performanceSummaryUpdateCounter: Int = 0
     var selectedCoachingTab: CoachingTab = .postGame
-    
+
     // MARK: - Background Refresh State
     var isRefreshingInBackground = false
     var showCachedDataWarning = false
@@ -149,13 +149,6 @@ class CoachingViewModel {
         return false
     }
 
-    var recentMatches: [Match] {
-        if case .loaded(let matches) = matchState {
-            return Array(matches.prefix(5))
-        }
-        return []
-    }
-
     // MARK: - New Dual-Focused Coaching Methods
 
     /// Auto-triggers post-game analysis for the most recent game
@@ -210,7 +203,7 @@ class CoachingViewModel {
     /// Generates post-game analysis for a specific match
     func generatePostGameAnalysis(for match: Match) async {
         let matchId = String(describing: match.id)
-        
+
         // Check cache first - show immediately if available
         if let cachedAnalysis = try? await dataManager.getCachedPostGameAnalysis(
             for: summoner,
@@ -222,9 +215,9 @@ class CoachingViewModel {
                 "Showing cached post-game analysis", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
-                    "matchId": matchId
+                    "matchId": matchId,
                 ])
-            
+
             // Try to refresh in background with fast timeout
             Task {
                 await refreshPostGameAnalysisInBackground(for: match, matchId: matchId)
@@ -273,11 +266,11 @@ class CoachingViewModel {
 
         isAnalyzing = false
     }
-    
+
     /// Refreshes post-game analysis in background without blocking UI
     private func refreshPostGameAnalysisInBackground(for match: Match, matchId: String) async {
         isRefreshingInBackground = true
-        
+
         do {
             // Generate fresh analysis
             let analysis = try await openAIService.generatePostGameAnalysis(
@@ -336,7 +329,7 @@ class CoachingViewModel {
                 metadata: [
                     "summoner": summoner.gameName
                 ])
-            
+
             // Try to refresh in background
             Task {
                 await refreshPerformanceSummaryInBackground(matches: recentMatches)
@@ -378,11 +371,11 @@ class CoachingViewModel {
                 ])
         }
     }
-    
+
     /// Refreshes performance summary in background without blocking UI
     private func refreshPerformanceSummaryInBackground(matches: [Match]) async {
         isRefreshingInBackground = true
-        
+
         do {
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: matches,
@@ -410,7 +403,7 @@ class CoachingViewModel {
         } catch {
             // Silently fail - user already has cached data
             ClaimbLogger.warning(
-                "Background refresh of performance summary failed (cached data still shown)", 
+                "Background refresh of performance summary failed (cached data still shown)",
                 service: "CoachingViewModel",
                 metadata: [
                     "error": error.localizedDescription
@@ -515,14 +508,16 @@ struct CoachingView: View {
         VStack(spacing: 0) {
             // Coaching Tab Selector
             coachingTabSelector
-            
+
             // Background refresh indicator
             if let viewModel = viewModel, viewModel.isRefreshingInBackground {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.accent))
+                        .progressViewStyle(
+                            CircularProgressViewStyle(tint: DesignSystem.Colors.accent)
+                        )
                         .scaleEffect(0.6)
-                    
+
                     Text("Updating insights...")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -530,12 +525,12 @@ struct CoachingView: View {
                 .padding(.vertical, DesignSystem.Spacing.xs)
                 .transition(.opacity)
             }
-            
+
             // Content based on selected tab
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    // Recent Matches Summary (Simplified)
-                    recentMatchesCard(matches: matches)
+                    // Last Game Summary
+                    lastGameSummaryCard(matches: matches)
 
                     // Selected coaching content
                     if viewModel?.selectedCoachingTab == .postGame {
@@ -557,56 +552,159 @@ struct CoachingView: View {
         }
     }
 
-    private func recentMatchesCard(matches: [Match]) -> some View {
+    private func lastGameSummaryCard(matches: [Match]) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            Text("Recent Performance")
+            Text("Last Game Summary")
                 .font(DesignSystem.Typography.title3)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
 
-            let recentMatches = viewModel?.recentMatches ?? Array(matches.prefix(5))
-
-            if recentMatches.isEmpty {
-                Text("No recent matches found")
+            if matches.isEmpty {
+                Text("No games played yet")
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             } else {
-                VStack(spacing: DesignSystem.Spacing.sm) {
-                    ForEach(recentMatches, id: \.matchId) { match in
-                        HStack {
-                            // Match Result
-                            Circle()
-                                .fill(
-                                    match.participants.first(where: { $0.puuid == summoner.puuid })?
-                                        .win == true
-                                        ? DesignSystem.Colors.accent : DesignSystem.Colors.secondary
-                                )
-                                .frame(width: 8, height: 8)
-
-                            // Champion (placeholder)
-                            Text("Champion")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                            Spacer()
-
-                            // KDA
-                            if let participant = match.participants.first(where: {
-                                $0.puuid == summoner.puuid
-                            }) {
-                                Text(
-                                    "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
-                                )
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                            }
-                        }
-                    }
+                let lastMatch = matches[0]
+                if let participant = lastMatch.participants.first(where: {
+                    $0.puuid == summoner.puuid
+                }) {
+                    lastGameSummaryContent(match: lastMatch, participant: participant)
+                } else {
+                    Text("Unable to load last game data")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
         }
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+    }
+
+    private func lastGameSummaryContent(match: Match, participant: Participant) -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            // Header with Win/Loss and Champion Info
+            HStack(spacing: DesignSystem.Spacing.md) {
+                // Champion Image
+                AsyncImage(url: URL(string: participant.champion?.iconURL ?? "")) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                        .fill(DesignSystem.Colors.cardBorder)
+                        .overlay(
+                            Image(systemName: "questionmark")
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
+                        )
+                }
+                .frame(width: 60, height: 60)
+                .cornerRadius(DesignSystem.CornerRadius.small)
+
+                // Champion Name and Result
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                    Text(participant.champion?.name ?? "Unknown Champion")
+                        .font(DesignSystem.Typography.title2)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                    HStack(spacing: DesignSystem.Spacing.sm) {
+                        // Win/Loss indicator
+                        Circle()
+                            .fill(
+                                participant.win
+                                    ? DesignSystem.Colors.accent : DesignSystem.Colors.error
+                            )
+                            .frame(width: 8, height: 8)
+
+                        Text(participant.win ? "Victory" : "Defeat")
+                            .font(DesignSystem.Typography.callout)
+                            .foregroundColor(
+                                participant.win
+                                    ? DesignSystem.Colors.accent : DesignSystem.Colors.error
+                            )
+                            .fontWeight(.medium)
+
+                        Text("•")
+                            .font(DesignSystem.Typography.callout)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                        Text("\(match.gameDuration / 60) min")
+                            .font(DesignSystem.Typography.callout)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                }
+
+                Spacer()
+            }
+
+            // KPI Metrics
+            VStack(spacing: DesignSystem.Spacing.sm) {
+                HStack {
+                    Text("KDA")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Spacer()
+
+                    Text("\(participant.kills)/\(participant.deaths)/\(participant.assists)")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                }
+
+                HStack {
+                    Text("CS")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Spacer()
+
+                    Text("\(participant.totalMinionsKilled + participant.neutralMinionsKilled)")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                }
+
+                HStack {
+                    Text("CS/Min")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Spacer()
+
+                    Text(String(format: "%.1f", participant.csPerMinute))
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                }
+
+                HStack {
+                    Text("Vision Score")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Spacer()
+
+                    Text("\(participant.visionScore)")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                }
+
+                HStack {
+                    Text("Gold")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Spacer()
+
+                    Text("\(participant.goldEarned)")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                }
+            }
+            .padding(.top, DesignSystem.Spacing.sm)
+        }
     }
 
     private func legacyCoachingInsightsCard(response: CoachingResponse) -> some View {
@@ -1109,7 +1207,7 @@ struct CoachingView: View {
             Spacer()
 
             HStack(spacing: DesignSystem.Spacing.xs) {
-                Text("\(String(format: "%.1f", current))\(suffix)")
+                Text("\(String(format: "%.1f", current.isNaN ? 0.0 : current))\(suffix)")
                     .font(DesignSystem.Typography.callout)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
@@ -1118,7 +1216,7 @@ struct CoachingView: View {
                     .font(.caption)
                     .foregroundColor(trendColor(trend: trend, reverse: reverse))
 
-                Text("vs \(String(format: "%.1f", average))\(suffix)")
+                Text("vs \(String(format: "%.1f", average.isNaN ? 0.0 : average))\(suffix)")
                     .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }

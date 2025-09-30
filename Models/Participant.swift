@@ -96,23 +96,27 @@ public class Participant {
         if deaths == 0 {
             return Double(kills + assists)
         }
-        return Double(kills + assists) / Double(deaths)
+        let result = Double(kills + assists) / Double(deaths)
+        return result.isNaN ? 0.0 : result
     }
 
     public var csPerMinute: Double {
         guard let match = match else { return 0.0 }
         let totalCS = totalMinionsKilled + neutralMinionsKilled
-        return Double(totalCS) / match.gameDurationMinutes
+        let result = Double(totalCS) / match.gameDurationMinutes
+        return result.isNaN ? 0.0 : result
     }
 
     public var goldPerMinute: Double {
         guard let match = match else { return 0.0 }
-        return Double(goldEarned) / match.gameDurationMinutes
+        let result = Double(goldEarned) / match.gameDurationMinutes
+        return result.isNaN ? 0.0 : result
     }
 
     public var visionScorePerMinute: Double {
         guard let match = match else { return 0.0 }
-        return Double(visionScore) / match.gameDurationMinutes
+        let result = Double(visionScore) / match.gameDurationMinutes
+        return result.isNaN ? 0.0 : result
     }
 
     public var objectiveParticipationPercentage: Double {
@@ -128,7 +132,8 @@ public class Participant {
             return 0.0
         }
 
-        return Double(totalParticipated) / Double(teamObjectives)
+        let result = Double(totalParticipated) / Double(teamObjectives)
+        return result.isNaN ? 0.0 : result
     }
 
     // Challenge-based metrics with fallbacks

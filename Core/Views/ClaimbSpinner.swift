@@ -22,10 +22,11 @@ public struct GlowCSpinner: View {
         ringColor: Color = Color(red: 1.0, green: 0.30, blue: 0.25),
         coreColor: Color = Color(red: 1.0, green: 0.74, blue: 0.20)
     ) {
-        self.size = size
-        self.speed = speed
-        self.outerLineWidth = outerLineWidth
-        self.gap = gap
+        // Ensure all values are valid and not NaN
+        self.size = size.isNaN ? 120 : max(1, size)
+        self.speed = speed.isNaN ? 1.5 : max(0.1, speed)
+        self.outerLineWidth = outerLineWidth.isNaN ? 0.18 : max(0.01, min(0.5, outerLineWidth))
+        self.gap = gap.isNaN ? 0.18 : max(0.0, min(0.5, gap))
         self.outerColor = outerColor
         self.ringColor = ringColor
         self.coreColor = coreColor

@@ -138,34 +138,49 @@ public class KPICalculationService {
     // MARK: - Private Calculation Methods
 
     private func calculateDeathsPerGame(participants: [Participant]) -> Double {
-        return participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
+        guard !participants.isEmpty else { return 0.0 }
+        let totalDeaths = participants.map { Double($0.deaths) }.reduce(0, +)
+        let result = totalDeaths / Double(participants.count)
+        return result.isNaN ? 0.0 : result
     }
 
     private func calculateVisionScore(participants: [Participant]) -> Double {
-        return participants.map { $0.visionScorePerMinute }.reduce(0, +)
-            / Double(participants.count)
+        guard !participants.isEmpty else { return 0.0 }
+        let totalVisionScore = participants.map { $0.visionScorePerMinute }.reduce(0, +)
+        let result = totalVisionScore / Double(participants.count)
+        return result.isNaN ? 0.0 : result
     }
 
     private func calculateKillParticipation(participants: [Participant], matches: [Match]) -> Double
     {
-        return participants.map { participant in
+        guard !participants.isEmpty else { return 0.0 }
+        let killParticipations = participants.map { participant in
             let match = matches.first { $0.participants.contains(participant) }
             let teamKills =
                 match?.participants
                 .filter { $0.teamId == participant.teamId }
                 .reduce(0) { $0 + $1.kills } ?? 0
-            return teamKills > 0
+            let participation =
+                teamKills > 0
                 ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
-        }.reduce(0, +) / Double(participants.count)
+            return participation.isNaN ? 0.0 : participation
+        }
+        let result = killParticipations.reduce(0, +) / Double(participants.count)
+        return result.isNaN ? 0.0 : result
     }
 
     private func calculateCSPerMinute(participants: [Participant], matches: [Match]) -> Double {
-        return participants.map { participant in
+        guard !participants.isEmpty else { return 0.0 }
+        let csPerMinuteValues = participants.map { participant in
             let match = matches.first { $0.participants.contains(participant) }
             let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
-            return gameDurationMinutes > 0
+            let csPerMin =
+                gameDurationMinutes > 0
                 ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
-        }.reduce(0, +) / Double(participants.count)
+            return csPerMin.isNaN ? 0.0 : csPerMin
+        }
+        let result = csPerMinuteValues.reduce(0, +) / Double(participants.count)
+        return result.isNaN ? 0.0 : result
     }
 
     private func calculatePrimaryRoleConsistency(
@@ -257,31 +272,34 @@ public class KPICalculationService {
 
     /// Formats KPI values according to their specific requirements
     private func formatKPIValue(_ value: Double, for metric: String) -> String {
+        // Ensure value is not NaN or infinite
+        let safeValue = value.isNaN || value.isInfinite ? 0.0 : value
+
         switch metric {
         case "deaths_per_game":
             // Deaths per Game: 1 decimal place
-            return String(format: "%.1f", value)
+            return String(format: "%.1f", safeValue)
         case "kill_participation_pct":
             // Kill Participation: percentage (0.45 -> 45%)
-            return String(format: "%.0f%%", value * 100)
+            return String(format: "%.0f%%", safeValue * 100)
         case "cs_per_min":
             // CS per Minute: 1 decimal place
-            return String(format: "%.1f", value)
+            return String(format: "%.1f", safeValue)
         case "primary_role_consistency":
             // Role Consistency: percentage (55.00 -> 55%)
-            return String(format: "%.0f%%", value)
+            return String(format: "%.0f%%", safeValue)
         case "champion_pool_size":
             // Champion Pool Size: integer (6.00 -> 6)
-            return String(format: "%.0f", value)
+            return String(format: "%.0f", safeValue)
         case "vision_score_per_min":
             // Vision Score per Minute: 1 decimal place
-            return String(format: "%.1f", value)
+            return String(format: "%.1f", safeValue)
         case "objective_participation_pct", "team_damage_pct", "damage_taken_share_pct":
             // Other percentage metrics: percentage format
-            return String(format: "%.0f%%", value * 100)
+            return String(format: "%.0f%%", safeValue * 100)
         default:
             // Default: 1 decimal place
-            return String(format: "%.1f", value)
+            return String(format: "%.1f", safeValue)
         }
     }
 

@@ -228,10 +228,14 @@ struct ClaimbProgressBar: View {
                     .fill(DesignSystem.Colors.cardBorder)
                     .frame(height: height)
 
-                // Progress
+                // Progress - ensure values are valid
+                let safeValue = value.isNaN ? 0.0 : max(0, value)
+                let safeMaxValue = maxValue.isNaN ? 1.0 : max(0.1, maxValue)
+                let progress = min(1.0, safeValue / safeMaxValue)
+
                 RoundedRectangle(cornerRadius: height / 2)
                     .fill(color)
-                    .frame(width: geometry.size.width * (value / maxValue), height: height)
+                    .frame(width: geometry.size.width * progress, height: height)
             }
         }
         .frame(height: height)

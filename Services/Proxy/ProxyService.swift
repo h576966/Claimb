@@ -316,7 +316,7 @@ public class ProxyService {
     /// Generates AI coaching insights with enhanced parameters
     public func aiCoach(
         prompt: String,
-        model: String = "gpt-5-mini",
+        model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
