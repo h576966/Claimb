@@ -77,6 +77,18 @@ rule "ui_state_pattern" {
   then = "Use UIState<T> enum with cases: idle, loading, loaded(T), error(Error), empty(String). Use ClaimbContentWrapper for consistent UI state rendering. Example: ClaimbContentWrapper(state: viewModel.championState, loadingMessage: \"Loading...\", emptyMessage: \"No data found\", retryAction: { Task { await viewModel.loadData() } }) { data in /* content */ }"
 }
 
+rule "simplicity_first" {
+  description = "Eliminate over-abstraction and complexity"
+  when = "designing architecture or refactoring code"
+  then = "SIMPLITY FIRST - Use direct integration over service layers. Prefer static loading over database queries. Use generics to eliminate code duplication. Challenge every abstraction - does it add real value?"
+}
+
+rule "dry_principle" {
+  description = "Don't Repeat Yourself through smart patterns"
+  when = "writing repetitive code"
+  then = "DRY - Use factory patterns, generics, and direct model integration. If you see the same pattern 3+ times, abstract it. Eliminate boilerplate through language features."
+}
+
 rule "datamanager_pattern" {
   description = "Use DataManager with factory method for data operations"
   when = "loading data in views"
@@ -273,4 +285,10 @@ rule "documentation_approach" {
   description = "Keep documentation light and contextual"
   when = "writing documentation"
   then = "Keep docs light unless explicitly requested. Focus on 'why' rather than 'what'. Write lightweight ADRs for architectural decisions. Maintain context for future developers."
+}
+
+rule "no_dev_server_commands" {
+  description = "Don't run dev server commands"
+  when = "running commands"
+  then = "NEVER run npm/yarn start commands - assume dev servers always running"
 }

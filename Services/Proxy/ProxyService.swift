@@ -18,6 +18,7 @@ public class ProxyService {
 
     private let baseURL: URL
     private let urlSession: URLSession
+    private let fallbackUrlSession: URLSession
 
     // MARK: - Initialization
 
@@ -30,7 +31,7 @@ public class ProxyService {
         config.timeoutIntervalForResource = 90.0  // 90 seconds total timeout
         config.waitsForConnectivity = true  // Wait for network connectivity
         config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = 6  // Allow multiple connections
+        config.httpMaximumConnectionsPerHost = 4  // Reduced for better stability
         config.urlCache = nil  // Disable caching for API calls
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
 
@@ -38,20 +39,49 @@ public class ProxyService {
         config.httpShouldUsePipelining = false  // Disable HTTP pipelining for better reliability
         config.httpShouldSetCookies = false  // Disable cookie handling for API calls
         config.httpCookieAcceptPolicy = .never  // Never accept cookies
-        config.httpMaximumConnectionsPerHost = 4  // Reduced for better stability
         config.networkServiceType = .responsiveData  // Optimize for responsive data
         config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
         config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
 
-        // QUIC-specific optimizations for simulator
-        #if DEBUG
-            // In debug mode, add additional network debugging
-            config.timeoutIntervalForRequest = 60.0  // Longer timeout for debugging
-            config.timeoutIntervalForResource = 120.0  // Extended resource timeout
+        // Simulator-specific network configuration to avoid QUIC issues
+        #if targetEnvironment(simulator)
+            // Force HTTP/1.1 for simulator to avoid QUIC connection issues
+            config.protocolClasses = [HTTP1OnlyProtocol.self]
+            config.timeoutIntervalForRequest = 30.0  // Shorter timeout for simulator
+            config.timeoutIntervalForResource = 60.0
+            config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
+        #else
+            // Production configuration with HTTP/2 support
+            config.timeoutIntervalForRequest = 45.0
+            config.timeoutIntervalForResource = 90.0
+            config.httpMaximumConnectionsPerHost = 4
         #endif
+
+        // Additional connection settings for better reliability
+        config.httpShouldUsePipelining = false  // Disable pipelining for better reliability
+        config.httpCookieAcceptPolicy = .never  // Never accept cookies
+        config.httpShouldSetCookies = false  // Disable cookie handling
 
         // Create URLSession with custom configuration
         self.urlSession = URLSession(configuration: config)
+
+        // Create fallback URLSession with minimal configuration for simulator issues
+        let fallbackConfig = URLSessionConfiguration.default
+        fallbackConfig.timeoutIntervalForRequest = 20.0
+        fallbackConfig.timeoutIntervalForResource = 40.0
+        fallbackConfig.httpMaximumConnectionsPerHost = 1
+        fallbackConfig.urlCache = nil
+        fallbackConfig.requestCachePolicy = .reloadIgnoringLocalCacheData
+        fallbackConfig.httpShouldUsePipelining = false
+        fallbackConfig.httpShouldSetCookies = false
+        fallbackConfig.httpCookieAcceptPolicy = .never
+
+        #if targetEnvironment(simulator)
+            // Use HTTP/1.1 only for fallback in simulator
+            fallbackConfig.protocolClasses = [HTTP1OnlyProtocol.self]
+        #endif
+
+        self.fallbackUrlSession = URLSession(configuration: fallbackConfig)
     }
 
     // MARK: - Riot API Methods
@@ -289,11 +319,22 @@ public class ProxyService {
         let requestBody: [String: Any] = [
             "prompt": prompt,
             "model": model,
-            "max_output_tokens": maxOutputTokens
+            "max_output_tokens": maxOutputTokens,
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         ClaimbLogger.apiRequest("Proxy: ai/coach", method: "POST", service: "ProxyService")
+
+        // Log request details for debugging
+        ClaimbLogger.debug(
+            "AI Coach request details", service: "ProxyService",
+            metadata: [
+                "url": req.url?.absoluteString ?? "unknown",
+                "method": req.httpMethod ?? "unknown",
+                "headers": req.allHTTPHeaderFields?.keys.joined(separator: ", ") ?? "none",
+                "body_size": String(req.httpBody?.count ?? 0),
+            ]
+        )
 
         let (data, resp) = try await performRequestWithRetry(req)
 
@@ -327,6 +368,79 @@ public class ProxyService {
         }
     }
 
+    // MARK: - Network Diagnostics
+
+    /// Performs network connectivity diagnostics
+    public func performNetworkDiagnostics() async -> [String: Any] {
+        var results: [String: Any] = [:]
+
+        // Test basic connectivity
+        let basicConnectivity = await isNetworkReachable()
+        results["basic_connectivity"] = basicConnectivity
+
+        // Test edge function connectivity
+        do {
+            let testRequest = URLRequest(url: baseURL)
+            let (_, response) = try await urlSession.data(for: testRequest)
+            if let httpResponse = response as? HTTPURLResponse {
+                results["edge_function_primary"] = [
+                    "status_code": httpResponse.statusCode,
+                    "success": httpResponse.statusCode == 200,
+                ]
+            }
+        } catch {
+            results["edge_function_primary"] = [
+                "error": error.localizedDescription,
+                "success": false,
+            ]
+        }
+
+        // Test fallback connectivity
+        do {
+            let testRequest = URLRequest(url: baseURL)
+            let (_, response) = try await fallbackUrlSession.data(for: testRequest)
+            if let httpResponse = response as? HTTPURLResponse {
+                results["edge_function_fallback"] = [
+                    "status_code": httpResponse.statusCode,
+                    "success": httpResponse.statusCode == 200,
+                ]
+            }
+        } catch {
+            results["edge_function_fallback"] = [
+                "error": error.localizedDescription,
+                "success": false,
+            ]
+        }
+
+        // Test AI coach endpoint specifically
+        do {
+            var testRequest = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
+            testRequest.httpMethod = "POST"
+            testRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            AppConfig.addAuthHeaders(&testRequest)
+
+            let testBody: [String: Any] = [
+                "prompt": "test", "model": "gpt-5-mini", "max_output_tokens": 10,
+            ]
+            testRequest.httpBody = try JSONSerialization.data(withJSONObject: testBody)
+
+            let (_, response) = try await urlSession.data(for: testRequest)
+            if let httpResponse = response as? HTTPURLResponse {
+                results["ai_coach_endpoint"] = [
+                    "status_code": httpResponse.statusCode,
+                    "success": httpResponse.statusCode == 200,
+                ]
+            }
+        } catch {
+            results["ai_coach_endpoint"] = [
+                "error": error.localizedDescription,
+                "success": false,
+            ]
+        }
+
+        return results
+    }
+
     // MARK: - Private Methods
 
     /// Performs a request with exponential backoff retry logic for network failures
@@ -346,7 +460,9 @@ public class ProxyService {
 
         for attempt in 0...maxRetries {
             do {
-                let (data, response) = try await urlSession.data(for: request)
+                // Use fallback URLSession for simulator after first failure
+                let sessionToUse = attempt > 0 ? fallbackUrlSession : urlSession
+                let (data, response) = try await sessionToUse.data(for: request)
 
                 // Check if it's a network error that we should retry
                 if let httpResponse = response as? HTTPURLResponse {
@@ -453,7 +569,13 @@ public class ProxyService {
                     .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
                     .resourceUnavailable, .secureConnectionFailed, .serverCertificateUntrusted:
                     if attempt < maxRetries {
-                        let backoffTime = pow(2.0, Double(attempt))  // 1s, 2s, 4s
+                        // More aggressive retry for connection lost errors
+                        let backoffTime =
+                            error.code == .networkConnectionLost
+                            ? pow(1.5, Double(attempt))
+                            :  // 1s, 1.5s, 2.25s for connection lost
+                            pow(2.0, Double(attempt))  // 1s, 2s, 4s for other errors
+
                         ClaimbLogger.warning(
                             "Network error, retrying in \(backoffTime)s",
                             service: "ProxyService",
@@ -462,6 +584,9 @@ public class ProxyService {
                                 "errorCode": String(error.code.rawValue),
                                 "attempt": String(attempt + 1),
                                 "maxRetries": String(maxRetries),
+                                "backoffTime": String(backoffTime),
+                                "url": request.url?.absoluteString ?? "unknown",
+                                "usingFallback": attempt > 0 ? "true" : "false",
                             ]
                         )
                         try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
@@ -498,13 +623,23 @@ public class ProxyService {
         guard let url = URL(string: "https://www.apple.com") else { return false }
 
         do {
+            // Try primary session first
             let (_, response) = try await urlSession.data(for: URLRequest(url: url))
             if let httpResponse = response as? HTTPURLResponse {
                 return httpResponse.statusCode == 200
             }
             return true
         } catch {
-            return false
+            // Try fallback session if primary fails
+            do {
+                let (_, response) = try await fallbackUrlSession.data(for: URLRequest(url: url))
+                if let httpResponse = response as? HTTPURLResponse {
+                    return httpResponse.statusCode == 200
+                }
+                return true
+            } catch {
+                return false
+            }
         }
     }
 }
@@ -528,5 +663,52 @@ public enum ProxyError: Error, LocalizedError {
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - HTTP/1.1 Only Protocol for Simulator
+
+/// Custom URLProtocol that forces HTTP/1.1 connections to avoid QUIC issues in simulator
+class HTTP1OnlyProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        var mutableRequest = request
+        // Force HTTP/1.1 by removing HTTP/2 and QUIC headers
+        mutableRequest.setValue(nil, forHTTPHeaderField: "Upgrade")
+        mutableRequest.setValue(nil, forHTTPHeaderField: "HTTP2-Settings")
+        mutableRequest.setValue("keep-alive", forHTTPHeaderField: "Connection")
+        return mutableRequest
+    }
+
+    override func startLoading() {
+        // Use the default URLSession to handle the request
+        let session = URLSession.shared
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                self.client?.urlProtocol(self, didFailWithError: error)
+                return
+            }
+
+            if let response = response {
+                self.client?.urlProtocol(
+                    self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            }
+
+            if let data = data {
+                self.client?.urlProtocol(self, didLoad: data)
+            }
+
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+        task.resume()
+    }
+
+    override func stopLoading() {
+        // No-op for this simple implementation
     }
 }

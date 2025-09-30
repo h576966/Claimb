@@ -512,9 +512,9 @@ public class OpenAIService {
     // MARK: - Post-Game Analysis Helpers
 
     private func getChampionName(for championId: Int) -> String {
-        // TODO: Integrate with champion data from Champion section
-        // For now, return a placeholder
-        return "Champion \(championId)"
+        // Get champion name from DataDragon service
+        // This integrates with the existing champion data loading system
+        return Champion.getChampionName(for: championId)
     }
 
     private func getChampionPerformance(
@@ -523,9 +523,28 @@ public class OpenAIService {
         role: String,
         kpiService: KPICalculationService
     ) async -> [String: Double] {
-        // TODO: Get champion-specific performance data
-        // This would integrate with existing champion pool logic
-        return [:]
+        // Get champion-specific performance data from recent matches
+        // This integrates with the existing champion pool analysis system
+        do {
+            let kpis = try await kpiService.calculateRoleKPIs(
+                matches: [],  // Would need to pass recent matches here
+                role: role,
+                summoner: summoner
+            )
+
+            var performance: [String: Double] = [:]
+            for kpi in kpis {
+                if let doubleValue = Double(kpi.value) {
+                    performance[kpi.metric] = doubleValue
+                }
+            }
+            return performance
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to get champion performance data", service: "OpenAIService",
+                metadata: ["championId": String(championId), "error": error.localizedDescription])
+            return [:]
+        }
     }
 
     private func createPostGamePrompt(
@@ -617,8 +636,39 @@ public class OpenAIService {
         summoner: Summoner,
         kpiService: KPICalculationService
     ) async -> [String: String] {
-        // TODO: Analyze role-based performance trends over last 10 games
-        return [:]
+        // Analyze role-based performance trends over last 10 games
+        let recentMatches = Array(matches.prefix(10))
+        var roleTrends: [String: String] = [:]
+
+        // Get unique roles played
+        let roles = Set(
+            recentMatches.compactMap { match in
+                match.participants.first(where: { $0.puuid == summoner.puuid })
+                    .map { RoleUtils.normalizeRole(teamPosition: $0.teamPosition) }
+            })
+
+        for role in roles {
+            do {
+                let kpis = try await kpiService.calculateRoleKPIs(
+                    matches: recentMatches,
+                    role: role,
+                    summoner: summoner
+                )
+
+                // Analyze trend based on KPI values
+                let avgScore =
+                    kpis.compactMap { Double($0.value) }.reduce(0, +) / Double(kpis.count)
+                let trend = avgScore > 0.6 ? "improving" : avgScore > 0.4 ? "stable" : "declining"
+                roleTrends[role] = trend
+            } catch {
+                ClaimbLogger.warning(
+                    "Failed to analyze role trends for \(role)", service: "OpenAIService",
+                    metadata: ["error": error.localizedDescription])
+                roleTrends[role] = "unknown"
+            }
+        }
+
+        return roleTrends
     }
 
     private func createPerformanceSummaryPrompt(

@@ -41,17 +41,20 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 
 ## 📱 **Current Features**
 
-### **✅ Implemented**
-- **Account Management**: Login with Riot ID (Summoner Name + Tag)
-- **Match History**: View recent matches with detailed statistics
+### **✅ Fully Implemented**
+- **Account Management**: Login with Riot ID (Summoner Name + Tag) with persistent sessions
+- **Match History**: View recent matches with detailed statistics (100 matches cached)
 - **Champion Data**: Complete champion database (171 champions) with Data Dragon integration
-- **Performance Analytics**: KPI-focused dashboard with role-specific metrics
-- **Champion Pool Analysis**: Track champion performance and win rates
-- **AI Coaching**: Dual-focused coaching with post-game analysis and performance summaries
-- **Offline Caching**: 50 matches cached per summoner with background refresh
-- **Region Support**: EUW, NA, EUNE with proper API routing
-- **Role-Based Analysis**: Track performance by role (Top, Jungle, Mid, ADC, Support)
-- **Baseline Comparisons**: Compare performance against role-specific baselines
+- **Performance Analytics**: KPI-focused dashboard with role-specific metrics and baseline comparisons
+- **Champion Pool Analysis**: Track champion performance, win rates, and filtering options
+- **AI Coaching**: Dual-focused coaching system with post-game analysis and performance summaries
+- **Offline Caching**: 100 matches cached per summoner with background refresh
+- **Region Support**: EUW, NA, EUNE with proper API routing through Supabase proxy
+- **Role-Based Analysis**: Track performance by role with persistent role selection
+- **Baseline Comparisons**: Compare performance against role-specific baselines from real data
+- **Secure API Architecture**: All external API calls through Supabase edge functions
+- **UIState Pattern**: Consistent loading, error, and empty states across all views
+- **Design System**: Complete Apple Watch-like interface with dark card-based layouts
 
 ### **✅ Recently Completed (Architecture Modernization)**
 - **Supabase Edge Function Integration**: Secure API calls through server-side proxy
@@ -63,6 +66,33 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Structured Logging**: Comprehensive logging with ClaimbLogger
 - **Performance Optimizations**: Static JSON loading over database queries
 - **Secure API Management**: Server-side API key management with JWT authentication
+
+## 🏗️ **Current Implementation Status**
+
+### **✅ Architecture (Fully Implemented)**
+- **SwiftData Models**: 6 models with proper relationships and computed properties
+- **Supabase Integration**: Complete proxy service with secure API key management
+- **DataManager**: 879 lines with extracted components (MatchParser, ChampionDataLoader, BaselineDataLoader)
+- **UIState Pattern**: Standardized state management across all views
+- **Design System**: Complete with colors, typography, spacing, and reusable components
+- **Request Deduplication**: Generic system preventing duplicate API calls
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+
+### **✅ Core Features (Fully Implemented)**
+- **3-Tab Interface**: Champion, Performance, Coaching with role-based filtering
+- **Dual-Focused Coaching**: Post-game analysis + Performance summary with auto-triggers
+- **Champion Pool Management**: Performance tracking, filtering, and win rate analysis
+- **KPI Dashboard**: Role-specific metrics with baseline comparisons
+- **Persistent Sessions**: Login state and role selection persist across app restarts
+- **Offline-First**: Full functionality without internet after initial sync
+
+### **✅ Technical Implementation (Fully Implemented)**
+- **RiotProxyClient**: Secure API communication through Supabase edge functions
+- **DataDragonService**: Static game data with caching and version management
+- **OpenAIService**: AI coaching with GPT-4 Turbo optimization and response caching
+- **KPICalculationService**: Performance analysis with role-specific metrics
+- **UserSession**: Session management with persistent login and role selection
+- **Structured Logging**: Comprehensive logging with ClaimbLogger across all services
 
 ## 🏗️ **Recent Architecture Improvements**
 
@@ -78,7 +108,7 @@ We recently completed a major architecture modernization by integrating Supabase
 
 #### **🚀 New Services Architecture**
 - **ProxyService**: Centralized service for all API calls through Supabase edge functions
-- **RiotProxyClient**: Riot API communication via secure proxy
+- **RiotProxyClient**: Riot API communication via secure proxy (replaces RiotHTTPClient)
 - **OpenAIService**: AI coaching insights via secure proxy
 - **AppConfig**: Centralized configuration management for Supabase credentials
 
@@ -220,6 +250,7 @@ We're implementing a comprehensive redesign of the coaching system to provide mo
 - **Participant**: Individual player performance data
 - **Champion**: Static champion data with integrated class mapping
 - **Baseline**: Performance benchmarks for coaching analysis
+- **CoachingResponseCache**: Cached AI coaching responses with expiration
 
 ### **Key Metrics Tracked**
 - **Combat**: KDA, Damage Dealt/Taken, Kill Participation
@@ -243,16 +274,14 @@ Claimb/
 │   ├── Coaching/            # AI coaching features
 │   ├── KPIs/                # Performance analytics
 │   └── Onboarding/          # Login and role selection
-├── Models/                  # SwiftData models
+├── Models/                  # SwiftData models (6 models)
 ├── Services/                # External service integrations
 │   ├── Riot/                # Riot API client (via proxy)
 │   ├── DataDragon/          # Data Dragon service
 │   ├── Proxy/               # Supabase edge function proxy
 │   ├── Storage/             # Data management
 │   └── Coaching/            # Baseline and analysis
-├── Tests/                   # Test suites
-│   ├── Unit/                # Unit tests
-│   └── Snapshot/            # UI snapshot tests
+├── ClaimbTests/             # Test suites
 └── Assets.xcassets/         # App icons and images
 ```
 
@@ -262,10 +291,10 @@ Claimb/
 - **ChampionDataLoader**: Champion data management and loading (~90 lines)
 - **BaselineDataLoader**: Baseline data management (~110 lines)
 - **ProxyService**: Secure API calls through Supabase edge functions
-- **RiotProxyClient**: Riot API communication via proxy service
+- **RiotProxyClient**: Riot API communication via proxy service (replaces RiotHTTPClient)
 - **DataDragonService**: Manages static game data and champion information
 - **KPICalculationService**: Performance analysis and coaching insights
-- **OpenAIService**: AI coaching insights via proxy service (GPT-5 Mini optimized)
+- **OpenAIService**: AI coaching insights via proxy service (GPT-4 Turbo optimized)
 - **UserSession**: Session management and persistent login with role persistence
 
 ### **Architecture Principles**
@@ -312,7 +341,7 @@ The app includes comprehensive test views for development:
 ### **Supported APIs**
 - **Riot Games API**: Account lookup, summoner data, match history and details
 - **Data Dragon API**: Champion data, icons, and version management
-- **OpenAI API**: AI coaching insights and analysis via GPT-5 Mini (optimized)
+- **OpenAI API**: AI coaching insights and analysis via GPT-4 Turbo (optimized)
 
 ### **Rate Limiting & Caching**
 - **Server-Side Rate Limiting**: Handled by Supabase edge functions
@@ -333,14 +362,14 @@ The app includes comprehensive test views for development:
 
 ## 📈 **Roadmap**
 
-### **Phase 2: Coaching Redesign (Current)**
-- [ ] Implement dual-focused coaching system (post-game + performance summary)
-- [ ] Update OpenAIService for champion-focused post-game analysis
-- [ ] Update OpenAIService for role-focused performance summary
-- [ ] Integrate champion pool logic from Champion section
-- [ ] Simplify CoachingView UI to two focused cards
-- [ ] Remove role/champion diversity from Performance section display
-- [ ] Add smart auto-trigger logic for post-game analysis
+### **Phase 2: Coaching Redesign (Completed)**
+- [x] Implement dual-focused coaching system (post-game + performance summary)
+- [x] Update OpenAIService for champion-focused post-game analysis
+- [x] Update OpenAIService for role-focused performance summary
+- [x] Integrate champion pool logic from Champion section
+- [x] Simplify CoachingView UI to two focused cards
+- [x] Remove role/champion diversity from Performance section display
+- [x] Add smart auto-trigger logic for post-game analysis
 
 ### **Phase 3: Testing Infrastructure (Next)**
 - [ ] Unit tests for DataManager and critical components

@@ -6,9 +6,9 @@
 //
 
 import Foundation
+import Observation
 import SwiftData
 import SwiftUI
-import Observation
 
 /// Unified view model for all data loading and statistics
 @MainActor
@@ -294,9 +294,23 @@ public class MatchDataViewModel {
 
     /// Gets baseline data for a specific role
     private func getBaselineForRole(_ role: String) async -> Baseline? {
-        // TODO: Implement proper baseline loading for champion-specific KPIs
-        // For now, return nil to avoid compilation issues
-        return nil
+        guard let dataManager = dataManager else { return nil }
+
+        do {
+            // Try to get baseline for the role with "ALL" class tag
+            let baselineRole = normalizedRoleToBaselineRole(role)
+            return try await dataManager.getBaseline(
+                role: baselineRole,
+                classTag: "ALL",
+                metric: "deaths_per_game"  // Default metric for baseline lookup
+            )
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to get baseline for role \(role)",
+                service: "MatchDataViewModel",
+                metadata: ["error": error.localizedDescription])
+            return nil
+        }
     }
 
     // MARK: - Private Methods

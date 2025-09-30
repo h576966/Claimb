@@ -70,16 +70,6 @@ public class DataManager {
         return instance
     }
 
-    /// Factory method to create DataManager with default dependencies (deprecated - use shared instead)
-    /// Eliminates boilerplate by providing standard RiotClient and DataDragonService instances
-    @available(
-        *, deprecated,
-        message: "Use DataManager.shared(with:) instead to prevent multiple instances"
-    )
-    public static func create(with modelContext: ModelContext) -> DataManager {
-        return shared(with: modelContext)
-    }
-
     // MARK: - Request Deduplication Helper
 
     /// Generic helper for request deduplication
@@ -588,7 +578,7 @@ public class DataManager {
     ) async throws {
         let jsonData = try JSONEncoder().encode(analysis)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-        
+
         let cache = CoachingResponseCache(
             summonerPuuid: summoner.puuid,
             responseType: "postGame",
@@ -596,15 +586,15 @@ public class DataManager {
             responseJSON: jsonString,
             expirationHours: expirationHours
         )
-        
+
         modelContext.insert(cache)
         try modelContext.save()
-        
+
         ClaimbLogger.debug(
             "Cached post-game analysis", service: "DataManager",
             metadata: [
                 "summoner": summoner.gameName,
-                "matchId": matchId
+                "matchId": matchId,
             ]
         )
     }
@@ -617,17 +607,17 @@ public class DataManager {
     ) async throws {
         let jsonData = try JSONEncoder().encode(summary)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-        
+
         let cache = CoachingResponseCache(
             summonerPuuid: summoner.puuid,
             responseType: "performance",
             responseJSON: jsonString,
             expirationHours: expirationHours
         )
-        
+
         modelContext.insert(cache)
         try modelContext.save()
-        
+
         ClaimbLogger.debug(
             "Cached performance summary", service: "DataManager",
             metadata: [
@@ -643,14 +633,12 @@ public class DataManager {
     ) async throws -> PostGameAnalysis? {
         let descriptor = FetchDescriptor<CoachingResponseCache>()
         let allCaches = try modelContext.fetch(descriptor)
-        
+
         let cached = allCaches.first { cache in
-            cache.summonerPuuid == summoner.puuid &&
-            cache.responseType == "postGame" &&
-            cache.matchId == matchId &&
-            cache.isValid
+            cache.summonerPuuid == summoner.puuid && cache.responseType == "postGame"
+                && cache.matchId == matchId && cache.isValid
         }
-        
+
         return try cached?.getPostGameAnalysis()
     }
 
@@ -660,13 +648,12 @@ public class DataManager {
     ) async throws -> PerformanceSummary? {
         let descriptor = FetchDescriptor<CoachingResponseCache>()
         let allCaches = try modelContext.fetch(descriptor)
-        
+
         let cached = allCaches.first { cache in
-            cache.summonerPuuid == summoner.puuid &&
-            cache.responseType == "performance" &&
-            cache.isValid
+            cache.summonerPuuid == summoner.puuid && cache.responseType == "performance"
+                && cache.isValid
         }
-        
+
         return try cached?.getPerformanceSummary()
     }
 
@@ -674,12 +661,12 @@ public class DataManager {
     public func cleanupExpiredCoachingResponses() async throws {
         let descriptor = FetchDescriptor<CoachingResponseCache>()
         let allCaches = try modelContext.fetch(descriptor)
-        
+
         let expired = allCaches.filter { !$0.isValid }
         for cache in expired {
             modelContext.delete(cache)
         }
-        
+
         if !expired.isEmpty {
             try modelContext.save()
             ClaimbLogger.debug(
