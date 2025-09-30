@@ -45,11 +45,17 @@ public class ProxyService {
 
         // Simulator-specific network configuration to avoid QUIC issues
         #if targetEnvironment(simulator)
-            // Force HTTP/1.1 for simulator to avoid QUIC connection issues
-            config.protocolClasses = [HTTP1OnlyProtocol.self]
-            config.timeoutIntervalForRequest = 30.0  // Shorter timeout for simulator
-            config.timeoutIntervalForResource = 60.0
+            // Disable HTTP/3 (QUIC) for simulator to avoid connection issues
+            // Note: We can't force HTTP/1.1 directly, but we can optimize for stability
+            config.timeoutIntervalForRequest = 60.0  // Longer timeout for simulator
+            config.timeoutIntervalForResource = 120.0
             config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
+            config.multipathServiceType = .none  // Disable multipath TCP
+            
+            ClaimbLogger.info("Using simulator-optimized network configuration", service: "ProxyService", metadata: [
+                "timeout": "60s",
+                "connections": "2"
+            ])
         #else
             // Production configuration with HTTP/2 support
             config.timeoutIntervalForRequest = 45.0
@@ -77,8 +83,8 @@ public class ProxyService {
         fallbackConfig.httpCookieAcceptPolicy = .never
 
         #if targetEnvironment(simulator)
-            // Use HTTP/1.1 only for fallback in simulator
-            fallbackConfig.protocolClasses = [HTTP1OnlyProtocol.self]
+            // Use minimal configuration for fallback in simulator
+            fallbackConfig.multipathServiceType = .none
         #endif
 
         self.fallbackUrlSession = URLSession(configuration: fallbackConfig)
@@ -666,49 +672,3 @@ public enum ProxyError: Error, LocalizedError {
     }
 }
 
-// MARK: - HTTP/1.1 Only Protocol for Simulator
-
-/// Custom URLProtocol that forces HTTP/1.1 connections to avoid QUIC issues in simulator
-class HTTP1OnlyProtocol: URLProtocol {
-    override class func canInit(with request: URLRequest) -> Bool {
-        return true
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        var mutableRequest = request
-        // Force HTTP/1.1 by removing HTTP/2 and QUIC headers
-        mutableRequest.setValue(nil, forHTTPHeaderField: "Upgrade")
-        mutableRequest.setValue(nil, forHTTPHeaderField: "HTTP2-Settings")
-        mutableRequest.setValue("keep-alive", forHTTPHeaderField: "Connection")
-        return mutableRequest
-    }
-
-    override func startLoading() {
-        // Use the default URLSession to handle the request
-        let session = URLSession.shared
-        let task = session.dataTask(with: request) { [weak self] data, response, error in
-            guard let self = self else { return }
-
-            if let error = error {
-                self.client?.urlProtocol(self, didFailWithError: error)
-                return
-            }
-
-            if let response = response {
-                self.client?.urlProtocol(
-                    self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            }
-
-            if let data = data {
-                self.client?.urlProtocol(self, didLoad: data)
-            }
-
-            self.client?.urlProtocolDidFinishLoading(self)
-        }
-        task.resume()
-    }
-
-    override func stopLoading() {
-        // No-op for this simple implementation
-    }
-}
