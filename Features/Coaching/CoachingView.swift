@@ -49,6 +49,10 @@ class CoachingViewModel {
     var lastAnalyzedMatchId: PersistentIdentifier?
     var performanceSummaryUpdateCounter: Int = 0
     var selectedCoachingTab: CoachingTab = .postGame
+    
+    // MARK: - Background Refresh State
+    var isRefreshingInBackground = false
+    var showCachedDataWarning = false
 
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
@@ -205,60 +209,114 @@ class CoachingViewModel {
 
     /// Generates post-game analysis for a specific match
     func generatePostGameAnalysis(for match: Match) async {
+        let matchId = String(describing: match.id)
+        
+        // Check cache first - show immediately if available
+        if let cachedAnalysis = try? await dataManager.getCachedPostGameAnalysis(
+            for: summoner,
+            matchId: matchId
+        ) {
+            postGameAnalysis = cachedAnalysis
+            showCachedDataWarning = true
+            ClaimbLogger.info(
+                "Showing cached post-game analysis", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchId": matchId
+                ])
+            
+            // Try to refresh in background with fast timeout
+            Task {
+                await refreshPostGameAnalysisInBackground(for: match, matchId: matchId)
+            }
+            return
+        }
+
+        // No cache available - try with fast timeout first
         isAnalyzing = true
         postGameError = ""
 
         do {
-            let matchId = String(describing: match.id)
-            
-            // Check cache first
-            if let cachedAnalysis = try await dataManager.getCachedPostGameAnalysis(
+            // Generate new analysis with fast timeout (OpenAI call)
+            let analysis = try await openAIService.generatePostGameAnalysis(
+                match: match,
+                summoner: summoner,
+                kpiService: kpiService
+            )
+
+            // Cache the response
+            try await dataManager.cachePostGameAnalysis(
+                analysis,
                 for: summoner,
                 matchId: matchId
-            ) {
-                postGameAnalysis = cachedAnalysis
-                ClaimbLogger.debug(
-                    "Using cached post-game analysis", service: "CoachingViewModel",
-                    metadata: [
-                        "summoner": summoner.gameName,
-                        "matchId": matchId
-                    ])
-            } else {
-                // Generate new analysis
-                let analysis = try await openAIService.generatePostGameAnalysis(
-                    match: match,
-                    summoner: summoner,
-                    kpiService: kpiService
-                )
+            )
 
-                // Cache the response
-                try await dataManager.cachePostGameAnalysis(
-                    analysis,
-                    for: summoner,
-                    matchId: matchId
-                )
+            postGameAnalysis = analysis
+            showCachedDataWarning = false
 
-                postGameAnalysis = analysis
-
-                ClaimbLogger.info(
-                    "Post-game analysis completed", service: "CoachingViewModel",
-                    metadata: [
-                        "championName": analysis.championName,
-                        "gameResult": analysis.gameResult,
-                    ])
-            }
+            ClaimbLogger.info(
+                "Post-game analysis completed", service: "CoachingViewModel",
+                metadata: [
+                    "championName": analysis.championName,
+                    "gameResult": analysis.gameResult,
+                ])
 
         } catch {
             postGameError = ErrorHandler.userFriendlyMessage(for: error)
             ClaimbLogger.error(
                 "Post-game analysis failed", service: "CoachingViewModel",
-                error: error)
+                error: error,
+                metadata: [
+                    "errorType": String(describing: type(of: error))
+                ])
         }
 
         isAnalyzing = false
     }
+    
+    /// Refreshes post-game analysis in background without blocking UI
+    private func refreshPostGameAnalysisInBackground(for match: Match, matchId: String) async {
+        isRefreshingInBackground = true
+        
+        do {
+            // Generate fresh analysis
+            let analysis = try await openAIService.generatePostGameAnalysis(
+                match: match,
+                summoner: summoner,
+                kpiService: kpiService
+            )
 
-    /// Generates performance summary for last 10 games
+            // Cache the response
+            try await dataManager.cachePostGameAnalysis(
+                analysis,
+                for: summoner,
+                matchId: matchId
+            )
+
+            // Update UI with fresh data
+            postGameAnalysis = analysis
+            showCachedDataWarning = false
+
+            ClaimbLogger.info(
+                "Background refresh completed", service: "CoachingViewModel",
+                metadata: [
+                    "championName": analysis.championName,
+                    "gameResult": analysis.gameResult,
+                ])
+
+        } catch {
+            // Silently fail - user already has cached data
+            ClaimbLogger.warning(
+                "Background refresh failed (cached data still shown)", service: "CoachingViewModel",
+                metadata: [
+                    "error": error.localizedDescription
+                ])
+        }
+
+        isRefreshingInBackground = false
+    }
+
+    /// Generates performance summary for last 10 games with optimistic caching
     func generatePerformanceSummary(matches: [Match]) async {
         let recentMatches = Array(matches.prefix(10))
 
@@ -267,47 +325,99 @@ class CoachingViewModel {
             return
         }
 
-        do {
-            // Check cache first
-            if let cachedSummary = try await dataManager.getCachedPerformanceSummary(
-                for: summoner
-            ) {
-                performanceSummary = cachedSummary
-                ClaimbLogger.debug(
-                    "Using cached performance summary", service: "CoachingViewModel",
-                    metadata: [
-                        "summoner": summoner.gameName
-                    ])
-            } else {
-                // Generate new summary
-                let summary = try await openAIService.generatePerformanceSummary(
-                    matches: recentMatches,
-                    summoner: summoner,
-                    kpiService: kpiService
-                )
-
-                // Cache the response
-                try await dataManager.cachePerformanceSummary(
-                    summary,
-                    for: summoner
-                )
-
-                performanceSummary = summary
-
-                ClaimbLogger.info(
-                    "Performance summary completed", service: "CoachingViewModel",
-                    metadata: [
-                        "overallScore": String(summary.overallScore),
-                        "gameCount": String(recentMatches.count),
-                    ])
+        // Check cache first - show immediately if available
+        if let cachedSummary = try? await dataManager.getCachedPerformanceSummary(
+            for: summoner
+        ) {
+            performanceSummary = cachedSummary
+            showCachedDataWarning = true
+            ClaimbLogger.info(
+                "Showing cached performance summary", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName
+                ])
+            
+            // Try to refresh in background
+            Task {
+                await refreshPerformanceSummaryInBackground(matches: recentMatches)
             }
+            return
+        }
+
+        // No cache available - generate fresh
+        do {
+            let summary = try await openAIService.generatePerformanceSummary(
+                matches: recentMatches,
+                summoner: summoner,
+                kpiService: kpiService
+            )
+
+            // Cache the response
+            try await dataManager.cachePerformanceSummary(
+                summary,
+                for: summoner
+            )
+
+            performanceSummary = summary
+            showCachedDataWarning = false
+
+            ClaimbLogger.info(
+                "Performance summary completed", service: "CoachingViewModel",
+                metadata: [
+                    "overallScore": String(summary.overallScore),
+                    "gameCount": String(recentMatches.count),
+                ])
 
         } catch {
             performanceSummaryError = ErrorHandler.userFriendlyMessage(for: error)
             ClaimbLogger.error(
                 "Performance summary failed", service: "CoachingViewModel",
-                error: error)
+                error: error,
+                metadata: [
+                    "errorType": String(describing: type(of: error))
+                ])
         }
+    }
+    
+    /// Refreshes performance summary in background without blocking UI
+    private func refreshPerformanceSummaryInBackground(matches: [Match]) async {
+        isRefreshingInBackground = true
+        
+        do {
+            let summary = try await openAIService.generatePerformanceSummary(
+                matches: matches,
+                summoner: summoner,
+                kpiService: kpiService
+            )
+
+            // Cache the response
+            try await dataManager.cachePerformanceSummary(
+                summary,
+                for: summoner
+            )
+
+            // Update UI with fresh data
+            performanceSummary = summary
+            showCachedDataWarning = false
+
+            ClaimbLogger.info(
+                "Background refresh of performance summary completed", service: "CoachingViewModel",
+                metadata: [
+                    "overallScore": String(summary.overallScore),
+                    "gameCount": String(matches.count),
+                ])
+
+        } catch {
+            // Silently fail - user already has cached data
+            ClaimbLogger.warning(
+                "Background refresh of performance summary failed (cached data still shown)", 
+                service: "CoachingViewModel",
+                metadata: [
+                    "error": error.localizedDescription
+                ])
+        }
+
+        isRefreshingInBackground = false
     }
 }
 
@@ -405,6 +515,21 @@ struct CoachingView: View {
         VStack(spacing: 0) {
             // Coaching Tab Selector
             coachingTabSelector
+            
+            // Background refresh indicator
+            if let viewModel = viewModel, viewModel.isRefreshingInBackground {
+                HStack(spacing: DesignSystem.Spacing.sm) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.accent))
+                        .scaleEffect(0.6)
+                    
+                    Text("Updating insights...")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+                .padding(.vertical, DesignSystem.Spacing.xs)
+                .transition(.opacity)
+            }
             
             // Content based on selected tab
             ScrollView {

@@ -51,11 +51,13 @@ public class ProxyService {
             config.timeoutIntervalForResource = 120.0
             config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
             config.multipathServiceType = .none  // Disable multipath TCP
-            
-            ClaimbLogger.info("Using simulator-optimized network configuration", service: "ProxyService", metadata: [
-                "timeout": "60s",
-                "connections": "2"
-            ])
+
+            ClaimbLogger.info(
+                "Using simulator-optimized network configuration", service: "ProxyService",
+                metadata: [
+                    "timeout": "60s",
+                    "connections": "2",
+                ])
         #else
             // Production configuration with HTTP/2 support
             config.timeoutIntervalForRequest = 45.0
@@ -671,4 +673,3 @@ public enum ProxyError: Error, LocalizedError {
         }
     }
 }
-
