@@ -19,7 +19,6 @@ public struct CoachingAnalysis: Codable {
     public let nextSteps: [String]
     public let overallScore: Int  // 1-10 scale
     public let priorityFocus: String
-    public let performanceComparison: PerformanceComparison
 
     public init(
         strengths: [String],
@@ -28,8 +27,7 @@ public struct CoachingAnalysis: Codable {
         championAdvice: String,
         nextSteps: [String],
         overallScore: Int,
-        priorityFocus: String,
-        performanceComparison: PerformanceComparison
+        priorityFocus: String
     ) {
         self.strengths = strengths
         self.improvements = improvements
@@ -38,7 +36,6 @@ public struct CoachingAnalysis: Codable {
         self.nextSteps = nextSteps
         self.overallScore = overallScore
         self.priorityFocus = priorityFocus
-        self.performanceComparison = performanceComparison
     }
 }
 
@@ -204,7 +201,7 @@ public class OpenAIService {
         return try parseCoachingResponse(responseText)
     }
 
-    /// Generates post-game analysis focused on champion-specific advice
+    /// Generates post-game analysis focused on champion-specific advice with timeline data
     public func generatePostGameAnalysis(
         match: Match,
         summoner: Summoner,
@@ -223,8 +220,30 @@ public class OpenAIService {
         }
 
         // Get champion data
-        let championName = getChampionName(for: participant.championId)
+        let championName = participant.champion?.name ?? "Unknown Champion"
         let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+
+        // Try to get timeline data for enhanced analysis
+        var timelineData: String? = nil
+        do {
+            let proxyService = ProxyService()
+            timelineData = try await proxyService.riotTimelineLite(
+                matchId: match.matchId,
+                puuid: summoner.puuid,
+                region: "europe"
+            )
+            ClaimbLogger.info(
+                "Retrieved timeline data for post-game analysis", service: "OpenAIService",
+                metadata: [
+                    "matchId": match.matchId,
+                    "championName": championName,
+                    "timelineLength": String(timelineData?.count ?? 0)
+                ])
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to retrieve timeline data, proceeding without it", service: "OpenAIService",
+                metadata: ["matchId": match.matchId, "error": error.localizedDescription])
+        }
 
         // Get champion-specific performance data
         let championPerformance = await getChampionPerformance(
@@ -234,14 +253,15 @@ public class OpenAIService {
             kpiService: kpiService
         )
 
-        // Create post-game analysis prompt
-        let prompt = createPostGamePrompt(
+        // Create post-game analysis prompt with timeline data
+        let prompt = createPostGamePromptWithTimeline(
             match: match,
             participant: participant,
             summoner: summoner,
             championName: championName,
             role: role,
-            championPerformance: championPerformance
+            championPerformance: championPerformance,
+            timelineData: timelineData
         )
 
         // Make API request
@@ -360,70 +380,28 @@ public class OpenAIService {
             personalBaselines.isEmpty ? "" : createBaselineContext(baselines: personalBaselines)
 
         return """
-            You are an expert League of Legends coach specializing in data-driven analysis. Analyze the following player data and provide structured coaching insights.
+            You are a League of Legends coach. Analyze this player's performance and provide concise coaching insights.
 
-            **CRITICAL INSTRUCTIONS:**
-            - Use minimal reasoning - focus on direct analysis
-            - Response MUST be valid JSON matching the exact schema below
-            - Keep analysis concise but actionable
-            - Compare current performance against personal averages when available
-            - Prioritize the most impactful improvements
-
-            **Player Data:**
-            Player: \(summoner.gameName)#\(summoner.tagLine)
-            Primary Role: \(primaryRole)
+            **Player:** \(summoner.gameName)#\(summoner.tagLine) | **Role:** \(primaryRole)
             \(baselineContext)
             \(matchSummary)
 
-            **REQUIRED JSON RESPONSE SCHEMA:**
+            **Response Format (JSON only):**
             {
               "analysis": {
                 "strengths": ["string", "string"],
                 "improvements": ["string", "string"],
-                "actionableTips": ["string", "string", "string"],
+                "actionableTips": ["string", "string"],
                 "championAdvice": "string",
                 "nextSteps": ["string", "string"],
                 "overallScore": 7,
-                "priorityFocus": "string",
-                "performanceComparison": {
-                  "csPerMinute": {
-                    "current": 6.5,
-                    "average": 6.2,
-                    "trend": "above",
-                    "significance": "medium"
-                  },
-                  "deathsPerGame": {
-                    "current": 4.2,
-                    "average": 3.8,
-                    "trend": "below",
-                    "significance": "high"
-                  },
-                  "visionScore": {
-                    "current": 0.6,
-                    "average": 0.8,
-                    "trend": "below",
-                    "significance": "high"
-                  },
-                  "killParticipation": {
-                    "current": 0.45,
-                    "average": 0.52,
-                    "trend": "below",
-                    "significance": "medium"
-                  }
-                }
+                "priorityFocus": "string"
               },
-              "summary": "Brief 2-3 sentence summary of key insights"
+              "summary": "Brief 2-sentence summary"
             }
 
-            **ANALYSIS GUIDELINES:**
-            - Focus on role-specific improvements for \(primaryRole)
-            - Use personal averages as baselines when provided
-            - Highlight trends: "above" = better than average, "below" = worse than average
-            - Significance: "high" = major impact, "medium" = moderate impact, "low" = minor impact
-            - Keep tips specific and immediately actionable
-            - Overall score: 1-10 based on recent performance
-
-            Respond ONLY with valid JSON. No additional text or explanations.
+            **Focus:** Role-specific advice for \(primaryRole). Keep tips actionable. Score 1-10.
+            Respond ONLY with valid JSON.
             """
     }
 
@@ -512,9 +490,8 @@ public class OpenAIService {
     // MARK: - Post-Game Analysis Helpers
 
     private func getChampionName(for championId: Int) -> String {
-        // Return champion ID as placeholder
-        // In a full implementation, this would query the champion database
-        // For now, the champion name isn't critical for the AI analysis
+        // This should not be called anymore since we pass the actual champion data
+        // But keeping as fallback
         return "Champion \(championId)"
     }
 
@@ -561,42 +538,89 @@ public class OpenAIService {
         let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
 
         return """
-            You are an expert League of Legends coach. Provide a concise post-game analysis focused on the champion played and actionable advice for the next game.
+            League of Legends coach. Analyze this game and provide concise advice.
 
-            **CRITICAL INSTRUCTIONS:**
-            - Response MUST be valid JSON matching the exact schema below
-            - Focus on champion-specific advice
-            - Keep analysis concise (500 tokens max)
-            - Provide 2-3 specific things to focus on next game
+            **Game:** \(summoner.gameName) | \(championName) | \(role) | \(gameResult) | \(kda) | \(cs) CS | \(match.gameDuration / 60)min
 
-            **Game Data:**
-            Player: \(summoner.gameName)#\(summoner.tagLine)
-            Champion: \(championName)
-            Role: \(role)
-            Result: \(gameResult)
-            KDA: \(kda)
-            CS: \(cs)
-            Game Duration: \(match.gameDuration / 60) minutes
-
-            **REQUIRED JSON RESPONSE SCHEMA:**
+            **Response (JSON only):**
             {
               "championName": "\(championName)",
               "gameResult": "\(gameResult)",
               "kda": "\(kda)",
-              "keyTakeaways": ["string", "string", "string"],
+              "keyTakeaways": ["string", "string"],
               "championSpecificAdvice": "string",
               "championPoolAdvice": "string or null",
               "nextGameFocus": ["string", "string"]
             }
 
-            **ANALYSIS GUIDELINES:**
-            - Champion-specific: Focus on how to play \(championName) better
-            - Champion pool: Suggest avoiding low win-rate champions if applicable
-            - Next game: 2 specific things to improve
-            - Keep advice actionable and specific
-
-            Respond ONLY with valid JSON. No additional text.
+            **Focus:** Champion-specific advice for \(championName). Keep actionable.
+            Respond ONLY with valid JSON.
             """
+    }
+
+    private func createPostGamePromptWithTimeline(
+        match: Match,
+        participant: Participant,
+        summoner: Summoner,
+        championName: String,
+        role: String,
+        championPerformance: [String: Double],
+        timelineData: String?
+    ) -> String {
+        let gameResult = participant.win ? "Victory" : "Defeat"
+        let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+        let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
+        let gameDuration = match.gameDuration / 60
+
+        var prompt = """
+            You are a League of Legends post-game analyst specializing in early game performance analysis.
+
+            **GAME CONTEXT:**
+            Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
+            Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min
+
+            """
+
+        // Add timeline data if available
+        if let timeline = timelineData {
+            prompt += """
+                **EARLY GAME TIMELINE DATA:**
+                \(timeline)
+
+                **ANALYSIS APPROACH:**
+                - Focus on early game fundamentals for \(championName) in \(role)
+                - Use timeline data to identify specific timing issues
+                - Provide actionable advice based on early game performance
+                - Consider champion-specific power spikes and timings
+
+                """
+        } else {
+            prompt += """
+                **ANALYSIS APPROACH:**
+                - Focus on champion-specific advice for \(championName) in \(role)
+                - Provide actionable improvements for next game
+                - Consider role-specific fundamentals
+
+                """
+        }
+
+        prompt += """
+            **RESPONSE FORMAT (JSON only):**
+            {
+              "championName": "\(championName)",
+              "gameResult": "\(gameResult)",
+              "kda": "\(kda)",
+              "keyTakeaways": ["Specific early game insight 1", "Specific early game insight 2"],
+              "championSpecificAdvice": "\(championName)-specific early game advice for \(role)",
+              "championPoolAdvice": "Champion pool recommendation or null",
+              "nextGameFocus": ["Early game improvement 1", "Early game improvement 2"]
+            }
+
+            **FOCUS:** Early game performance analysis with timeline context when available.
+            Respond ONLY with valid JSON.
+            """
+
+        return prompt
     }
 
     private func parsePostGameResponse(_ responseText: String) throws -> PostGameAnalysis {
@@ -686,22 +710,11 @@ public class OpenAIService {
         let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
 
         return """
-            You are an expert League of Legends coach. Analyze the player's performance over the last 10 games and provide role-focused insights.
+            League of Legends coach. Analyze performance trends over last 10 games.
 
-            **CRITICAL INSTRUCTIONS:**
-            - Response MUST be valid JSON matching the exact schema below
-            - Focus on role-based trends and improvements
-            - Include diversity context in analysis
-            - Keep analysis concise but comprehensive
+            **Player:** \(summoner.gameName) | **Games:** \(recentMatches.count) | **Win Rate:** \(String(format: "%.1f", winRate * 100))% | **Roles:** \(diversityMetrics.roleCount) | **Champions:** \(diversityMetrics.championCount)
 
-            **Performance Data:**
-            Player: \(summoner.gameName)#\(summoner.tagLine)
-            Games Analyzed: \(recentMatches.count)
-            Win Rate: \(String(format: "%.1f", winRate * 100))%
-            Roles Played: \(diversityMetrics.roleCount) different roles
-            Champions Played: \(diversityMetrics.championCount) different champions
-
-            **REQUIRED JSON RESPONSE SCHEMA:**
+            **Response (JSON only):**
             {
               "overallScore": 7,
               "improvementsMade": ["string", "string"],
@@ -712,15 +725,8 @@ public class OpenAIService {
               "progressionInsights": "string"
             }
 
-            **ANALYSIS GUIDELINES:**
-            - Overall score: 1-10 based on recent performance trends
-            - Improvements: What's getting better over time
-            - Concerns: What's declining or needs attention
-            - Diversity: Comment on role/champion variety
-            - Focus areas: 2-3 specific things to work on
-            - Progression: Overall trend analysis
-
-            Respond ONLY with valid JSON. No additional text.
+            **Focus:** Role-based trends, improvements, concerns. Score 1-10.
+            Respond ONLY with valid JSON.
             """
     }
 

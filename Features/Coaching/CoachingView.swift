@@ -734,9 +734,6 @@ struct CoachingView: View {
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // Performance Comparison
-            performanceComparisonCard(comparison: response.analysis.performanceComparison)
-
             // Strengths & Improvements
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                 if !response.analysis.strengths.isEmpty {

@@ -9,6 +9,49 @@ import Foundation
 import Observation
 import UIKit
 
+// MARK: - Timeline Response Models
+
+struct TimelineLiteResponse: Codable {
+    let matchId: String
+    let region: String
+    let puuid: String
+    let participantId: Int
+    let checkpoints: Checkpoints
+    let timings: Timings
+    let visionPre15: VisionPre15
+    let platesPre14: Int
+}
+
+struct Checkpoints: Codable {
+    let tenMin: Checkpoint
+    let fifteenMin: Checkpoint
+    
+    enum CodingKeys: String, CodingKey {
+        case tenMin = "10min"
+        case fifteenMin = "15min"
+    }
+}
+
+struct Checkpoint: Codable {
+    let cs: Int
+    let gold: Int
+    let xp: Int
+    let kda: String
+}
+
+struct Timings: Codable {
+    let firstBackMin: Int?
+    let firstFullItemMin: Int?
+    let firstKillMin: Int?
+    let firstDeathMin: Int?
+}
+
+struct VisionPre15: Codable {
+    let wardsPlaced: Int
+    let wardsKilled: Int
+    let controlWards: Int
+}
+
 /// Proxy service for secure API calls through Supabase edge function
 @MainActor
 @Observable
@@ -268,6 +311,108 @@ public class ProxyService {
             "Proxy: Retrieved account data", service: "ProxyService",
             metadata: ["gameName": gameName, "tagLine": tagLine, "bytes": String(data.count)])
         return data
+    }
+
+    /// Fetches timeline-lite data for post-game analysis
+    public func riotTimelineLite(
+        matchId: String,
+        puuid: String,
+        region: String = "europe"
+    ) async throws -> String {
+        let regionCode = platformToRegion(region)
+        
+        var comps = URLComponents(
+            url: baseURL.appendingPathComponent("riot/timeline-lite"), 
+            resolvingAgainstBaseURL: false)!
+        comps.queryItems = [
+            .init(name: "matchId", value: matchId),
+            .init(name: "puuid", value: puuid),
+            .init(name: "region", value: regionCode),
+        ]
+        
+        var req = URLRequest(url: comps.url!)
+        req.httpMethod = "POST"
+        req.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        AppConfig.addAuthHeaders(&req)
+        
+        ClaimbLogger.apiRequest("Proxy: riot/timeline-lite", method: "POST", service: "ProxyService")
+        
+        let (data, resp) = try await performRequestWithRetry(req)
+        
+        guard let httpResponse = resp as? HTTPURLResponse else {
+            throw ProxyError.invalidResponse
+        }
+        
+        ClaimbLogger.apiResponse(
+            "Proxy: riot/timeline-lite", statusCode: httpResponse.statusCode, service: "ProxyService")
+        
+        guard httpResponse.statusCode == 200 else {
+            throw ProxyError.httpError(httpResponse.statusCode)
+        }
+        
+        
+        do {
+            let response = try JSONDecoder().decode(TimelineLiteResponse.self, from: data)
+            let timelineSummary = formatTimelineForLLM(response)
+            
+            ClaimbLogger.info(
+                "Proxy: Retrieved timeline-lite data", service: "ProxyService",
+                metadata: [
+                    "matchId": matchId,
+                    "participantId": String(response.participantId),
+                    "summaryLength": String(timelineSummary.count)
+                ])
+            
+            return timelineSummary
+        } catch {
+            ClaimbLogger.error(
+                "Proxy: Failed to decode timeline-lite response", service: "ProxyService",
+                error: error)
+            throw ProxyError.decodingError(error)
+        }
+    }
+    
+    /// Formats timeline data for LLM consumption
+    private func formatTimelineForLLM(_ timeline: TimelineLiteResponse) -> String {
+        var summary = "**EARLY GAME TIMELINE ANALYSIS:**\n\n"
+        
+        // Checkpoints
+        summary += "**10-Minute Checkpoint:**\n"
+        summary += "• CS: \(timeline.checkpoints.tenMin.cs)\n"
+        summary += "• Gold: \(timeline.checkpoints.tenMin.gold)\n"
+        summary += "• KDA: \(timeline.checkpoints.tenMin.kda)\n\n"
+        
+        summary += "**15-Minute Checkpoint:**\n"
+        summary += "• CS: \(timeline.checkpoints.fifteenMin.cs)\n"
+        summary += "• Gold: \(timeline.checkpoints.fifteenMin.gold)\n"
+        summary += "• KDA: \(timeline.checkpoints.fifteenMin.kda)\n\n"
+        
+        // Timings
+        summary += "**Key Timings:**\n"
+        if let firstBack = timeline.timings.firstBackMin {
+            summary += "• First Back: \(firstBack) minutes\n"
+        }
+        if let firstItem = timeline.timings.firstFullItemMin {
+            summary += "• First Full Item: \(firstItem) minutes\n"
+        }
+        if let firstKill = timeline.timings.firstKillMin {
+            summary += "• First Kill: \(firstKill) minutes\n"
+        }
+        if let firstDeath = timeline.timings.firstDeathMin {
+            summary += "• First Death: \(firstDeath) minutes\n"
+        }
+        summary += "\n"
+        
+        // Vision
+        summary += "**Vision Control (Pre-15min):**\n"
+        summary += "• Wards Placed: \(timeline.visionPre15.wardsPlaced)\n"
+        summary += "• Wards Killed: \(timeline.visionPre15.wardsKilled)\n"
+        summary += "• Control Wards: \(timeline.visionPre15.controlWards)\n\n"
+        
+        // Plates
+        summary += "**Tower Plates (Pre-14min):** \(timeline.platesPre14)\n"
+        
+        return summary
     }
 
     /// Fetches summoner data by PUUID
