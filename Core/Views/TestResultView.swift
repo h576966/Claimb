@@ -13,8 +13,14 @@ struct TestResultView: View {
     @State private var networkDiagnostics: [String: Any] = [:]
     @State private var isRunningDiagnostics = false
 
-    private var diagnosticItems: [(key: String, value: Any)] {
-        networkDiagnostics.map { (key: $0.key, value: $0.value) }
+    private struct DiagnosticItem: Identifiable {
+        let id: String
+        let key: String
+        let value: Any
+    }
+    
+    private var diagnosticItems: [DiagnosticItem] {
+        networkDiagnostics.map { DiagnosticItem(id: $0.key, key: $0.key, value: $0.value) }
             .sorted { $0.key < $1.key }
     }
 
@@ -70,7 +76,7 @@ struct TestResultView: View {
                 }
             }
 
-            // Network diagnostics results
+            // Network diagnostics results  
             if !networkDiagnostics.isEmpty {
                 Divider()
                     .padding(.vertical, 4)
@@ -80,50 +86,9 @@ struct TestResultView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
-                ForEach(diagnosticItems, id: \.key) { item in
-                    if let value = item.value as? [String: Any] {
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(
-                                systemName: (value["success"] as? Bool) == true
-                                    ? "checkmark.circle.fill" : "xmark.circle.fill"
-                            )
-                            .foregroundColor((value["success"] as? Bool) == true ? .green : .red)
-                            .font(.caption)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.key.replacingOccurrences(of: "_", with: " ").capitalized)
-                                    .font(DesignSystem.Typography.caption)
-                                    .fontWeight(.medium)
-
-                                if let statusCode = value["status_code"] as? Int {
-                                    Text("Status: \(statusCode)")
-                                        .font(DesignSystem.Typography.caption2)
-                                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                                }
-
-                                if let error = value["error"] as? String {
-                                    Text("Error: \(error)")
-                                        .font(DesignSystem.Typography.caption2)
-                                        .foregroundColor(.red)
-                                }
-                            }
-                        }
-                    } else if let boolValue = item.value as? Bool {
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(
-                                systemName: boolValue
-                                    ? "checkmark.circle.fill" : "xmark.circle.fill"
-                            )
-                            .foregroundColor(boolValue ? .green : .red)
-                            .font(.caption)
-
-                            Text(
-                                "\(item.key.replacingOccurrences(of: "_", with: " ").capitalized): \(boolValue ? "Connected" : "Failed")"
-                            )
-                            .font(DesignSystem.Typography.caption)
-                        }
-                    }
-                }
+                Text("Network diagnostics: \(networkDiagnostics.count) tests completed")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

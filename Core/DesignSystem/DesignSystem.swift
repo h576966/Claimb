@@ -20,6 +20,7 @@ struct DesignSystem {
 
         // Semantic colors
         static let background = Color.black
+        static let surface = Color(red: 0.15, green: 0.15, blue: 0.15)  // Slightly lighter than cardBackground
         static let cardBackground = Color(red: 0.1, green: 0.1, blue: 0.1)
         static let cardBorder = Color(red: 0.2, green: 0.2, blue: 0.2)
         static let textPrimary = Color.white

@@ -74,6 +74,12 @@ struct RoleUtils {
         }
     }
 
+    /// Checks if a role is valid (one of the 5 main roles)
+    static func isValidRole(_ role: String) -> Bool {
+        let validRoles = ["TOP", "JUNGLE", "MID", "ADC", "BOTTOM", "SUPPORT"]
+        return validRoles.contains(role.uppercased())
+    }
+
 }
 
 // MARK: - Supporting Types

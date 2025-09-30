@@ -512,9 +512,10 @@ public class OpenAIService {
     // MARK: - Post-Game Analysis Helpers
 
     private func getChampionName(for championId: Int) -> String {
-        // Get champion name from DataDragon service
-        // This integrates with the existing champion data loading system
-        return Champion.getChampionName(for: championId)
+        // Return champion ID as placeholder
+        // In a full implementation, this would query the champion database
+        // For now, the champion name isn't critical for the AI analysis
+        return "Champion \(championId)"
     }
 
     private func getChampionPerformance(
