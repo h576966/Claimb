@@ -78,10 +78,12 @@ struct RoleSelectorView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .claimbCard()
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.textSecondary, lineWidth: 1)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
         )
     }
 
@@ -272,7 +274,7 @@ struct RoleSelectionCard: View {
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
                     .stroke(
                         isSelected
-                            ? DesignSystem.Colors.primary : DesignSystem.Colors.textSecondary,
+                            ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBorder,
                         lineWidth: isSelected ? 2 : 1
                     )
             )

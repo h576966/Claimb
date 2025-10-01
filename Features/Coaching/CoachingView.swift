@@ -578,6 +578,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func lastGameSummaryContent(match: Match, participant: Participant) -> some View {
@@ -763,6 +767,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     // MARK: - New Dual-Focused Coaching Cards
@@ -792,6 +800,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func postGameAnalysisContent(analysis: PostGameAnalysis) -> some View {
@@ -942,6 +954,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func performanceSummaryContent(summary: PerformanceSummary) -> some View {
@@ -1090,6 +1106,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private var coachingErrorCard: some View {
@@ -1115,6 +1135,10 @@ struct CoachingView: View {
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func analyzePerformance() async {
