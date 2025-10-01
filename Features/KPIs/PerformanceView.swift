@@ -30,9 +30,11 @@ struct RankBadge: View {
                     .fontWeight(.semibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
-                Text("\(lp) LP")
-                    .font(.caption2)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                if lp > 0 {
+                    Text("\(lp) LP")
+                        .font(.caption2)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
             }
             
             Text(queueType)
@@ -53,6 +55,7 @@ struct RankBadge: View {
     private var rankColor: Color {
         let tier = rank.components(separatedBy: " ").first?.uppercased() ?? ""
         switch tier {
+        case "UNRANKED": return DesignSystem.Colors.textSecondary
         case "IRON": return .gray
         case "BRONZE": return .orange
         case "SILVER": return .gray.opacity(0.7)
@@ -178,12 +181,10 @@ struct PerformanceView: View {
                 Spacer()
                     .frame(height: DesignSystem.Spacing.md)
 
-                // Rank Badges
-                if summoner.hasAnyRank {
-                    rankBadgesView
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
-                        .padding(.bottom, DesignSystem.Spacing.md)
-                }
+                // Rank Badges - Always show rank information
+                rankBadgesView
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
 
                 // Role Selector
                 if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
@@ -263,23 +264,33 @@ struct PerformanceView: View {
 
     private var rankBadgesView: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-            // Solo/Duo Rank Badge
-            if let soloDuoRank = summoner.soloDuoRank {
+            if summoner.hasAnyRank {
+                // Solo/Duo Rank Badge
+                if let soloDuoRank = summoner.soloDuoRank {
+                    RankBadge(
+                        rank: soloDuoRank,
+                        lp: summoner.soloDuoLP ?? 0,
+                        queueType: "Solo/Duo",
+                        isPrimary: true
+                    )
+                }
+                
+                // Flex Rank Badge
+                if let flexRank = summoner.flexRank {
+                    RankBadge(
+                        rank: flexRank,
+                        lp: summoner.flexLP ?? 0,
+                        queueType: "Flex",
+                        isPrimary: false
+                    )
+                }
+            } else {
+                // Show "Unranked" when no ranks are available
                 RankBadge(
-                    rank: soloDuoRank,
-                    lp: summoner.soloDuoLP ?? 0,
-                    queueType: "Solo/Duo",
+                    rank: "Unranked",
+                    lp: 0,
+                    queueType: "No Rank",
                     isPrimary: true
-                )
-            }
-            
-            // Flex Rank Badge
-            if let flexRank = summoner.flexRank {
-                RankBadge(
-                    rank: flexRank,
-                    lp: summoner.flexLP ?? 0,
-                    queueType: "Flex",
-                    isPrimary: false
                 )
             }
         }

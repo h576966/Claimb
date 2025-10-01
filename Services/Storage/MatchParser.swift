@@ -162,13 +162,13 @@ public class MatchParser {
         var baronTakedowns = 0
         var hordeTakedowns = 0
         var atakhanTakedowns = 0
-        
+
         if let challenges = participantJson["challenges"] as? [String: Any] {
             _ = challenges["kda"] as? Double ?? 0.0
             _ = challenges["killParticipation"] as? Double ?? 0.0
             _ = challenges["soloKills"] as? Int ?? 0
             _ = challenges["teamDamagePercentage"] as? Double ?? 0.0
-            
+
             // Extract objective data from challenges
             dragonTakedowns = challenges["dragonTakedowns"] as? Int ?? 0
             riftHeraldTakedowns = challenges["riftHeraldTakedowns"] as? Int ?? 0
