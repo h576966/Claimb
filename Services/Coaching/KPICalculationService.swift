@@ -78,6 +78,8 @@ public class KPICalculationService {
         let killParticipation = calculateKillParticipation(
             participants: participants, matches: matches)
         let csPerMinute = calculateCSPerMinute(participants: participants, matches: matches)
+        let objectiveParticipation = calculateObjectiveParticipation(
+            participants: participants, matches: matches)
 
         // Debug logging for KPI calculations
         ClaimbLogger.debug(
@@ -87,6 +89,7 @@ public class KPICalculationService {
                 "visionScore": String(format: "%.2f", visionScore),
                 "killParticipation": String(format: "%.2f", killParticipation),
                 "csPerMinute": String(format: "%.2f", csPerMinute),
+                "objectiveParticipation": String(format: "%.2f", objectiveParticipation),
                 "participantCount": String(participants.count),
             ])
 
@@ -128,6 +131,15 @@ public class KPICalculationService {
                     matches: matches
                 ))
         }
+
+        // Add objective participation for all roles
+        kpis.append(
+            await createKPIMetric(
+                metric: "objective_participation_pct",
+                value: objectiveParticipation,
+                role: role,
+                matches: matches
+            ))
 
         // Note: Role Consistency and Champion Pool Size are now calculated for coaching use only
         // and are not displayed in the Performance section
@@ -180,6 +192,30 @@ public class KPICalculationService {
             return csPerMin.isNaN ? 0.0 : csPerMin
         }
         let result = csPerMinuteValues.reduce(0, +) / Double(participants.count)
+        return result.isNaN ? 0.0 : result
+    }
+
+    private func calculateObjectiveParticipation(participants: [Participant], matches: [Match])
+        -> Double
+    {
+        guard !participants.isEmpty else { return 0.0 }
+        let objectiveParticipations = participants.map { participant in
+            let match = matches.first { $0.participants.contains(participant) }
+            let teamObjectives = match?.getTeamObjectives(teamId: participant.teamId) ?? 0
+
+            if teamObjectives == 0 {
+                return 0.0
+            }
+
+            let totalParticipated =
+                participant.dragonTakedowns + participant.riftHeraldTakedowns
+                + participant.baronTakedowns + participant.hordeTakedowns
+                + participant.atakhanTakedowns
+
+            let participation = Double(totalParticipated) / Double(teamObjectives)
+            return participation.isNaN ? 0.0 : participation
+        }
+        let result = objectiveParticipations.reduce(0, +) / Double(participants.count)
         return result.isNaN ? 0.0 : result
     }
 

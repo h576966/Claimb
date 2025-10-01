@@ -274,7 +274,7 @@ public class DataManager {
                 let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
                 // Efficient incremental fetching strategy
-                let targetCount = self.maxMatchesPerSummoner
+                let targetCount = MatchFilteringUtils.targetInitialMatchCount
                 let currentCount = existingMatches.count
 
                 // Only fetch if we're below target or if matches are very old
@@ -288,29 +288,22 @@ public class DataManager {
                     return
                 }
 
-                // Calculate how many new matches to fetch
-                let neededMatches = targetCount - currentCount
-                let fetchCount = min(neededMatches, 20)  // Conservative: fetch max 20 new matches per refresh
-
-                ClaimbLogger.debug(
-                    "Incremental fetch: need \(neededMatches), fetching \(fetchCount) new matches",
-                    service: "DataManager",
+                // Use the same smart fetching strategy as initial load
+                ClaimbLogger.info(
+                    "Incremental refresh: using smart fetch strategy", service: "DataManager",
                     metadata: [
                         "currentCount": String(currentCount),
-                        "neededMatches": String(neededMatches),
-                        "fetchCount": String(fetchCount),
+                        "targetCount": String(targetCount),
+                        "neededMatches": String(targetCount - currentCount),
                     ]
                 )
 
-                let matchHistory = try await self.riotClient.getMatchHistory(
-                    puuid: summoner.puuid,
-                    region: summoner.region,
-                    count: fetchCount
-                )
+                // Use smart fetch to get more matches from all queues
+                let smartFetchResult = try await self.performSmartMatchFetch(for: summoner)
 
                 var newMatchesCount = 0
                 var skippedMatchesCount = 0
-                for matchId in matchHistory.history {
+                for matchId in smartFetchResult.matchIds {
                     // Skip if we already have this match
                     if existingMatchIds.contains(matchId) {
                         continue
@@ -421,33 +414,33 @@ public class DataManager {
         var allMatchIds: [String] = []
         var totalFetched = 0
 
-        // Strategy 1: Fetch from all relevant queues (420, 440, 400)
-        let relevantQueues = [420, 440, 400]  // Solo/Duo, Flex, Normal Draft
-        // Request extra matches per queue to account for remaining client-side filtering
-        // We only filter by duration and age now, so we need some extra matches
-        let matchesPerQueue = min(100, targetCount + 20)  // Request target + 20 to account for filtering
+        // Smart strategy: Prioritize ranked games, only fetch normal if needed
+        let rankedQueues = [420, 440]  // Solo/Duo, Flex
+        let normalQueue = 400  // Normal Draft
+
+        // Start with ranked games - fetch 50 per queue to get ~100 total
+        let matchesPerRankedQueue = min(50, targetCount / 2)
 
         ClaimbLogger.info(
-            "Fetching from all relevant queues (no time filter)", service: "DataManager",
+            "Smart fetch: prioritizing ranked games first", service: "DataManager",
             metadata: [
-                "queues": relevantQueues.map(String.init).joined(separator: ","),
-                "queueNames": relevantQueues.map { MatchFilteringUtils.queueDisplayName($0) }
-                    .joined(separator: ","),
-                "matchesPerQueue": String(matchesPerQueue),
                 "targetCount": String(targetCount),
-                "strategy": "queue-only-no-time-filter",
+                "rankedQueues": rankedQueues.map(String.init).joined(separator: ","),
+                "matchesPerRankedQueue": String(matchesPerRankedQueue),
+                "strategy": "ranked-first-with-normal-fallback",
             ]
         )
 
-        for queueId in relevantQueues {
+        // Fetch from ranked queues first
+        for queueId in rankedQueues {
             do {
                 let queueHistory = try await riotClient.getMatchHistory(
                     puuid: summoner.puuid,
                     region: summoner.region,
-                    count: matchesPerQueue,
-                    type: nil,  // Don't use type parameter at all
-                    queue: queueId,  // Only use queue parameter
-                    startTime: nil,  // Try without startTime parameter
+                    count: matchesPerRankedQueue,
+                    type: nil,
+                    queue: queueId,
+                    startTime: nil,
                     endTime: nil
                 )
 
@@ -456,21 +449,20 @@ public class DataManager {
                 allMatchIds.append(contentsOf: queueHistory.history)
 
                 ClaimbLogger.info(
-                    "Fetched from queue (queue-only)", service: "DataManager",
+                    "Fetched from ranked queue", service: "DataManager",
                     metadata: [
                         "queueId": String(queueId),
                         "queueName": MatchFilteringUtils.queueDisplayName(queueId),
-                        "count": String(queueCount),
+                        "requestedCount": String(matchesPerRankedQueue),
+                        "receivedCount": String(queueCount),
                         "totalSoFar": String(allMatchIds.count),
-                        "type": "nil",
-                        "queue": String(queueId),
                     ]
                 )
 
-                // If we have enough matches, we can stop early
+                // Stop early if we have enough matches
                 if allMatchIds.count >= targetCount {
                     ClaimbLogger.info(
-                        "Target reached, stopping early", service: "DataManager",
+                        "Target reached with ranked games, stopping", service: "DataManager",
                         metadata: [
                             "currentCount": String(allMatchIds.count),
                             "targetCount": String(targetCount),
@@ -480,14 +472,65 @@ public class DataManager {
                 }
             } catch {
                 ClaimbLogger.warning(
-                    "Failed to fetch from queue", service: "DataManager",
+                    "Failed to fetch from ranked queue", service: "DataManager",
                     metadata: [
                         "queueId": String(queueId),
                         "queueName": MatchFilteringUtils.queueDisplayName(queueId),
                         "error": error.localizedDescription,
                     ]
                 )
-                // Continue with other queues even if one fails
+            }
+        }
+
+        // Only fetch normal games if we still need more matches
+        let currentCount = allMatchIds.count
+        if currentCount < targetCount {
+            let neededMatches = targetCount - currentCount
+            let normalMatchesToFetch = min(neededMatches + 20, 100)  // Add buffer, cap at API limit
+
+            ClaimbLogger.info(
+                "Need more matches, fetching from normal draft", service: "DataManager",
+                metadata: [
+                    "currentCount": String(currentCount),
+                    "neededMatches": String(neededMatches),
+                    "normalMatchesToFetch": String(normalMatchesToFetch),
+                ]
+            )
+
+            do {
+                let normalHistory = try await riotClient.getMatchHistory(
+                    puuid: summoner.puuid,
+                    region: summoner.region,
+                    count: normalMatchesToFetch,
+                    type: nil,
+                    queue: normalQueue,
+                    startTime: nil,
+                    endTime: nil
+                )
+
+                let normalCount = normalHistory.history.count
+                totalFetched += normalCount
+                allMatchIds.append(contentsOf: normalHistory.history)
+
+                ClaimbLogger.info(
+                    "Fetched from normal draft", service: "DataManager",
+                    metadata: [
+                        "queueId": String(normalQueue),
+                        "queueName": MatchFilteringUtils.queueDisplayName(normalQueue),
+                        "requestedCount": String(normalMatchesToFetch),
+                        "receivedCount": String(normalCount),
+                        "totalSoFar": String(allMatchIds.count),
+                    ]
+                )
+            } catch {
+                ClaimbLogger.warning(
+                    "Failed to fetch from normal draft", service: "DataManager",
+                    metadata: [
+                        "queueId": String(normalQueue),
+                        "queueName": MatchFilteringUtils.queueDisplayName(normalQueue),
+                        "error": error.localizedDescription,
+                    ]
+                )
             }
         }
 
@@ -503,6 +546,7 @@ public class DataManager {
                 "finalCount": String(finalMatchIds.count),
                 "targetCount": String(targetCount),
                 "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
+                "strategy": allMatchIds.count >= targetCount ? "ranked-only" : "ranked-plus-normal",
             ]
         )
 

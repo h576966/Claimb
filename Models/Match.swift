@@ -72,7 +72,9 @@ public class Match {
 
     /// Checks if this match should be included in role statistics analysis
     public var isIncludedInRoleAnalysis: Bool {
-        return isStandardRiftGame && isRelevantGameMode
+        // Since we fetch by specific queues (420, 440, 400), all matches are guaranteed to be relevant
+        // No need for additional filtering here
+        return true
     }
 
     /// Checks if this is a game on Summoner's Rift

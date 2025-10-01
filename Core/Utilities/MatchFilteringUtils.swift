@@ -25,7 +25,7 @@ public struct MatchFilteringUtils {
     public static let minRankedMatchesForFallback = 20
 
     /// Target total matches to fetch for initial load
-    public static let targetInitialMatchCount = 50
+    public static let targetInitialMatchCount = 100
 
     /// Maximum matches to fetch per request (API limit)
     public static let maxMatchesPerRequest = 100
