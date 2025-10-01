@@ -25,7 +25,7 @@ struct TimelineLiteResponse: Codable {
 struct Checkpoints: Codable {
     let tenMin: Checkpoint
     let fifteenMin: Checkpoint
-    
+
     enum CodingKeys: String, CodingKey {
         case tenMin = "10min"
         case fifteenMin = "15min"
@@ -320,49 +320,55 @@ public class ProxyService {
         region: String = "europe"
     ) async throws -> String {
         let regionCode = platformToRegion(region)
-        
-        var comps = URLComponents(
-            url: baseURL.appendingPathComponent("riot/timeline-lite"), 
-            resolvingAgainstBaseURL: false)!
-        comps.queryItems = [
-            .init(name: "matchId", value: matchId),
-            .init(name: "puuid", value: puuid),
-            .init(name: "region", value: regionCode),
-        ]
-        
-        var req = URLRequest(url: comps.url!)
+
+        let url = baseURL.appendingPathComponent("riot/timeline-lite")
+        var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
         AppConfig.addAuthHeaders(&req)
-        
-        ClaimbLogger.apiRequest("Proxy: riot/timeline-lite", method: "POST", service: "ProxyService")
-        
+
+        // Send data as POST body instead of query parameters
+        let payload = [
+            "matchId": matchId,
+            "puuid": puuid,
+            "region": regionCode,
+        ]
+
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        } catch {
+            throw ProxyError.encodingError(error)
+        }
+
+        ClaimbLogger.apiRequest(
+            "Proxy: riot/timeline-lite", method: "POST", service: "ProxyService")
+
         let (data, resp) = try await performRequestWithRetry(req)
-        
+
         guard let httpResponse = resp as? HTTPURLResponse else {
             throw ProxyError.invalidResponse
         }
-        
+
         ClaimbLogger.apiResponse(
-            "Proxy: riot/timeline-lite", statusCode: httpResponse.statusCode, service: "ProxyService")
-        
+            "Proxy: riot/timeline-lite", statusCode: httpResponse.statusCode,
+            service: "ProxyService")
+
         guard httpResponse.statusCode == 200 else {
             throw ProxyError.httpError(httpResponse.statusCode)
         }
-        
-        
+
         do {
             let response = try JSONDecoder().decode(TimelineLiteResponse.self, from: data)
             let timelineSummary = formatTimelineForLLM(response)
-            
+
             ClaimbLogger.info(
                 "Proxy: Retrieved timeline-lite data", service: "ProxyService",
                 metadata: [
                     "matchId": matchId,
                     "participantId": String(response.participantId),
-                    "summaryLength": String(timelineSummary.count)
+                    "summaryLength": String(timelineSummary.count),
                 ])
-            
+
             return timelineSummary
         } catch {
             ClaimbLogger.error(
@@ -371,22 +377,22 @@ public class ProxyService {
             throw ProxyError.decodingError(error)
         }
     }
-    
+
     /// Formats timeline data for LLM consumption
     private func formatTimelineForLLM(_ timeline: TimelineLiteResponse) -> String {
         var summary = "**EARLY GAME TIMELINE ANALYSIS:**\n\n"
-        
+
         // Checkpoints
         summary += "**10-Minute Checkpoint:**\n"
         summary += "• CS: \(timeline.checkpoints.tenMin.cs)\n"
         summary += "• Gold: \(timeline.checkpoints.tenMin.gold)\n"
         summary += "• KDA: \(timeline.checkpoints.tenMin.kda)\n\n"
-        
+
         summary += "**15-Minute Checkpoint:**\n"
         summary += "• CS: \(timeline.checkpoints.fifteenMin.cs)\n"
         summary += "• Gold: \(timeline.checkpoints.fifteenMin.gold)\n"
         summary += "• KDA: \(timeline.checkpoints.fifteenMin.kda)\n\n"
-        
+
         // Timings
         summary += "**Key Timings:**\n"
         if let firstBack = timeline.timings.firstBackMin {
@@ -402,16 +408,16 @@ public class ProxyService {
             summary += "• First Death: \(firstDeath) minutes\n"
         }
         summary += "\n"
-        
+
         // Vision
         summary += "**Vision Control (Pre-15min):**\n"
         summary += "• Wards Placed: \(timeline.visionPre15.wardsPlaced)\n"
         summary += "• Wards Killed: \(timeline.visionPre15.wardsKilled)\n"
         summary += "• Control Wards: \(timeline.visionPre15.controlWards)\n\n"
-        
+
         // Plates
         summary += "**Tower Plates (Pre-14min):** \(timeline.platesPre14)\n"
-        
+
         return summary
     }
 
@@ -803,6 +809,7 @@ public enum ProxyError: Error, LocalizedError {
     case invalidResponse
     case httpError(Int)
     case decodingError(Error)
+    case encodingError(Error)
     case networkError(Error)
 
     public var errorDescription: String? {
@@ -813,6 +820,8 @@ public enum ProxyError: Error, LocalizedError {
             return "HTTP error \(code) from proxy service"
         case .decodingError(let error):
             return "Failed to decode response: \(error.localizedDescription)"
+        case .encodingError(let error):
+            return "Failed to encode request: \(error.localizedDescription)"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }

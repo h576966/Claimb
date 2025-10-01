@@ -223,6 +223,12 @@ public class OpenAIService {
         let championName = participant.champion?.name ?? "Unknown Champion"
         let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
 
+        // Get lane opponent and team context
+        let (laneOpponent, teamContext) = getLaneOpponentAndTeamContext(
+            match: match,
+            userParticipant: participant
+        )
+
         // Try to get timeline data for enhanced analysis
         var timelineData: String? = nil
         do {
@@ -237,7 +243,7 @@ public class OpenAIService {
                 metadata: [
                     "matchId": match.matchId,
                     "championName": championName,
-                    "timelineLength": String(timelineData?.count ?? 0)
+                    "timelineLength": String(timelineData?.count ?? 0),
                 ])
         } catch {
             ClaimbLogger.warning(
@@ -261,7 +267,9 @@ public class OpenAIService {
             championName: championName,
             role: role,
             championPerformance: championPerformance,
-            timelineData: timelineData
+            timelineData: timelineData,
+            laneOpponent: laneOpponent,
+            teamContext: teamContext
         )
 
         // Make API request
@@ -368,6 +376,44 @@ public class OpenAIService {
         }
 
         return summary
+    }
+
+    /// Extracts lane opponent and team context information
+    private func getLaneOpponentAndTeamContext(
+        match: Match,
+        userParticipant: Participant
+    ) -> (laneOpponent: String?, teamContext: String) {
+        let userTeamId = userParticipant.teamId
+        let userPosition = userParticipant.teamPosition
+
+        // Find lane opponent (same position, different team)
+        let laneOpponent = match.participants.first { participant in
+            participant.teamId != userTeamId && participant.teamPosition == userPosition
+        }
+
+        let laneOpponentInfo: String? =
+            if let opponent = laneOpponent {
+                "\(opponent.champion?.name ?? "Unknown Champion") (\(opponent.teamPosition))"
+            } else {
+                nil
+            }
+
+        // Create team context (all champions with positions)
+        let userTeam = match.participants.filter { $0.teamId == userTeamId }
+        let enemyTeam = match.participants.filter { $0.teamId != userTeamId }
+
+        let userTeamInfo = userTeam.map { "\($0.champion?.name ?? "Unknown") (\($0.teamPosition))" }
+            .joined(separator: ", ")
+        let enemyTeamInfo = enemyTeam.map {
+            "\($0.champion?.name ?? "Unknown") (\($0.teamPosition))"
+        }.joined(separator: ", ")
+
+        let teamContext = """
+            **Your Team:** \(userTeamInfo)
+            **Enemy Team:** \(enemyTeamInfo)
+            """
+
+        return (laneOpponentInfo, teamContext)
     }
 
     private func createCoachingPrompt(
@@ -565,7 +611,9 @@ public class OpenAIService {
         championName: String,
         role: String,
         championPerformance: [String: Double],
-        timelineData: String?
+        timelineData: String?,
+        laneOpponent: String?,
+        teamContext: String
     ) -> String {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
@@ -578,8 +626,17 @@ public class OpenAIService {
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
             Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min
-
+            \(teamContext)
             """
+
+        // Add lane opponent information if available
+        if let opponent = laneOpponent {
+            prompt += """
+                **LANE MATCHUP:**
+                You played \(championName) (\(role)) vs \(opponent)
+
+                """
+        }
 
         // Add timeline data if available
         if let timeline = timelineData {
@@ -592,6 +649,7 @@ public class OpenAIService {
                 - Use timeline data to identify specific timing issues
                 - Provide actionable advice based on early game performance
                 - Consider champion-specific power spikes and timings
+                - Analyze lane matchup dynamics and trading patterns
 
                 """
         } else {
@@ -600,6 +658,7 @@ public class OpenAIService {
                 - Focus on champion-specific advice for \(championName) in \(role)
                 - Provide actionable improvements for next game
                 - Consider role-specific fundamentals
+                - Analyze lane matchup dynamics and trading patterns
 
                 """
         }
