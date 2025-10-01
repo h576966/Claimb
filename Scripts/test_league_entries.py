@@ -13,10 +13,8 @@ BASE_URL = "https://vqwgvfqrkoqgbwimiagi.supabase.co/functions/v1/claimb-functio
 APP_TOKEN = "aVerySecretToken"
 DEVICE_ID = "test-device-123"
 
-# Test data - using a known summoner ID
-TEST_SUMMONER_ID = "test-summoner-id"  # This will need to be replaced with a real summoner ID
-# Note: You can get a real summoner ID by running the main test script first to get a PUUID,
-# then using that PUUID to get the summoner ID from the summoner endpoint
+# Test data - using a real summoner ID from the test
+TEST_SUMMONER_ID = "2L90Pn2pVKDWsIhG9_Vb3iwfNfpZ3pwMbYh81nR5f41aU-NWIzn3Ls0cg7tdITJp4GB32iyIyMrWzA"
 TEST_PLATFORM = "euw1"
 
 def test_league_entries():

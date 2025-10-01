@@ -19,11 +19,6 @@ struct RankBadge: View {
 
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
-            // Rank icon (using SF Symbol as placeholder)
-            Image(systemName: "star.fill")
-                .font(.caption)
-                .foregroundColor(rankColor)
-
             VStack(alignment: .leading, spacing: 1) {
                 Text(rank)
                     .font(DesignSystem.Typography.caption)
@@ -265,8 +260,10 @@ struct PerformanceView: View {
     private var rankBadgesView: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
             // Debug logging
-            let _ = print("🔍 Rank Debug - hasAnyRank: \(summoner.hasAnyRank), soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil")")
-            
+            let _ = print(
+                "🔍 Rank Debug - hasAnyRank: \(summoner.hasAnyRank), soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil"), soloDuoLP: \(summoner.soloDuoLP ?? -1), flexLP: \(summoner.flexLP ?? -1)"
+            )
+
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {
@@ -277,7 +274,7 @@ struct PerformanceView: View {
                         isPrimary: true
                     )
                 }
-                
+
                 // Flex Rank Badge
                 if let flexRank = summoner.flexRank {
                     RankBadge(

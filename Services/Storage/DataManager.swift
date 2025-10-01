@@ -199,7 +199,8 @@ public class DataManager {
             newSummoner.summonerLevel = summonerResponse.summonerLevel
 
             // Fetch rank data
-            try await updateSummonerRanks(newSummoner, summonerId: summonerResponse.id, region: region)
+            try await updateSummonerRanks(
+                newSummoner, summonerId: summonerResponse.id, region: region)
 
             modelContext.insert(newSummoner)
             try modelContext.save()
@@ -208,7 +209,9 @@ public class DataManager {
     }
 
     /// Updates summoner rank data from league entries
-    private func updateSummonerRanks(_ summoner: Summoner, summonerId: String, region: String) async throws {
+    private func updateSummonerRanks(_ summoner: Summoner, summonerId: String, region: String)
+        async throws
+    {
         do {
             ClaimbLogger.info(
                 "Fetching rank data", service: "DataManager",
@@ -218,16 +221,22 @@ public class DataManager {
                     "region": region,
                 ])
             
-            let leagueResponse = try await riotClient.getLeagueEntries(summonerId: summonerId, region: region)
-            
+            // Debug print for immediate visibility
+            print("🔍 DataManager: About to fetch rank data for \(summoner.gameName) with summonerId: \(summonerId)")
+
+            let leagueResponse = try await riotClient.getLeagueEntries(
+                summonerId: summonerId, region: region)
+
             ClaimbLogger.info(
                 "Received league response", service: "DataManager",
                 metadata: [
                     "summoner": summoner.gameName,
                     "entryCount": String(leagueResponse.entries.count),
-                    "entries": leagueResponse.entries.map { "\($0.queueType): \($0.tier) \($0.rank)" }.joined(separator: ", "),
+                    "entries": leagueResponse.entries.map {
+                        "\($0.queueType): \($0.tier) \($0.rank)"
+                    }.joined(separator: ", "),
                 ])
-            
+
             // Reset rank data
             summoner.soloDuoRank = nil
             summoner.flexRank = nil
@@ -237,7 +246,7 @@ public class DataManager {
             summoner.soloDuoLosses = nil
             summoner.flexWins = nil
             summoner.flexLosses = nil
-            
+
             // Process league entries
             for entry in leagueResponse.entries {
                 switch entry.queueType {
@@ -256,7 +265,7 @@ public class DataManager {
                     continue
                 }
             }
-            
+
             ClaimbLogger.info(
                 "Updated summoner ranks", service: "DataManager",
                 metadata: [
@@ -264,6 +273,9 @@ public class DataManager {
                     "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
                     "flexRank": summoner.flexRank ?? "Unranked",
                 ])
+            
+            // Debug print for immediate visibility
+            print("🔍 DataManager: Updated ranks - soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil"), soloDuoLP: \(summoner.soloDuoLP ?? -1), flexLP: \(summoner.flexLP ?? -1)")
         } catch {
             ClaimbLogger.warning(
                 "Failed to fetch rank data, continuing without ranks", service: "DataManager",
