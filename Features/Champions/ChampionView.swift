@@ -25,6 +25,9 @@ struct ChampionView: View {
                 // Custom Navigation Bar
                 headerView
 
+                Spacer()
+                    .frame(height: DesignSystem.Spacing.md)
+
                 // Role Selector
                 if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
@@ -137,43 +140,43 @@ struct ChampionView: View {
     }
 
     private var filterOptionsView: some View {
-        VStack(spacing: DesignSystem.Spacing.sm) {
-            // Filter buttons
-            HStack(spacing: DesignSystem.Spacing.sm) {
-                ForEach(ChampionFilter.allCases, id: \.self) { filter in
-                    Button(action: {
-                        selectedFilter = filter
-                    }) {
-                        Text(filter.rawValue)
-                            .font(DesignSystem.Typography.callout)
-                            .foregroundColor(
-                                selectedFilter == filter
-                                    ? DesignSystem.Colors.white : DesignSystem.Colors.textPrimary
-                            )
-                            .padding(.horizontal, DesignSystem.Spacing.md)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
-                            .background(
-                                selectedFilter == filter
-                                    ? DesignSystem.Colors.primary
-                                    : DesignSystem.Colors.cardBackground
-                            )
-                            .cornerRadius(DesignSystem.CornerRadius.small)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
+        // Filter buttons - matching CoachingView tab style
+        HStack(spacing: 0) {
+            ForEach(ChampionFilter.allCases, id: \.self) { filter in
+                Button(action: {
+                    selectedFilter = filter
+                }) {
+                    Text(filter.rawValue)
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.medium)
+                        .foregroundColor(
+                            selectedFilter == filter
+                                ? DesignSystem.Colors.textPrimary
+                                : DesignSystem.Colors.textSecondary
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DesignSystem.Spacing.md)
+                        .background(
+                            selectedFilter == filter
+                                ? DesignSystem.Colors.cardBackground
+                                : Color.clear
+                        )
+                        .overlay(
+                            Rectangle()
+                                .frame(height: 2)
+                                .foregroundColor(
+                                    selectedFilter == filter
+                                        ? DesignSystem.Colors.primary
+                                        : Color.clear
+                                ),
+                            alignment: .bottom
+                        )
                 }
+                .buttonStyle(PlainButtonStyle())
             }
-
-            // Filter description
-            Text(selectedFilter.description)
-                .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, DesignSystem.Spacing.lg)
         }
+        .background(DesignSystem.Colors.background)
+        .cornerRadius(DesignSystem.CornerRadius.small)
         .padding(.horizontal, DesignSystem.Spacing.lg)
         .padding(.bottom, DesignSystem.Spacing.md)
     }

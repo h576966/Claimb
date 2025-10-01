@@ -108,6 +108,9 @@ struct PerformanceView: View {
                 // Custom Navigation Bar
                 headerView
 
+                Spacer()
+                    .frame(height: DesignSystem.Spacing.md)
+
                 // Role Selector
                 if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
