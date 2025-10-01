@@ -16,27 +16,27 @@ struct RankBadge: View {
     let lp: Int
     let queueType: String
     let isPrimary: Bool
-    
+
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
             // Rank icon (using SF Symbol as placeholder)
             Image(systemName: "star.fill")
                 .font(.caption)
                 .foregroundColor(rankColor)
-            
+
             VStack(alignment: .leading, spacing: 1) {
                 Text(rank)
                     .font(DesignSystem.Typography.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                
+
                 if lp > 0 {
                     Text("\(lp) LP")
                         .font(.caption2)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
-            
+
             Text(queueType)
                 .font(.caption2)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -51,7 +51,7 @@ struct RankBadge: View {
                 .stroke(rankColor.opacity(0.3), lineWidth: 1)
         )
     }
-    
+
     private var rankColor: Color {
         let tier = rank.components(separatedBy: " ").first?.uppercased() ?? ""
         switch tier {
@@ -69,7 +69,7 @@ struct RankBadge: View {
         default: return DesignSystem.Colors.textSecondary
         }
     }
-    
+
     private var rankBackgroundColor: Color {
         if isPrimary {
             return rankColor.opacity(0.1)
@@ -181,11 +181,6 @@ struct PerformanceView: View {
                 Spacer()
                     .frame(height: DesignSystem.Spacing.md)
 
-                // Rank Badges - Always show rank information
-                rankBadgesView
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
-                    .padding(.bottom, DesignSystem.Spacing.md)
-
                 // Role Selector
                 if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
@@ -201,6 +196,11 @@ struct PerformanceView: View {
                     .padding(.horizontal, DesignSystem.Spacing.lg)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
+
+                // Rank Badges - Always show rank information
+                rankBadgesView
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
 
                 // Content
                 if let viewModel = matchDataViewModel {
@@ -264,6 +264,9 @@ struct PerformanceView: View {
 
     private var rankBadgesView: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
+            // Debug logging
+            let _ = print("🔍 Rank Debug - hasAnyRank: \(summoner.hasAnyRank), soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil")")
+            
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {

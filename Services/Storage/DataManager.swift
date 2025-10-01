@@ -210,7 +210,23 @@ public class DataManager {
     /// Updates summoner rank data from league entries
     private func updateSummonerRanks(_ summoner: Summoner, summonerId: String, region: String) async throws {
         do {
+            ClaimbLogger.info(
+                "Fetching rank data", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "summonerId": summonerId,
+                    "region": region,
+                ])
+            
             let leagueResponse = try await riotClient.getLeagueEntries(summonerId: summonerId, region: region)
+            
+            ClaimbLogger.info(
+                "Received league response", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "entryCount": String(leagueResponse.entries.count),
+                    "entries": leagueResponse.entries.map { "\($0.queueType): \($0.tier) \($0.rank)" }.joined(separator: ", "),
+                ])
             
             // Reset rank data
             summoner.soloDuoRank = nil
