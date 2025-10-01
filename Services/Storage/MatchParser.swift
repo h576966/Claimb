@@ -156,12 +156,25 @@ public class MatchParser {
         _ = participantJson["firstBloodKill"] as? Bool ?? false
         _ = participantJson["firstTowerKill"] as? Bool ?? false
 
-        // Parse challenges (optional) - these might be used in future versions
+        // Parse challenges (optional) - extract objective data
+        var dragonTakedowns = 0
+        var riftHeraldTakedowns = 0
+        var baronTakedowns = 0
+        var hordeTakedowns = 0
+        var atakhanTakedowns = 0
+        
         if let challenges = participantJson["challenges"] as? [String: Any] {
             _ = challenges["kda"] as? Double ?? 0.0
             _ = challenges["killParticipation"] as? Double ?? 0.0
             _ = challenges["soloKills"] as? Int ?? 0
             _ = challenges["teamDamagePercentage"] as? Double ?? 0.0
+            
+            // Extract objective data from challenges
+            dragonTakedowns = challenges["dragonTakedowns"] as? Int ?? 0
+            riftHeraldTakedowns = challenges["riftHeraldTakedowns"] as? Int ?? 0
+            baronTakedowns = challenges["baronTakedowns"] as? Int ?? 0
+            hordeTakedowns = challenges["hordeTakedowns"] as? Int ?? 0
+            atakhanTakedowns = challenges["atakhanTakedowns"] as? Int ?? 0
         }
 
         let participant = Participant(
@@ -186,11 +199,11 @@ public class MatchParser {
             totalDamageDealt: 0,  // Not available in simplified version
             totalDamageDealtToChampions: totalDamageDealtToChampions,
             totalDamageTaken: 0,  // Not available in simplified version
-            dragonTakedowns: 0,  // Not available in simplified version
-            riftHeraldTakedowns: 0,  // Not available in simplified version
-            baronTakedowns: 0,  // Not available in simplified version
-            hordeTakedowns: 0,  // Not available in simplified version
-            atakhanTakedowns: 0  // Not available in simplified version
+            dragonTakedowns: dragonTakedowns,
+            riftHeraldTakedowns: riftHeraldTakedowns,
+            baronTakedowns: baronTakedowns,
+            hordeTakedowns: hordeTakedowns,
+            atakhanTakedowns: atakhanTakedowns
         )
 
         participant.match = match

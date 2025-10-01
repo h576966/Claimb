@@ -466,6 +466,16 @@ public class KPICalculationService {
             } else {
                 return (.needsImprovement, DesignSystem.Colors.secondary)
             }
+        case "objective_participation_pct":
+            if value > 0.6 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value > 0.4 {
+                return (.good, DesignSystem.Colors.white)
+            } else if value > 0.2 {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.secondary)
+            }
         default:
             return (.needsImprovement, DesignSystem.Colors.textSecondary)
         }
