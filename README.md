@@ -19,6 +19,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - 📊 **Performance Analytics**: Track your performance with role-specific KPIs and baseline comparisons
 - 🏆 **Champion Pool Management**: Analyze your champion performance and get optimization insights
 - 🧠 **AI Coaching**: Post-game analysis with personalized insights and actionable drills
+- 🏅 **Rank Tracking**: Display Solo/Duo and Flex rank information with LP tracking
 - 🔄 **Offline-First**: Works without internet after initial data sync
 - 🎮 **iPhone-Optimized**: Designed specifically for one-handed mobile use with Apple Watch-like interface
 
@@ -48,6 +49,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Performance Analytics**: KPI-focused dashboard with role-specific metrics and baseline comparisons
 - **Champion Pool Analysis**: Track champion performance, win rates, and filtering options
 - **AI Coaching**: Dual-focused coaching system with post-game analysis and performance summaries
+- **Rank Tracking**: Solo/Duo and Flex rank display with LP tracking and win/loss records
 - **Offline Caching**: 100 matches cached per summoner with background refresh
 - **Region Support**: EUW, NA, EUNE with proper API routing through Supabase proxy
 - **Role-Based Analysis**: Track performance by role with persistent role selection
@@ -58,7 +60,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 
 ### **✅ Recently Completed (Architecture Modernization)**
 - **Supabase Edge Function Integration**: Secure API calls through server-side proxy
-- **Simplified Architecture**: Eliminated over-abstraction and reduced complexity by 25%
+- **Simplified Architecture**: Eliminated over-abstraction and reduced complexity by 36%
 - **Generic Request Deduplication**: Unified system replacing 4 specialized queues
 - **Factory Pattern**: DataManager factory method eliminating 44+ lines of boilerplate
 - **Direct Model Integration**: Champion class mapping moved to model layer for better cohesion
@@ -66,6 +68,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Structured Logging**: Comprehensive logging with ClaimbLogger
 - **Performance Optimizations**: Static JSON loading over database queries
 - **Secure API Management**: Server-side API key management with JWT authentication
+- **Rank System Integration**: Solo/Duo and Flex rank tracking with League-V4 API integration
 
 ## 🏗️ **Current Implementation Status**
 
@@ -83,6 +86,7 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Dual-Focused Coaching**: Post-game analysis + Performance summary with auto-triggers
 - **Champion Pool Management**: Performance tracking, filtering, and win rate analysis
 - **KPI Dashboard**: Role-specific metrics with baseline comparisons
+- **Rank Display**: Solo/Duo and Flex rank badges with LP tracking in Performance view
 - **Persistent Sessions**: Login state and role selection persist across app restarts
 - **Offline-First**: Full functionality without internet after initial sync
 
@@ -90,8 +94,9 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **RiotProxyClient**: Secure API communication through Supabase edge functions
 - **DataDragonService**: Static game data with caching and version management
 - **OpenAIService**: AI coaching with GPT-4 Turbo optimization and response caching
-- **KPICalculationService**: Performance analysis with role-specific metrics
+- **KPICalculationService**: Performance analysis with role-specific metrics including Objective Participation
 - **UserSession**: Session management with persistent login and role selection
+- **Rank Integration**: League-V4 API integration for Solo/Duo and Flex rank tracking
 - **Structured Logging**: Comprehensive logging with ClaimbLogger across all services
 
 ## 🏗️ **Recent Architecture Improvements**
@@ -130,6 +135,30 @@ We recently completed a major architecture modernization by integrating Supabase
 - **Focused Coaching**: Actionable insights instead of overwhelming stats
 - **Smart Data Usage**: Leverages existing champion pool and KPI calculations
 
+### **Latest Rank System Integration (October 2025)**
+We recently completed the integration of League of Legends rank tracking to provide players with comprehensive rank information:
+
+#### **🏅 Rank System Features**
+- **Dual Rank Display**: Solo/Duo and Flex rank badges with LP tracking
+- **League-V4 API Integration**: Secure rank data fetching through Supabase edge functions
+- **Performance View Integration**: Rank badges displayed below role selector
+- **Win/Loss Tracking**: Complete match history for both ranked queues
+- **Unranked Handling**: Graceful display of "Unranked" status when no rank data available
+- **Real-time Updates**: Rank data refreshed on summoner login/update
+
+#### **🔧 Technical Implementation**
+- **New API Endpoint**: `/riot/league-entries` for fetching rank data
+- **Enhanced Summoner Model**: Added rank properties (soloDuoRank, flexRank, LP, wins/losses)
+- **DataManager Integration**: Automatic rank fetching during summoner creation/update
+- **UI Components**: RankBadge component with tier-based color coding
+- **Debug Logging**: Comprehensive logging for rank data fetching and display
+
+#### **📈 Benefits**
+- **Complete Player Profile**: Full rank information alongside performance metrics
+- **Coaching Context**: Rank information included in AI coaching prompts for better insights
+- **Visual Feedback**: Clear rank display helps players understand their current standing
+- **Data Completeness**: Comprehensive player data for better analysis and recommendations
+
 ### **Latest Simplification Achievements (September 2025)**
 We recently completed a comprehensive architecture cleanup that reduced codebase complexity by **36%** while maintaining all functionality:
 
@@ -157,6 +186,8 @@ We recently completed a comprehensive architecture cleanup that reduced codebase
 - **Zero breaking changes** - all existing functionality preserved
 - **Improved maintainability** through focused, single-responsibility components
 - **Enhanced user experience** with persistent role selection
+- **Complete rank system** with Solo/Duo and Flex rank tracking
+- **Enhanced coaching context** with rank information in AI prompts
 
 ### **Performance Optimizations (September 2025)**
 - **One‑time Team DMG fix**: gated cache clear with `UserDefaults` flag; no longer runs on every launch
@@ -238,14 +269,14 @@ We're implementing a comprehensive redesign of the coaching system to provide mo
 ### **First Launch**
 1. Enter your Riot ID (Summoner Name + Tag)
 2. Select your region (EUW, NA, or EUNE)
-3. Tap "Login" to sync your match data
+3. Tap "Login" to sync your match data and rank information
 4. Wait for champion data to load (one-time setup)
-5. Explore your performance analytics and champion pool
+5. Explore your performance analytics, champion pool, and rank information
 
 ## 📊 **Data Models**
 
 ### **Core Entities**
-- **Summoner**: Player identity and account information
+- **Summoner**: Player identity, account information, and rank data (Solo/Duo, Flex)
 - **Match**: Game metadata and team composition
 - **Participant**: Individual player performance data
 - **Champion**: Static champion data with integrated class mapping
@@ -256,8 +287,9 @@ We're implementing a comprehensive redesign of the coaching system to provide mo
 - **Combat**: KDA, Damage Dealt/Taken, Kill Participation
 - **Economy**: Gold per Minute, CS per Minute, Gold Share
 - **Vision**: Vision Score, Ward Placement, Control Wards
-- **Objectives**: Dragon/Baron participation, Tower damage
+- **Objectives**: Dragon/Baron participation, Tower damage, Objective Participation KPI
 - **Challenges**: Riot's performance challenge data
+- **Rank Data**: Solo/Duo and Flex rank, LP, wins/losses
 
 ## 🔧 **Development**
 
@@ -340,6 +372,7 @@ The app includes comprehensive test views for development:
 
 ### **Supported APIs**
 - **Riot Games API**: Account lookup, summoner data, match history and details
+- **Riot League-V4 API**: Rank data for Solo/Duo and Flex queues
 - **Data Dragon API**: Champion data, icons, and version management
 - **OpenAI API**: AI coaching insights and analysis via GPT-4 Turbo (optimized)
 
@@ -370,6 +403,15 @@ The app includes comprehensive test views for development:
 - [x] Simplify CoachingView UI to two focused cards
 - [x] Remove role/champion diversity from Performance section display
 - [x] Add smart auto-trigger logic for post-game analysis
+
+### **Phase 2.5: Rank System Integration (Completed)**
+- [x] Implement League-V4 API integration for rank data
+- [x] Add rank properties to Summoner model
+- [x] Create rank badge UI components with tier-based styling
+- [x] Integrate rank fetching into DataManager
+- [x] Display rank badges in Performance view
+- [x] Include rank information in AI coaching prompts
+- [x] Add comprehensive debug logging for rank system
 
 ### **Phase 3: Testing Infrastructure (Next)**
 - [ ] Unit tests for DataManager and critical components
