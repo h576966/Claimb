@@ -352,7 +352,7 @@ public class DataManager {
         }
     }
 
-    /// Loads initial match data for a summoner (bulk load for first time)
+    /// Loads initial match data for a summoner using smart fetching strategy
     public func loadInitialMatches(for summoner: Summoner) async throws {
         isLoading = true
         errorMessage = nil
@@ -362,22 +362,19 @@ public class DataManager {
             _ = await loadBaselineData()
 
             ClaimbLogger.info(
-                "Bulk loading initial matches", service: "DataManager",
+                "Smart loading initial matches", service: "DataManager",
                 metadata: [
                     "gameName": summoner.gameName,
-                    "count": "100",  // API limit is 100 matches per request
+                    "strategy": "ranked-first-with-fallback",
                 ])
 
-            // Bulk fetch: get maximum matches in one request
-            let matchHistory = try await riotClient.getMatchHistory(
-                puuid: summoner.puuid,
-                region: summoner.region,
-                count: 100  // API limit: maximum 100 matches per request
-            )
+            // Smart fetching strategy: Try ranked games first, fallback to normal if needed
+            let smartResult = try await performSmartMatchFetch(for: summoner)
 
             var addedMatchesCount = 0
             var skippedMatchesCount = 0
-            for matchId in matchHistory.history {
+
+            for matchId in smartResult.matchIds {
                 do {
                     try await processMatch(
                         matchId: matchId, region: summoner.region, summoner: summoner)
@@ -393,23 +390,128 @@ public class DataManager {
             try modelContext.save()
 
             ClaimbLogger.dataOperation(
-                "Bulk loaded initial matches", count: addedMatchesCount, service: "DataManager")
+                "Smart loaded initial matches", count: addedMatchesCount, service: "DataManager")
 
-            if skippedMatchesCount > 0 {
-                ClaimbLogger.debug(
-                    "Skipped irrelevant matches during bulk load", service: "DataManager",
-                    metadata: [
-                        "skippedCount": String(skippedMatchesCount),
-                        "addedCount": String(addedMatchesCount),
-                    ])
-            }
+            // Get final count of matches in database for this summoner
+            let finalMatchCount = try await getMatches(for: summoner).count
+
+            ClaimbLogger.info(
+                "Smart fetch completed", service: "DataManager",
+                metadata: [
+                    "strategy": String(describing: smartResult.strategy),
+                    "totalFetched": String(smartResult.totalFetched),
+                    "relevantCount": String(smartResult.relevantCount),
+                    "addedCount": String(addedMatchesCount),
+                    "skippedCount": String(skippedMatchesCount),
+                    "finalDatabaseCount": String(finalMatchCount),
+                ])
 
         } catch {
+            isLoading = false
             errorMessage = "Failed to load initial matches: \(error.localizedDescription)"
             throw error
         }
 
         isLoading = false
+    }
+
+    /// Performs smart match fetching with ranked-first strategy and fallback
+    private func performSmartMatchFetch(for summoner: Summoner) async throws -> SmartFetchResult {
+        let targetCount = MatchFilteringUtils.targetInitialMatchCount
+        var allMatchIds: [String] = []
+        var totalFetched = 0
+
+        // Strategy 1: Fetch from all relevant queues (420, 440, 400)
+        let relevantQueues = [420, 440, 400]  // Solo/Duo, Flex, Normal Draft
+        // Request extra matches per queue to account for remaining client-side filtering
+        // We only filter by duration and age now, so we need some extra matches
+        let matchesPerQueue = min(100, targetCount + 20)  // Request target + 20 to account for filtering
+
+        ClaimbLogger.info(
+            "Fetching from all relevant queues (no time filter)", service: "DataManager",
+            metadata: [
+                "queues": relevantQueues.map(String.init).joined(separator: ","),
+                "queueNames": relevantQueues.map { MatchFilteringUtils.queueDisplayName($0) }
+                    .joined(separator: ","),
+                "matchesPerQueue": String(matchesPerQueue),
+                "targetCount": String(targetCount),
+                "strategy": "queue-only-no-time-filter",
+            ]
+        )
+
+        for queueId in relevantQueues {
+            do {
+                let queueHistory = try await riotClient.getMatchHistory(
+                    puuid: summoner.puuid,
+                    region: summoner.region,
+                    count: matchesPerQueue,
+                    type: nil,  // Don't use type parameter at all
+                    queue: queueId,  // Only use queue parameter
+                    startTime: nil,  // Try without startTime parameter
+                    endTime: nil
+                )
+
+                let queueCount = queueHistory.history.count
+                totalFetched += queueCount
+                allMatchIds.append(contentsOf: queueHistory.history)
+
+                ClaimbLogger.info(
+                    "Fetched from queue (queue-only)", service: "DataManager",
+                    metadata: [
+                        "queueId": String(queueId),
+                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
+                        "count": String(queueCount),
+                        "totalSoFar": String(allMatchIds.count),
+                        "type": "nil",
+                        "queue": String(queueId),
+                    ]
+                )
+
+                // If we have enough matches, we can stop early
+                if allMatchIds.count >= targetCount {
+                    ClaimbLogger.info(
+                        "Target reached, stopping early", service: "DataManager",
+                        metadata: [
+                            "currentCount": String(allMatchIds.count),
+                            "targetCount": String(targetCount),
+                        ]
+                    )
+                    break
+                }
+            } catch {
+                ClaimbLogger.warning(
+                    "Failed to fetch from queue", service: "DataManager",
+                    metadata: [
+                        "queueId": String(queueId),
+                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
+                        "error": error.localizedDescription,
+                    ]
+                )
+                // Continue with other queues even if one fails
+            }
+        }
+
+        // Remove duplicates and limit to target count
+        let uniqueMatchIds = Array(Set(allMatchIds))  // Remove duplicates
+        let finalMatchIds = Array(uniqueMatchIds.prefix(targetCount))
+
+        ClaimbLogger.info(
+            "Smart fetch completed", service: "DataManager",
+            metadata: [
+                "totalFetched": String(totalFetched),
+                "uniqueCount": String(uniqueMatchIds.count),
+                "finalCount": String(finalMatchIds.count),
+                "targetCount": String(targetCount),
+                "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
+            ]
+        )
+
+        return SmartFetchResult(
+            matchIds: finalMatchIds,
+            strategy: .rankedFirst,
+            totalFetched: totalFetched,
+            relevantCount: finalMatchIds.count
+        )
     }
 
     /// Processes a single match and stores it in the database
@@ -850,56 +952,56 @@ public class DataManager {
                 ])
 
             do {
-                // Check if we have existing matches
+                // CACHE-FIRST STRATEGY: Check if we have existing matches
                 let existingMatches = try await self.getMatches(for: summoner)
 
-                if existingMatches.isEmpty {
-                    // Load initial matches
+                if !existingMatches.isEmpty {
+                    // We have cached data - return immediately
                     ClaimbLogger.info(
-                        "No existing matches, loading initial batch", service: "DataManager")
-                    try await self.loadInitialMatches(for: summoner)
-                } else {
-                    // Check if we need to refresh based on time
+                        "Returning cached matches immediately", service: "DataManager",
+                        metadata: [
+                            "count": String(existingMatches.count),
+                            "lastUpdated": summoner.lastUpdated.description,
+                        ])
+
+                    // Try to refresh in background if needed
                     let shouldRefresh = self.shouldRefreshMatches(for: summoner)
-
                     if shouldRefresh {
-                        ClaimbLogger.info(
-                            "Found existing matches, refreshing with new data",
-                            service: "DataManager",
-                            metadata: [
-                                "count": String(existingMatches.count),
-                                "lastUpdated": summoner.lastUpdated.description,
-                            ])
-
-                        // Try to refresh, but don't fail if network is unavailable
-                        do {
-                            try await self.refreshMatchesInternal(for: summoner)
+                        Task {
                             ClaimbLogger.info(
-                                "Successfully refreshed matches from network",
-                                service: "DataManager")
-                        } catch {
-                            // Network failed, but we have cached data - log warning and continue
-                            ClaimbLogger.warning(
-                                "Network refresh failed, using cached data", service: "DataManager",
-                                metadata: [
-                                    "error": error.localizedDescription,
-                                    "cachedCount": String(existingMatches.count),
-                                ])
-                            // Continue with cached data instead of failing
+                                "Refreshing matches in background", service: "DataManager")
+                            do {
+                                try await self.refreshMatchesInternal(for: summoner)
+                                ClaimbLogger.info(
+                                    "Background refresh completed", service: "DataManager")
+                            } catch {
+                                ClaimbLogger.warning(
+                                    "Background refresh failed (cached data still available)",
+                                    service: "DataManager",
+                                    metadata: ["error": error.localizedDescription])
+                            }
                         }
-                    } else {
-                        ClaimbLogger.info(
-                            "Using cached matches (no refresh needed)", service: "DataManager",
-                            metadata: [
-                                "count": String(existingMatches.count),
-                                "lastUpdated": summoner.lastUpdated.description,
-                            ])
                     }
+
+                    return .loaded(existingMatches)
                 }
 
-                // Get all matches after loading (will include cached data if network failed)
-                let loadedMatches = try await self.getMatches(for: summoner, limit: limit)
-                return .loaded(loadedMatches)
+                // No cached data - need to load from network
+                ClaimbLogger.info(
+                    "No cached matches, loading from network", service: "DataManager")
+
+                do {
+                    try await self.loadInitialMatches(for: summoner)
+                    let loadedMatches = try await self.getMatches(for: summoner, limit: limit)
+                    return .loaded(loadedMatches)
+                } catch {
+                    // Network failed and no cache - return error
+                    ClaimbLogger.error(
+                        "Failed to load initial matches (no cache available)",
+                        service: "DataManager",
+                        error: error)
+                    return .error(error)
+                }
 
             } catch {
                 // This catch block should only handle critical errors (database issues, etc.)

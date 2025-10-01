@@ -13,7 +13,7 @@ public struct RiotAccountResponse: Codable {
     public let puuid: String
     public let gameName: String
     public let tagLine: String
-    
+
     public init(puuid: String, gameName: String, tagLine: String) {
         self.puuid = puuid
         self.gameName = gameName
@@ -29,9 +29,11 @@ public struct RiotSummonerResponse: Codable {
     public let profileIconId: Int
     public let revisionDate: Int
     public let summonerLevel: Int
-    
-    public init(id: String, accountId: String, puuid: String, name: String, 
-                profileIconId: Int, revisionDate: Int, summonerLevel: Int) {
+
+    public init(
+        id: String, accountId: String, puuid: String, name: String,
+        profileIconId: Int, revisionDate: Int, summonerLevel: Int
+    ) {
         self.id = id
         self.accountId = accountId
         self.puuid = puuid
@@ -40,11 +42,11 @@ public struct RiotSummonerResponse: Codable {
         self.revisionDate = revisionDate
         self.summonerLevel = summonerLevel
     }
-    
+
     // Custom decoder to handle missing fields
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         // Try to decode required fields, use empty string if missing
         self.id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
         self.accountId = try container.decodeIfPresent(String.self, forKey: .accountId) ?? ""
@@ -54,7 +56,7 @@ public struct RiotSummonerResponse: Codable {
         self.revisionDate = try container.decodeIfPresent(Int.self, forKey: .revisionDate) ?? 0
         self.summonerLevel = try container.decodeIfPresent(Int.self, forKey: .summonerLevel) ?? 0
     }
-    
+
     private enum CodingKeys: String, CodingKey {
         case id, accountId, puuid, name, profileIconId, revisionDate, summonerLevel
     }
@@ -63,17 +65,17 @@ public struct RiotSummonerResponse: Codable {
 public struct RiotMatchHistoryResponse: Codable {
     public let puuid: String
     public let history: [String]
-    
+
     public init(puuid: String, history: [String]) {
         self.puuid = puuid
         self.history = history
     }
-    
+
     // Custom decoder to handle array response from API
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let matchIds = try container.decode([String].self)
-        
+
         // We need to get the puuid from the context, but since we can't access it here,
         // we'll use a placeholder and set it in the HTTP client
         self.puuid = ""
@@ -85,14 +87,27 @@ public struct RiotMatchHistoryResponse: Codable {
 
 public protocol RiotClient {
     /// Get account information by Riot ID
-    func getAccountByRiotId(gameName: String, tagLine: String, region: String) async throws -> RiotAccountResponse
-    
+    func getAccountByRiotId(gameName: String, tagLine: String, region: String) async throws
+        -> RiotAccountResponse
+
     /// Get summoner information by PUUID
     func getSummonerByPuuid(puuid: String, region: String) async throws -> RiotSummonerResponse
-    
+
     /// Get match history for a summoner
-    func getMatchHistory(puuid: String, region: String, count: Int) async throws -> RiotMatchHistoryResponse
-    
+    func getMatchHistory(puuid: String, region: String, count: Int) async throws
+        -> RiotMatchHistoryResponse
+
+    /// Get match history with advanced filtering options
+    func getMatchHistory(
+        puuid: String,
+        region: String,
+        count: Int,
+        type: String?,
+        queue: Int?,
+        startTime: Int?,
+        endTime: Int?
+    ) async throws -> RiotMatchHistoryResponse
+
     /// Get detailed match information
     func getMatch(matchId: String, region: String) async throws -> Data
 }
@@ -108,7 +123,7 @@ public enum RiotAPIError: Error, LocalizedError {
     case unauthorized
     case notFound
     case serverError(Int)
-    
+
     public var errorDescription: String? {
         switch self {
         case .invalidURL:

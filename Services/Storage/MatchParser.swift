@@ -208,27 +208,9 @@ public class MatchParser {
         gameMode: String, gameType: String, queueId: Int, mapId: Int,
         gameCreation: Int, gameDuration: Int
     ) -> Bool {
-        // Filter by game mode - only include Summoner's Rift ranked and normal games
-        let relevantGameModes = ["CLASSIC"]
-        guard relevantGameModes.contains(gameMode) else {
-            return false
-        }
-
-        // Filter by map - only Summoner's Rift (mapId 11)
-        guard mapId == 11 else {
-            return false
-        }
-
-        // Filter by queue type - include ranked and normal draft
-        let relevantQueueIds = [
-            420,  // Ranked Solo/Duo
-            440,  // Ranked Flex
-            400,  // Normal Draft
-            430,  // Normal Blind (optional)
-        ]
-        guard relevantQueueIds.contains(queueId) else {
-            return false
-        }
+        // Skip game mode, map, and queue filtering since we already filter by queue in API calls
+        // The API calls are made with specific queue parameters (420, 440, 400)
+        // These queues are only played on Summoner's Rift in Classic mode, so filtering is redundant
 
         // Filter by game duration - exclude very short games (likely remakes or surrenders)
         let minGameDurationSeconds = 10 * 60  // 10 minutes

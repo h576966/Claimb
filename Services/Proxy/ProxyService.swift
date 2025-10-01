@@ -141,6 +141,23 @@ public class ProxyService {
     public func riotMatches(
         puuid: String, region: String = "europe", count: Int = 10, start: Int = 0
     ) async throws -> [String] {
+        return try await riotMatches(
+            puuid: puuid, region: region, count: count, start: start,
+            type: nil, queue: nil, startTime: nil, endTime: nil
+        )
+    }
+
+    /// Fetches match IDs for a player with advanced filtering
+    public func riotMatches(
+        puuid: String,
+        region: String = "europe",
+        count: Int = 10,
+        start: Int = 0,
+        type: String? = nil,
+        queue: Int? = nil,
+        startTime: Int? = nil,
+        endTime: Int? = nil
+    ) async throws -> [String] {
         // Convert platform code to region code for edge function
         let regionCode = platformToRegion(region)
         ClaimbLogger.debug(
@@ -156,12 +173,29 @@ public class ProxyService {
 
         var comps = URLComponents(
             url: baseURL.appendingPathComponent("riot/matches"), resolvingAgainstBaseURL: false)!
-        comps.queryItems = [
+
+        var queryItems: [URLQueryItem] = [
             .init(name: "puuid", value: puuid),
             .init(name: "region", value: regionCode),
             .init(name: "count", value: String(count)),
             .init(name: "start", value: String(start)),
         ]
+
+        // Add optional filtering parameters
+        if let type = type {
+            queryItems.append(.init(name: "type", value: type))
+        }
+        if let queue = queue {
+            queryItems.append(.init(name: "queue", value: String(queue)))
+        }
+        if let startTime = startTime {
+            queryItems.append(.init(name: "startTime", value: String(startTime)))
+        }
+        if let endTime = endTime {
+            queryItems.append(.init(name: "endTime", value: String(endTime)))
+        }
+
+        comps.queryItems = queryItems
 
         var req = URLRequest(url: comps.url!)
         AppConfig.addAuthHeaders(&req)

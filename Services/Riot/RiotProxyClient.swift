@@ -41,6 +41,27 @@ public class RiotProxyClient: RiotClient {
         return RiotMatchHistoryResponse(puuid: puuid, history: matchIds)
     }
 
+    public func getMatchHistory(
+        puuid: String,
+        region: String,
+        count: Int,
+        type: String? = nil,
+        queue: Int? = nil,
+        startTime: Int? = nil,
+        endTime: Int? = nil
+    ) async throws -> RiotMatchHistoryResponse {
+        let matchIds = try await proxyService.riotMatches(
+            puuid: puuid,
+            region: region,
+            count: count,
+            type: type,
+            queue: queue,
+            startTime: startTime,
+            endTime: endTime
+        )
+        return RiotMatchHistoryResponse(puuid: puuid, history: matchIds)
+    }
+
     public func getMatch(matchId: String, region: String) async throws -> Data {
         return try await proxyService.riotMatchDetails(matchId: matchId, region: region)
     }
