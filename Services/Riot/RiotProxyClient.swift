@@ -65,4 +65,33 @@ public class RiotProxyClient: RiotClient {
     public func getMatch(matchId: String, region: String) async throws -> Data {
         return try await proxyService.riotMatchDetails(matchId: matchId, region: region)
     }
+
+    public func getLeagueEntries(summonerId: String, region: String) async throws -> RiotLeagueEntriesResponse {
+        let response = try await proxyService.riotLeagueEntries(summonerId: summonerId, region: region)
+        
+        // Convert ProxyService models to RiotClient models
+        let riotEntries = response.entries.map { entry in
+            RiotLeagueEntry(
+                queueType: entry.queueType,
+                tier: entry.tier,
+                rank: entry.rank,
+                leaguePoints: entry.leaguePoints,
+                wins: entry.wins,
+                losses: entry.losses,
+                summonerId: entry.summonerId,
+                summonerName: entry.summonerName,
+                hotStreak: entry.hotStreak,
+                veteran: entry.veteran,
+                freshBlood: entry.freshBlood,
+                inactive: entry.inactive
+            )
+        }
+        
+        return RiotLeagueEntriesResponse(
+            entries: riotEntries,
+            claimbPlatform: response.claimbPlatform,
+            claimbRegion: response.claimbRegion,
+            claimbSummonerId: response.claimbSummonerId
+        )
+    }
 }

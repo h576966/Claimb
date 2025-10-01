@@ -18,8 +18,38 @@ struct TimelineLiteResponse: Codable {
     let participantId: Int
     let checkpoints: Checkpoints
     let timings: Timings
-    let visionPre15: VisionPre15
     let platesPre14: Int
+}
+
+// MARK: - League Response Models
+
+public struct LeagueEntriesResponse: Codable {
+    public let entries: [LeagueEntry]
+    public let claimbPlatform: String
+    public let claimbRegion: String
+    public let claimbSummonerId: String
+    
+    enum CodingKeys: String, CodingKey {
+        case entries
+        case claimbPlatform = "claimb_platform"
+        case claimbRegion = "claimb_region"
+        case claimbSummonerId = "claimb_summonerId"
+    }
+}
+
+public struct LeagueEntry: Codable {
+    public let queueType: String
+    public let tier: String
+    public let rank: String
+    public let leaguePoints: Int
+    public let wins: Int
+    public let losses: Int
+    public let summonerId: String
+    public let summonerName: String
+    public let hotStreak: Bool
+    public let veteran: Bool
+    public let freshBlood: Bool
+    public let inactive: Bool
 }
 
 struct Checkpoints: Codable {
@@ -44,12 +74,6 @@ struct Timings: Codable {
     let firstFullItemMin: Int?
     let firstKillMin: Int?
     let firstDeathMin: Int?
-}
-
-struct VisionPre15: Codable {
-    let wardsPlaced: Int
-    let wardsKilled: Int
-    let controlWards: Int
 }
 
 /// Proxy service for secure API calls through Supabase edge function
@@ -443,12 +467,6 @@ public class ProxyService {
         }
         summary += "\n"
 
-        // Vision
-        summary += "**Vision Control (Pre-15min):**\n"
-        summary += "• Wards Placed: \(timeline.visionPre15.wardsPlaced)\n"
-        summary += "• Wards Killed: \(timeline.visionPre15.wardsKilled)\n"
-        summary += "• Control Wards: \(timeline.visionPre15.controlWards)\n\n"
-
         // Plates
         summary += "**Tower Plates (Pre-14min):** \(timeline.platesPre14)\n"
 
@@ -494,6 +512,59 @@ public class ProxyService {
             "Proxy: Retrieved summoner data", service: "ProxyService",
             metadata: ["puuid": puuid, "bytes": String(data.count)])
         return data
+    }
+
+    /// Fetches league entries (rank data) by summoner ID
+    public func riotLeagueEntries(summonerId: String, region: String = "europe") async throws -> LeagueEntriesResponse {
+        ClaimbLogger.debug(
+            "Platform parameter mapping for league entries", service: "ProxyService",
+            metadata: [
+                "summonerId": summonerId,
+                "platform": region,  // This is actually a platform code (euw1, na1, etc.)
+                "note": "League-V4 API requires platform parameter, not region",
+            ])
+
+        var comps = URLComponents(
+            url: baseURL.appendingPathComponent("riot/league-entries"), resolvingAgainstBaseURL: false)!
+        comps.queryItems = [
+            .init(name: "summonerId", value: summonerId),
+            .init(name: "platform", value: region),  // League-V4 needs platform, not region
+        ]
+
+        var req = URLRequest(url: comps.url!)
+        AppConfig.addAuthHeaders(&req)
+
+        ClaimbLogger.apiRequest("Proxy: riot/league-entries", method: "GET", service: "ProxyService")
+
+        let (data, resp) = try await performRequestWithRetry(req)
+
+        guard let httpResponse = resp as? HTTPURLResponse else {
+            throw ProxyError.invalidResponse
+        }
+
+        ClaimbLogger.apiResponse(
+            "Proxy: riot/league-entries", statusCode: httpResponse.statusCode, service: "ProxyService")
+
+        guard httpResponse.statusCode == 200 else {
+            throw ProxyError.httpError(httpResponse.statusCode)
+        }
+
+        do {
+            let response = try JSONDecoder().decode(LeagueEntriesResponse.self, from: data)
+            ClaimbLogger.info(
+                "Proxy: Retrieved league entries", service: "ProxyService",
+                metadata: [
+                    "summonerId": summonerId,
+                    "entryCount": String(response.entries.count),
+                    "platform": response.claimbPlatform,
+                ])
+            return response
+        } catch {
+            ClaimbLogger.error(
+                "Proxy: Failed to decode league entries response", service: "ProxyService",
+                error: error)
+            throw ProxyError.decodingError(error)
+        }
     }
 
     // MARK: - OpenAI API Methods

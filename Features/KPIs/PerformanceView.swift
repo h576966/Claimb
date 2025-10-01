@@ -9,6 +9,73 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+// MARK: - Rank Badge View
+
+struct RankBadge: View {
+    let rank: String
+    let lp: Int
+    let queueType: String
+    let isPrimary: Bool
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            // Rank icon (using SF Symbol as placeholder)
+            Image(systemName: "star.fill")
+                .font(.caption)
+                .foregroundColor(rankColor)
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(rank)
+                    .font(DesignSystem.Typography.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                
+                Text("\(lp) LP")
+                    .font(.caption2)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+            
+            Text(queueType)
+                .font(.caption2)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .padding(.leading, DesignSystem.Spacing.xs)
+        }
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .background(rankBackgroundColor)
+        .cornerRadius(DesignSystem.CornerRadius.small)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                .stroke(rankColor.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    private var rankColor: Color {
+        let tier = rank.components(separatedBy: " ").first?.uppercased() ?? ""
+        switch tier {
+        case "IRON": return .gray
+        case "BRONZE": return .orange
+        case "SILVER": return .gray.opacity(0.7)
+        case "GOLD": return .yellow
+        case "PLATINUM": return .cyan
+        case "EMERALD": return .green
+        case "DIAMOND": return .blue
+        case "MASTER": return .purple
+        case "GRANDMASTER": return .red
+        case "CHALLENGER": return .pink
+        default: return DesignSystem.Colors.textSecondary
+        }
+    }
+    
+    private var rankBackgroundColor: Color {
+        if isPrimary {
+            return rankColor.opacity(0.1)
+        } else {
+            return DesignSystem.Colors.cardBackground
+        }
+    }
+}
+
 // MARK: - KPI Card View
 
 struct KPICard: View {
@@ -111,6 +178,13 @@ struct PerformanceView: View {
                 Spacer()
                     .frame(height: DesignSystem.Spacing.md)
 
+                // Rank Badges
+                if summoner.hasAnyRank {
+                    rankBadgesView
+                        .padding(.horizontal, DesignSystem.Spacing.lg)
+                        .padding(.bottom, DesignSystem.Spacing.md)
+                }
+
                 // Role Selector
                 if let viewModel = matchDataViewModel, !viewModel.roleStats.isEmpty {
                     RoleSelectorView(
@@ -187,6 +261,30 @@ struct PerformanceView: View {
         )
     }
 
+    private var rankBadgesView: some View {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            // Solo/Duo Rank Badge
+            if let soloDuoRank = summoner.soloDuoRank {
+                RankBadge(
+                    rank: soloDuoRank,
+                    lp: summoner.soloDuoLP ?? 0,
+                    queueType: "Solo/Duo",
+                    isPrimary: true
+                )
+            }
+            
+            // Flex Rank Badge
+            if let flexRank = summoner.flexRank {
+                RankBadge(
+                    rank: flexRank,
+                    lp: summoner.flexLP ?? 0,
+                    queueType: "Flex",
+                    isPrimary: false
+                )
+            }
+        }
+    }
+
     private func kpiListView(matches: [Match]) -> some View {
         ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.sm) {
@@ -229,5 +327,9 @@ struct PerformanceView: View {
         .modelContainer(modelContainer)
         .onAppear {
             summoner.summonerLevel = 100
+            summoner.soloDuoRank = "GOLD IV"
+            summoner.soloDuoLP = 75
+            summoner.flexRank = "SILVER I"
+            summoner.flexLP = 50
         }
 }

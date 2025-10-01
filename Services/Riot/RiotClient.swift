@@ -83,6 +83,35 @@ public struct RiotMatchHistoryResponse: Codable {
     }
 }
 
+public struct RiotLeagueEntriesResponse: Codable {
+    public let entries: [RiotLeagueEntry]
+    public let claimbPlatform: String
+    public let claimbRegion: String
+    public let claimbSummonerId: String
+    
+    enum CodingKeys: String, CodingKey {
+        case entries
+        case claimbPlatform = "claimb_platform"
+        case claimbRegion = "claimb_region"
+        case claimbSummonerId = "claimb_summonerId"
+    }
+}
+
+public struct RiotLeagueEntry: Codable {
+    public let queueType: String
+    public let tier: String
+    public let rank: String
+    public let leaguePoints: Int
+    public let wins: Int
+    public let losses: Int
+    public let summonerId: String
+    public let summonerName: String
+    public let hotStreak: Bool
+    public let veteran: Bool
+    public let freshBlood: Bool
+    public let inactive: Bool
+}
+
 // MARK: - RiotClient Protocol
 
 public protocol RiotClient {
@@ -110,6 +139,9 @@ public protocol RiotClient {
 
     /// Get detailed match information
     func getMatch(matchId: String, region: String) async throws -> Data
+
+    /// Get league entries (rank data) by summoner ID
+    func getLeagueEntries(summonerId: String, region: String) async throws -> RiotLeagueEntriesResponse
 }
 
 // MARK: - Riot API Errors

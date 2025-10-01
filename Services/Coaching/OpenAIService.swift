@@ -425,10 +425,12 @@ public class OpenAIService {
         let baselineContext =
             personalBaselines.isEmpty ? "" : createBaselineContext(baselines: personalBaselines)
 
+        let rankContext = createRankContext(summoner: summoner)
+        
         return """
             You are a League of Legends coach. Analyze this player's performance and provide concise coaching insights.
 
-            **Player:** \(summoner.gameName)#\(summoner.tagLine) | **Role:** \(primaryRole)
+            **Player:** \(summoner.gameName)#\(summoner.tagLine) | **Role:** \(primaryRole)\(rankContext)
             \(baselineContext)
             \(matchSummary)
 
@@ -456,6 +458,31 @@ public class OpenAIService {
         for (metric, value) in baselines {
             context += "\(metric): \(String(format: "%.2f", value))\n"
         }
+        return context
+    }
+
+    private func createRankContext(summoner: Summoner) -> String {
+        guard summoner.hasAnyRank else { return "" }
+        
+        var context = " | **Rank:** "
+        if let soloDuoRank = summoner.soloDuoRank {
+            context += "Solo/Duo: \(soloDuoRank)"
+            if let lp = summoner.soloDuoLP {
+                context += " (\(lp) LP)"
+            }
+        }
+        
+        if let flexRank = summoner.flexRank {
+            if summoner.soloDuoRank != nil {
+                context += ", Flex: \(flexRank)"
+            } else {
+                context += "Flex: \(flexRank)"
+            }
+            if let lp = summoner.flexLP {
+                context += " (\(lp) LP)"
+            }
+        }
+        
         return context
     }
 
@@ -583,10 +610,12 @@ public class OpenAIService {
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
         let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
 
+        let rankContext = createRankContext(summoner: summoner)
+        
         return """
             League of Legends coach. Analyze this game and provide concise advice.
 
-            **Game:** \(summoner.gameName) | \(championName) | \(role) | \(gameResult) | \(kda) | \(cs) CS | \(match.gameDuration / 60)min
+            **Game:** \(summoner.gameName) | \(championName) | \(role) | \(gameResult) | \(kda) | \(cs) CS | \(match.gameDuration / 60)min\(rankContext)
 
             **Response (JSON only):**
             {
@@ -620,12 +649,14 @@ public class OpenAIService {
         let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
         let gameDuration = match.gameDuration / 60
 
+        let rankContext = createRankContext(summoner: summoner)
+        
         var prompt = """
             You are a League of Legends post-game analyst specializing in early game performance analysis.
 
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
-            Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min
+            Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min\(rankContext)
             \(teamContext)
             """
 

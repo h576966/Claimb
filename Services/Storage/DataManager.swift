@@ -173,6 +173,9 @@ public class DataManager {
             existing.profileIconId = summonerResponse.profileIconId
             existing.summonerLevel = summonerResponse.summonerLevel
 
+            // Fetch rank data
+            try await updateSummonerRanks(existing, summonerId: summonerResponse.id, region: region)
+
             try modelContext.save()
             return existing
         } else {
@@ -195,9 +198,64 @@ public class DataManager {
             newSummoner.profileIconId = summonerResponse.profileIconId
             newSummoner.summonerLevel = summonerResponse.summonerLevel
 
+            // Fetch rank data
+            try await updateSummonerRanks(newSummoner, summonerId: summonerResponse.id, region: region)
+
             modelContext.insert(newSummoner)
             try modelContext.save()
             return newSummoner
+        }
+    }
+
+    /// Updates summoner rank data from league entries
+    private func updateSummonerRanks(_ summoner: Summoner, summonerId: String, region: String) async throws {
+        do {
+            let leagueResponse = try await riotClient.getLeagueEntries(summonerId: summonerId, region: region)
+            
+            // Reset rank data
+            summoner.soloDuoRank = nil
+            summoner.flexRank = nil
+            summoner.soloDuoLP = nil
+            summoner.flexLP = nil
+            summoner.soloDuoWins = nil
+            summoner.soloDuoLosses = nil
+            summoner.flexWins = nil
+            summoner.flexLosses = nil
+            
+            // Process league entries
+            for entry in leagueResponse.entries {
+                switch entry.queueType {
+                case "RANKED_SOLO_5x5":
+                    summoner.soloDuoRank = "\(entry.tier) \(entry.rank)"
+                    summoner.soloDuoLP = entry.leaguePoints
+                    summoner.soloDuoWins = entry.wins
+                    summoner.soloDuoLosses = entry.losses
+                case "RANKED_FLEX_SR":
+                    summoner.flexRank = "\(entry.tier) \(entry.rank)"
+                    summoner.flexLP = entry.leaguePoints
+                    summoner.flexWins = entry.wins
+                    summoner.flexLosses = entry.losses
+                default:
+                    // Skip other queue types
+                    continue
+                }
+            }
+            
+            ClaimbLogger.info(
+                "Updated summoner ranks", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
+                    "flexRank": summoner.flexRank ?? "Unranked",
+                ])
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to fetch rank data, continuing without ranks", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "error": error.localizedDescription,
+                ])
+            // Don't throw - ranks are optional, continue without them
         }
     }
 
