@@ -19,24 +19,24 @@ struct RankBadge: View {
 
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(rank)
-                    .font(DesignSystem.Typography.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(rankColor)
+            Text(rank)
+                .font(DesignSystem.Typography.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(rankColor)
 
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 1) {
                 if lp > 0 {
                     Text("\(lp) LP")
                         .font(.caption2)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
+                
+                Text(queueType)
+                    .font(.caption2)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
             }
-
-            Spacer()
-
-            Text(queueType)
-                .font(.caption2)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
         }
     }
 
@@ -192,7 +192,7 @@ struct PerformanceView: View {
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         // Left: Rank Badges Card
                         rankBadgesCardView
-                        
+
                         // Right: Streak and Performance Card
                         streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
                     }
@@ -203,7 +203,7 @@ struct PerformanceView: View {
                     // Show rank badges only while loading matches
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         rankBadgesCardView
-                        
+
                         // Placeholder for streak card
                         Color.clear
                             .frame(maxWidth: .infinity)
@@ -275,7 +275,7 @@ struct PerformanceView: View {
     }
 
     private var rankBadgesCardView: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {
@@ -317,7 +317,7 @@ struct PerformanceView: View {
     }
 
     private func streakCardView(matches: [Match], role: String) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             if let kpiService = matchDataViewModel?.kpiCalculationService {
                 let losingStreak = kpiService.calculateLosingStreak(
                     matches: matches, summoner: summoner, role: role)
@@ -331,7 +331,7 @@ struct PerformanceView: View {
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         Image(systemName: "flame.fill")
                             .foregroundColor(DesignSystem.Colors.primary)
-                            .font(.caption)
+                            .font(.body)
                         Text("\(winningStreak) Win Streak")
                             .font(DesignSystem.Typography.subheadline)
                             .fontWeight(.semibold)
@@ -344,7 +344,7 @@ struct PerformanceView: View {
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(DesignSystem.Colors.secondary)
-                            .font(.caption)
+                            .font(.body)
                         Text("\(losingStreak) Loss Streak")
                             .font(DesignSystem.Typography.subheadline)
                             .fontWeight(.semibold)
@@ -361,7 +361,7 @@ struct PerformanceView: View {
                                     ? DesignSystem.Colors.primary
                                     : DesignSystem.Colors.textSecondary
                             )
-                            .font(.caption)
+                            .font(.body)
                         Text("\(recentPerformance.wins)W-\(recentPerformance.losses)L")
                             .font(DesignSystem.Typography.subheadline)
                             .fontWeight(.semibold)
