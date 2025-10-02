@@ -268,10 +268,6 @@ struct PerformanceView: View {
 
     private var rankBadgesView: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-            // Debug logging
-            let _ = print(
-                "🔍 Rank Debug - hasAnyRank: \(summoner.hasAnyRank), soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil"), soloDuoLP: \(summoner.soloDuoLP ?? -1), flexLP: \(summoner.flexLP ?? -1)"
-            )
 
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge

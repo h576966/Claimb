@@ -186,9 +186,6 @@ public class DataManager {
             existing.summonerLevel = summonerResponse.summonerLevel
 
             // Fetch rank data using PUUID
-            print(
-                "🔍 DataManager: Calling updateSummonerRanks for existing summoner \(existing.gameName) with puuid: \(existing.puuid)"
-            )
             try await updateSummonerRanks(existing, region: region)
 
             try modelContext.save()
@@ -226,9 +223,6 @@ public class DataManager {
             newSummoner.summonerLevel = summonerResponse.summonerLevel
 
             // Fetch rank data using PUUID
-            print(
-                "🔍 DataManager: Calling updateSummonerRanks for new summoner \(newSummoner.gameName) with puuid: \(newSummoner.puuid)"
-            )
             try await updateSummonerRanks(newSummoner, region: region)
 
             modelContext.insert(newSummoner)
@@ -241,9 +235,6 @@ public class DataManager {
     public func updateSummonerRanks(_ summoner: Summoner, region: String)
         async throws
     {
-        print(
-            "🔍 DataManager: updateSummonerRanks called for \(summoner.gameName) with region: \(region)"
-        )
 
         do {
             ClaimbLogger.info(
@@ -254,17 +245,11 @@ public class DataManager {
                     "region": region,
                 ])
 
-            print(
-                "🔍 DataManager: About to call getLeagueEntriesByPUUID with puuid: \(summoner.puuid), region: \(region)"
-            )
 
             // Use PUUID instead of summonerId for league entries
             let leagueResponse = try await riotClient.getLeagueEntriesByPUUID(
                 puuid: summoner.puuid, region: region)
 
-            print(
-                "🔍 DataManager: Successfully received league response with \(leagueResponse.entries.count) entries"
-            )
 
             ClaimbLogger.info(
                 "Received league response", service: "DataManager",
@@ -314,9 +299,6 @@ public class DataManager {
                 ])
 
         } catch {
-            print("🔍 DataManager: Error in updateSummonerRanks: \(error)")
-            print("🔍 DataManager: Error type: \(type(of: error))")
-            print("🔍 DataManager: Error localizedDescription: \(error.localizedDescription)")
 
             ClaimbLogger.warning(
                 "Failed to fetch rank data, continuing without ranks", service: "DataManager",
@@ -585,7 +567,7 @@ public class DataManager {
         let normalQueue = 400  // Normal Draft
 
         // Start with ranked games - fetch 50 per queue to get ~100 total
-        let matchesPerRankedQueue = min(50, targetCount / 2)
+        let matchesPerRankedQueue = min(30, targetCount / 2)
 
         ClaimbLogger.info(
             "Smart fetch: prioritizing ranked games first", service: "DataManager",
@@ -799,7 +781,7 @@ public class DataManager {
     }
 
     /// Gets matches for a summoner
-    public func getMatches(for summoner: Summoner, limit: Int = 100) async throws -> [Match] {
+    public func getMatches(for summoner: Summoner, limit: Int = 50) async throws -> [Match] {
         // For now, get all matches and filter manually to avoid SwiftData predicate issues
         let descriptor = FetchDescriptor<Match>(
             sortBy: [SortDescriptor(\.gameCreation, order: .reverse)]
@@ -1150,7 +1132,7 @@ public class DataManager {
     // MARK: - Request Deduplication
 
     /// Loads matches with deduplication
-    public func loadMatches(for summoner: Summoner, limit: Int = 100) async -> UIState<[Match]> {
+    public func loadMatches(for summoner: Summoner, limit: Int = 50) async -> UIState<[Match]> {
         let requestKey = "matches_\(summoner.puuid)_\(limit)"
 
         return await deduplicateRequest(key: requestKey) {
