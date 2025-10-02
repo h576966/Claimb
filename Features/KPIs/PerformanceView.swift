@@ -190,9 +190,11 @@ struct PerformanceView: View {
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         // Left: Rank Badges Card
                         rankBadgesCardView
+                            .frame(minHeight: 88)
 
                         // Right: Streak and Performance Card
                         streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
+                            .frame(minHeight: 88)
                     }
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
@@ -200,10 +202,11 @@ struct PerformanceView: View {
                     // Show rank badges only while loading matches
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         rankBadgesCardView
+                            .frame(minHeight: 88)
 
                         // Placeholder for streak card
                         Color.clear
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 88)
                     }
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
