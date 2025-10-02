@@ -462,7 +462,13 @@ struct CoachingView: View {
         SharedHeaderView(
             summoner: summoner,
             title: "Coaching",
-            actionButton: nil,  // Remove manual analyze button - auto-triggering handles this
+            actionButton: SharedHeaderView.ActionButton(
+                title: "Refresh",
+                icon: "arrow.clockwise",
+                action: { Task { await viewModel?.loadMatches() } },
+                isLoading: viewModel?.isAnalyzing ?? false,
+                isDisabled: false
+            ),
             onLogout: {
                 userSession.logout()
             }

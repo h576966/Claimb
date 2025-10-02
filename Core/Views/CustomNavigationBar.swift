@@ -12,6 +12,8 @@ struct CustomNavigationBar: View {
     let title: String
     let actionButton: ActionButton?
     let onLogout: (() -> Void)?
+    
+    @State private var showLogoutConfirmation = false
 
     struct ActionButton {
         let title: String
@@ -61,39 +63,49 @@ struct CustomNavigationBar: View {
 
                 Spacer()
 
-                // Action Button (Right side)
+                // Action Button (Right side) - Icon only
                 if let actionButton = actionButton {
                     Button(action: actionButton.action) {
-                        HStack(spacing: DesignSystem.Spacing.xs) {
-                            if actionButton.isLoading {
-                                ProgressView()
-                                    .progressViewStyle(
-                                        CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
-                                    )
-                                    .frame(width: 14, height: 14)
-                            } else {
-                                Image(systemName: actionButton.icon)
-                                    .font(DesignSystem.Typography.caption)
-                            }
-
-                            Text(actionButton.title)
-                                .font(DesignSystem.Typography.caption)
+                        if actionButton.isLoading {
+                            ProgressView()
+                                .progressViewStyle(
+                                    CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
+                                )
+                                .frame(width: 20, height: 20)
+                        } else {
+                            Image(systemName: actionButton.icon)
+                                .font(DesignSystem.Typography.title3)
+                                .foregroundColor(DesignSystem.Colors.primary)
                         }
                     }
-                    .claimbButton(variant: .primary, size: .small)
+                    .frame(width: 44, height: 44)
+                    .background(DesignSystem.Colors.cardBackground)
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                            .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                    )
                     .disabled(actionButton.isDisabled || actionButton.isLoading)
                     .accessibilityLabel(actionButton.isLoading ? "Refreshing" : actionButton.title)
                     .accessibilityHint("Fetches latest match data from Riot Games")
                 }
 
-                // Logout Button (if provided)
+                // Logout Button (if provided) - Icon only with confirmation
                 if let onLogout = onLogout {
-                    Button(action: onLogout) {
+                    Button(action: {
+                        showLogoutConfirmation = true
+                    }) {
                         Image(systemName: "person.circle")
                             .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 44, height: 44)
+                    .background(DesignSystem.Colors.cardBackground)
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                            .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                    )
                     .accessibilityLabel("Account")
                     .accessibilityHint("View account options and logout")
                 }
@@ -107,6 +119,14 @@ struct CustomNavigationBar: View {
                 .frame(height: 0.5)
         }
         .background(DesignSystem.Colors.background)
+        .alert("Logout", isPresented: $showLogoutConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Logout", role: .destructive) {
+                onLogout?()
+            }
+        } message: {
+            Text("Are you sure you want to logout? You'll need to sign in again to access your data.")
+        }
     }
 }
 

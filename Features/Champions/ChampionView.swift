@@ -107,6 +107,13 @@ struct ChampionView: View {
         SharedHeaderView(
             summoner: summoner,
             title: "Champion Pool",
+            actionButton: SharedHeaderView.ActionButton(
+                title: "Refresh",
+                icon: "arrow.clockwise",
+                action: { Task { await matchDataViewModel?.loadAllData() } },
+                isLoading: matchDataViewModel?.isRefreshing ?? false,
+                isDisabled: false
+            ),
             onLogout: {
                 userSession.logout()
             }
