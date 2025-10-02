@@ -32,7 +32,7 @@ struct LoginView: View {
                     // App Icon and Title
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // App Icon
-                        Image("ClaimbAppIcon")
+                        Image("AppIcon")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 80, height: 80)
