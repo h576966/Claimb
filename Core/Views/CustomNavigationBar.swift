@@ -12,7 +12,7 @@ struct CustomNavigationBar: View {
     let title: String
     let actionButton: ActionButton?
     let onLogout: (() -> Void)?
-    
+
     @State private var showLogoutConfirmation = false
 
     struct ActionButton {
@@ -91,7 +91,7 @@ struct CustomNavigationBar: View {
                 }
 
                 // Logout Button (if provided) - Icon only with confirmation
-                if let onLogout = onLogout {
+                if onLogout != nil {
                     Button(action: {
                         showLogoutConfirmation = true
                     }) {
@@ -120,12 +120,14 @@ struct CustomNavigationBar: View {
         }
         .background(DesignSystem.Colors.background)
         .alert("Logout", isPresented: $showLogoutConfirmation) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Logout", role: .destructive) {
                 onLogout?()
             }
         } message: {
-            Text("Are you sure you want to logout? You'll need to sign in again to access your data.")
+            Text(
+                "Are you sure you want to logout? You'll need to sign in again to access your data."
+            )
         }
     }
 }
