@@ -231,15 +231,14 @@ public class MatchParser {
             return false
         }
 
-        // Temporarily disable age filtering to test if this is causing the issue
-        // TODO: Re-enable age filtering once we confirm it's not the problem
-        // let maxGameAgeInDays = 365
-        // let gameDate = Date(timeIntervalSince1970: TimeInterval(gameCreation / 1000))
-        // let daysSinceGame =
-        //     Calendar.current.dateComponents([.day], from: gameDate, to: Date()).day ?? 0
-        // guard daysSinceGame <= maxGameAgeInDays else {
-        //     return false
-        // }
+        // Filter out matches older than 1 year
+        let maxGameAgeInDays = MatchFilteringUtils.maxGameAgeInDays
+        let gameDate = Date(timeIntervalSince1970: TimeInterval(gameCreation / 1000))
+        let daysSinceGame =
+            Calendar.current.dateComponents([.day], from: gameDate, to: Date()).day ?? 0
+        guard daysSinceGame <= maxGameAgeInDays else {
+            return false
+        }
 
         return true
     }

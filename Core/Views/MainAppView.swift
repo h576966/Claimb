@@ -12,7 +12,9 @@ struct MainAppView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var summoner: Summoner
     @State private var matchDataViewModel: MatchDataViewModel?
-    @State private var showBaselineTest = false
+    #if DEBUG
+        @State private var showBaselineTest = false
+    #endif
     @State private var selectedRole: String = "TOP"
     @State private var showRoleSelection = false
 
@@ -62,7 +64,7 @@ struct MainAppView: View {
         }
         .onAppear {
             initializeViewModel()
-            Task { 
+            Task {
                 await matchDataViewModel?.loadMatches()
                 // Refresh rank data for existing summoner
                 await refreshSummonerRanks()
@@ -72,9 +74,11 @@ struct MainAppView: View {
             await matchDataViewModel?.refreshMatches()
             await refreshSummonerRanks()
         }
-        .sheet(isPresented: $showBaselineTest) {
-            BaselineTestView()
-        }
+        #if DEBUG
+            .sheet(isPresented: $showBaselineTest) {
+                BaselineTestView()
+            }
+        #endif
     }
 
     // MARK: - Header View
@@ -114,35 +118,37 @@ struct MainAppView: View {
                 .claimbButton(variant: .primary, size: .small)
                 .disabled(matchDataViewModel?.isRefreshing ?? false)
 
-                // Clear Cache Button (for debugging)
-                Button(action: {
-                    Task { await matchDataViewModel?.clearCache() }
-                }) {
-                    HStack(spacing: DesignSystem.Spacing.sm) {
-                        Image(systemName: "trash")
-                            .font(DesignSystem.Typography.callout)
+                #if DEBUG
+                    // Clear Cache Button (for debugging)
+                    Button(action: {
+                        Task { await matchDataViewModel?.clearCache() }
+                    }) {
+                        HStack(spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "trash")
+                                .font(DesignSystem.Typography.callout)
 
-                        Text("Clear Cache")
-                            .font(DesignSystem.Typography.callout)
+                            Text("Clear Cache")
+                                .font(DesignSystem.Typography.callout)
+                        }
                     }
-                }
-                .claimbButton(variant: .secondary, size: .small)
-                .disabled(matchDataViewModel?.isRefreshing ?? false)
+                    .claimbButton(variant: .secondary, size: .small)
+                    .disabled(matchDataViewModel?.isRefreshing ?? false)
 
-                // Test Baselines Button
-                Button(action: {
-                    showBaselineTest = true
-                }) {
-                    HStack(spacing: DesignSystem.Spacing.sm) {
-                        Image(systemName: "chart.bar")
-                            .font(DesignSystem.Typography.callout)
+                    // Test Baselines Button
+                    Button(action: {
+                        showBaselineTest = true
+                    }) {
+                        HStack(spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "chart.bar")
+                                .font(DesignSystem.Typography.callout)
 
-                        Text("Test Baselines")
-                            .font(DesignSystem.Typography.callout)
+                            Text("Test Baselines")
+                                .font(DesignSystem.Typography.callout)
+                        }
                     }
-                }
-                .claimbButton(variant: .secondary, size: .small)
-                .disabled(matchDataViewModel?.isRefreshing ?? false)
+                    .claimbButton(variant: .secondary, size: .small)
+                    .disabled(matchDataViewModel?.isRefreshing ?? false)
+                #endif
 
                 Spacer()
 
@@ -244,11 +250,11 @@ struct MainAppView: View {
             )
         }
     }
-    
+
     private func refreshSummonerRanks() async {
         let dataManager = DataManager.shared(with: modelContext)
         let result = await dataManager.refreshSummonerRanks(for: summoner)
-        
+
         switch result {
         case .loaded:
             ClaimbLogger.info("Successfully refreshed rank data", service: "MainAppView")

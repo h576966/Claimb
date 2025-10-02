@@ -406,7 +406,6 @@ struct PerformanceView: View {
     }
 
     private func refreshSummonerRanks() async {
-        print("🔍 PerformanceView: refreshSummonerRanks called")
         ClaimbLogger.info("Starting rank refresh from PerformanceView", service: "PerformanceView")
 
         let dataManager = DataManager.shared(with: modelContext)
@@ -414,7 +413,6 @@ struct PerformanceView: View {
 
         switch result {
         case .loaded:
-            print("🔍 PerformanceView: Rank refresh completed successfully")
             ClaimbLogger.info(
                 "Successfully refreshed rank data", service: "PerformanceView",
                 metadata: [
@@ -422,11 +420,10 @@ struct PerformanceView: View {
                     "flexRank": summoner.flexRank ?? "nil",
                 ])
         case .error(let error):
-            print("🔍 PerformanceView: Rank refresh failed: \(error)")
             ClaimbLogger.error(
                 "Failed to refresh rank data", service: "PerformanceView", error: error)
         default:
-            print("🔍 PerformanceView: Rank refresh returned unexpected state")
+            ClaimbLogger.debug("Rank refresh returned unexpected state", service: "PerformanceView")
             break
         }
     }
