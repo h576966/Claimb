@@ -30,7 +30,7 @@ struct RankBadge: View {
                         .font(.caption2)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
-                
+
                 Text(queueType)
                     .font(.caption2)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
