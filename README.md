@@ -105,6 +105,46 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Rank Integration**: League-V4 API integration for Solo/Duo and Flex rank tracking
 - **Structured Logging**: Comprehensive logging with ClaimbLogger across all services
 
+## 🚀 **Production Readiness (October 2025)**
+
+We recently completed a comprehensive production-readiness initiative to ensure the app meets App Store requirements and professional quality standards:
+
+### **✅ Code Cleanup & Quality**
+- **Removed 1,400+ lines of dead code**: Deleted 11 Python test scripts and debug utilities
+- **Conditional compilation**: Debug views (BaselineTestView, TestResultView) and debug UI wrapped in `#if DEBUG`
+- **Proper logging**: Replaced all `print()` and `NSLog()` statements with `ClaimbLogger`
+- **Resolved TODOs**: Re-enabled age filtering for matches (1 year limit)
+- **Zero production bloat**: Debug code excluded from Release builds
+
+### **✅ App Store Compliance**
+- **Privacy descriptions**: Added required `NSUserTrackingUsageDescription` for iOS 14+
+- **Export compliance**: Added `ITSAppUsesNonExemptEncryption=false` declaration
+- **App Transport Security**: Verified secure HTTPS configuration for all APIs
+- **Network permissions**: User-friendly network usage description
+- **Ready for submission**: All required Info.plist keys present
+
+### **✅ Security Hardening**
+- **No hardcoded keys**: Verified no API keys in source code
+- **Secure configuration**: All keys loaded from secure build settings via `AppConfig`
+- **Debug-only logging**: Configuration logging wrapped in `#if DEBUG` conditionals
+- **Clean git history**: No accidentally committed secrets
+- **Server-side security**: Supabase anon key intentionally public (RLS protected)
+
+### **✅ Build Optimization**
+- **Dead code stripping**: `DEAD_CODE_STRIPPING = YES` verified
+- **Whole module optimization**: `SWIFT_COMPILATION_MODE = wholemodule` for Release
+- **Optimal performance**: Release builds fully optimized for speed and size
+- **Debug support**: Development builds retain full debugging capability
+
+### **📈 Impact**
+- **Smaller binary**: 1,400 lines removed, debug code excluded from production
+- **App Store ready**: All compliance requirements met
+- **Secure**: No exposed secrets, proper key management
+- **Professional**: Clean codebase, proper logging, optimized builds
+- **Maintainable**: Well-documented, consistent patterns, focused components
+
+---
+
 ## 🏗️ **Recent Architecture Improvements**
 
 ### **Latest Supabase Integration (September 2025)**
@@ -424,17 +464,22 @@ Claimb/
 - **UIState Components**: Standardized loading, error, and empty state views
 
 ### **Testing & Debugging**
-The app includes comprehensive test views for development:
-- **BaselineTestView**: Test baseline data loading and performance analysis
-- **CacheManagementView**: Manage cached data and clear storage
+The app includes comprehensive test views for development (DEBUG builds only):
+- **BaselineTestView**: Test baseline data loading and performance analysis (conditionally compiled)
+- **TestResultView**: Display test results and network diagnostics (conditionally compiled)
+- **Debug UI Controls**: "Clear Cache" and "Test Baselines" buttons (conditionally compiled)
 - **Interactive API Testing**: Built-in tools for testing Riot API integration
+- **ClaimbLogger**: Structured logging for development and production (debug messages stripped from Release)
 
 ### **Code Quality**
-- **Structured Logging**: Centralized logging with ClaimbLogger
+- **Structured Logging**: Centralized logging with ClaimbLogger (debug logs stripped from Release builds)
 - **Error Handling**: Comprehensive error handling with user-friendly messages
 - **Rate Limiting**: Token-bucket algorithm with exponential backoff
 - **Memory Management**: Proper async/await patterns and task cancellation
 - **Code Organization**: Clean separation of concerns with feature-based modules
+- **Production Ready**: Debug code conditionally compiled, optimized Release builds
+- **Security**: No hardcoded secrets, secure key management, debug-only configuration logging
+- **App Store Compliant**: All required privacy descriptions and export compliance declarations
 
 ## 🌐 **API Integration**
 
@@ -465,8 +510,10 @@ The app includes comprehensive test views for development:
 - **Offline Mode**: Full functionality without internet after initial sync
 
 ### **Permissions**
-- **Network**: Required for API calls and data sync
+- **Network**: Required for API calls and data sync (with user-friendly description)
 - **Background App Refresh**: Optional for automatic updates
+- **User Tracking**: Required by iOS 14+ but not used (with transparent description)
+- **Export Compliance**: Standard HTTPS encryption only (no special export requirements)
 
 ## 📈 **Roadmap**
 
