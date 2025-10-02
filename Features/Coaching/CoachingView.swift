@@ -432,6 +432,9 @@ struct CoachingView: View {
                 // Custom Navigation Bar
                 headerView
 
+                Spacer()
+                    .frame(height: DesignSystem.Spacing.md)
+
                 // Content
                 if let viewModel = viewModel {
                     ClaimbContentWrapper(
@@ -481,7 +484,7 @@ struct CoachingView: View {
                                 : DesignSystem.Colors.textSecondary
                         )
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, DesignSystem.Spacing.sm)
+                        .padding(.vertical, DesignSystem.Spacing.md)
                         .background(
                             viewModel?.selectedCoachingTab == tab
                                 ? DesignSystem.Colors.cardBackground
@@ -558,10 +561,6 @@ struct CoachingView: View {
 
     private func lastGameSummaryCard(matches: [Match]) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            Text("Last Game Summary")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
             if matches.isEmpty {
                 Text("No games played yet")
                     .font(DesignSystem.Typography.body)
