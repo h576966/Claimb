@@ -62,10 +62,15 @@ struct MainAppView: View {
         }
         .onAppear {
             initializeViewModel()
-            Task { await matchDataViewModel?.loadMatches() }
+            Task { 
+                await matchDataViewModel?.loadMatches()
+                // Refresh rank data for existing summoner
+                await refreshSummonerRanks()
+            }
         }
         .refreshable {
             await matchDataViewModel?.refreshMatches()
+            await refreshSummonerRanks()
         }
         .sheet(isPresented: $showBaselineTest) {
             BaselineTestView()
@@ -237,6 +242,20 @@ struct MainAppView: View {
                 dataManager: dataManager,
                 summoner: summoner
             )
+        }
+    }
+    
+    private func refreshSummonerRanks() async {
+        let dataManager = DataManager.shared(with: modelContext)
+        let result = await dataManager.refreshSummonerRanks(for: summoner)
+        
+        switch result {
+        case .loaded:
+            ClaimbLogger.info("Successfully refreshed rank data", service: "MainAppView")
+        case .error(let error):
+            ClaimbLogger.error("Failed to refresh rank data", service: "MainAppView", error: error)
+        default:
+            break
         }
     }
 

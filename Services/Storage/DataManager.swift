@@ -241,6 +241,10 @@ public class DataManager {
     public func updateSummonerRanks(_ summoner: Summoner, region: String)
         async throws
     {
+        print(
+            "🔍 DataManager: updateSummonerRanks called for \(summoner.gameName) with region: \(region)"
+        )
+
         do {
             ClaimbLogger.info(
                 "Fetching rank data", service: "DataManager",
@@ -250,9 +254,17 @@ public class DataManager {
                     "region": region,
                 ])
 
+            print(
+                "🔍 DataManager: About to call getLeagueEntriesByPUUID with puuid: \(summoner.puuid), region: \(region)"
+            )
+
             // Use PUUID instead of summonerId for league entries
             let leagueResponse = try await riotClient.getLeagueEntriesByPUUID(
                 puuid: summoner.puuid, region: region)
+
+            print(
+                "🔍 DataManager: Successfully received league response with \(leagueResponse.entries.count) entries"
+            )
 
             ClaimbLogger.info(
                 "Received league response", service: "DataManager",
@@ -302,6 +314,10 @@ public class DataManager {
                 ])
 
         } catch {
+            print("🔍 DataManager: Error in updateSummonerRanks: \(error)")
+            print("🔍 DataManager: Error type: \(type(of: error))")
+            print("🔍 DataManager: Error localizedDescription: \(error.localizedDescription)")
+
             ClaimbLogger.warning(
                 "Failed to fetch rank data, continuing without ranks", service: "DataManager",
                 metadata: [
