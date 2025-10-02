@@ -225,6 +225,7 @@ struct PerformanceView: View {
             initializeViewModel()
             Task {
                 await matchDataViewModel?.loadAllData()
+                await refreshSummonerRanks()
             }
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
@@ -392,6 +393,20 @@ struct PerformanceView: View {
                 summoner: summoner,
                 userSession: userSession
             )
+        }
+    }
+    
+    private func refreshSummonerRanks() async {
+        let dataManager = DataManager.shared(with: modelContext)
+        let result = await dataManager.refreshSummonerRanks(for: summoner)
+        
+        switch result {
+        case .loaded:
+            ClaimbLogger.info("Successfully refreshed rank data", service: "PerformanceView")
+        case .error(let error):
+            ClaimbLogger.error("Failed to refresh rank data", service: "PerformanceView", error: error)
+        default:
+            break
         }
     }
 }
