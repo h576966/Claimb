@@ -18,15 +18,13 @@ struct RankBadge: View {
     let isPrimary: Bool
 
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.xs) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(rank)
                 .font(DesignSystem.Typography.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(rankColor)
 
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 1) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
                 if lp > 0 {
                     Text("\(lp) LP")
                         .font(.caption2)
@@ -338,7 +336,7 @@ struct PerformanceView: View {
                             .foregroundColor(DesignSystem.Colors.primary)
                     }
                 }
-                
+
                 // Losing Streak Warning
                 if losingStreak >= 3 {
                     HStack(spacing: DesignSystem.Spacing.xs) {
