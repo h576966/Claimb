@@ -159,7 +159,7 @@ struct KPICard: View {
 // MARK: - Performance View
 
 struct PerformanceView: View {
-    let summoner: Summoner
+    @Bindable var summoner: Summoner
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
@@ -298,7 +298,7 @@ struct PerformanceView: View {
                     isPrimary: true
                 )
             }
-            
+
             Spacer()
         }
     }
@@ -364,7 +364,7 @@ struct PerformanceView: View {
                     .background(DesignSystem.Colors.surface)
                     .cornerRadius(DesignSystem.CornerRadius.small)
                 }
-                
+
                 Spacer()
             }
         }
@@ -395,17 +395,27 @@ struct PerformanceView: View {
             )
         }
     }
-    
+
     private func refreshSummonerRanks() async {
+        print("🔍 PerformanceView: refreshSummonerRanks called")
+        ClaimbLogger.info("Starting rank refresh from PerformanceView", service: "PerformanceView")
+        
         let dataManager = DataManager.shared(with: modelContext)
         let result = await dataManager.refreshSummonerRanks(for: summoner)
-        
+
         switch result {
         case .loaded:
-            ClaimbLogger.info("Successfully refreshed rank data", service: "PerformanceView")
+            print("🔍 PerformanceView: Rank refresh completed successfully")
+            ClaimbLogger.info("Successfully refreshed rank data", service: "PerformanceView", metadata: [
+                "soloDuoRank": summoner.soloDuoRank ?? "nil",
+                "flexRank": summoner.flexRank ?? "nil"
+            ])
         case .error(let error):
-            ClaimbLogger.error("Failed to refresh rank data", service: "PerformanceView", error: error)
+            print("🔍 PerformanceView: Rank refresh failed: \(error)")
+            ClaimbLogger.error(
+                "Failed to refresh rank data", service: "PerformanceView", error: error)
         default:
+            print("🔍 PerformanceView: Rank refresh returned unexpected state")
             break
         }
     }
