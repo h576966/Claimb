@@ -277,7 +277,7 @@ public class OpenAIService {
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
             model: "gpt-4o-mini",
-            maxOutputTokens: 500  // Shorter response for post-game analysis
+            maxOutputTokens: 600  // Increased for more detailed, game-specific analysis
         )
 
         // Parse response
@@ -655,7 +655,7 @@ public class OpenAIService {
         let rankContext = createRankContext(summoner: summoner)
 
         var prompt = """
-            You are a League of Legends post-game analyst specializing in early game performance analysis.
+            You are a League of Legends coach analyzing a single game for immediate improvement.
 
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
@@ -666,51 +666,68 @@ public class OpenAIService {
         // Add lane opponent information if available
         if let opponent = laneOpponent {
             prompt += """
-                **LANE MATCHUP:**
-                You played \(championName) (\(role)) vs \(opponent)
 
+                **LANE MATCHUP:**
+                \(championName) (\(role)) vs \(opponent)
                 """
         }
 
         // Add timeline data if available
         if let timeline = timelineData {
             prompt += """
-                **EARLY GAME TIMELINE DATA:**
+
+                **EARLY GAME TIMELINE:**
                 \(timeline)
 
-                **ANALYSIS APPROACH:**
-                - Focus on early game fundamentals for \(championName) in \(role)
-                - Use timeline data to identify specific timing issues
-                - Provide actionable advice based on early game performance
-                - Consider champion-specific power spikes and timings
-                - Analyze lane matchup dynamics and trading patterns
+                **ANALYSIS FOCUS:**
+                Using the timeline data, identify:
+                1. Specific timing mistakes or missed opportunities (cite minute marks)
+                2. Trading patterns and lane management errors
+                3. Champion-specific power spike utilization
+                4. Wave management and recall timings
+                5. Early game objective participation
 
                 """
         } else {
             prompt += """
-                **ANALYSIS APPROACH:**
-                - Focus on champion-specific advice for \(championName) in \(role)
-                - Provide actionable improvements for next game
-                - Consider role-specific fundamentals
-                - Analyze lane matchup dynamics and trading patterns
+
+                **ANALYSIS FOCUS:**
+                Based on the game stats, provide:
+                1. Champion-specific performance insights for \(championName) in \(role)
+                2. Lane matchup considerations vs \(laneOpponent ?? "opponent")
+                3. Role-specific fundamentals (csing, trading, positioning)
 
                 """
         }
 
         prompt += """
+            **IMPORTANT GUIDELINES:**
+            - Focus ONLY on THIS game - no champion pool recommendations
+            - Be specific and actionable (e.g., "At 6:30, you should have..." not "Try to farm better")
+            - Reference actual game events when timeline data is available
+            - Keep advice grounded in what happened in THIS match
+            - Prioritize early game improvements (first 15 minutes)
+            - Provide constructive feedback that helps improve next game performance
+
             **RESPONSE FORMAT (JSON only):**
             {
               "championName": "\(championName)",
               "gameResult": "\(gameResult)",
               "kda": "\(kda)",
-              "keyTakeaways": ["Specific early game insight 1", "Specific early game insight 2"],
-              "championSpecificAdvice": "\(championName)-specific early game advice for \(role)",
-              "championPoolAdvice": "Champion pool recommendation or null",
-              "nextGameFocus": ["Early game improvement 1", "Early game improvement 2"]
+              "keyTakeaways": [
+                "Specific insight with timing when available (e.g., 'Strong first blood at 3:15 showed good aggression')",
+                "Specific mistake with timing when available (e.g., 'Died at 7:40 while overextended without vision')",
+                "Pattern observed in this game (e.g., 'Consistent CS advantage in first 10 minutes')"
+              ],
+              "championSpecificAdvice": "Detailed \(championName)-specific advice for \(role) based on this game's performance. Be specific about what worked and what didn't in THIS match. Include champion mechanics, power spikes, and matchup-specific tips.",
+              "nextGameFocus": [
+                "Specific, measurable improvement for next game",
+                "Another specific, actionable focus point"
+              ]
             }
 
-            **FOCUS:** Early game performance analysis with timeline context when available.
-            Respond ONLY with valid JSON.
+            **REMEMBER:** Focus only on THIS game. No champion pool advice. Be specific and actionable.
+            Respond ONLY with valid JSON. No explanations outside JSON.
             """
 
         return prompt

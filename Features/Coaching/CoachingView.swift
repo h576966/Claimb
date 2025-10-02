@@ -510,9 +510,6 @@ struct CoachingView: View {
 
     private func coachingContentView(matches: [Match]) -> some View {
         VStack(spacing: 0) {
-            // Coaching Tab Selector
-            coachingTabSelector
-
             // Background refresh indicator
             if let viewModel = viewModel, viewModel.isRefreshingInBackground {
                 HStack(spacing: DesignSystem.Spacing.sm) {
@@ -535,6 +532,9 @@ struct CoachingView: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     // Last Game Summary
                     lastGameSummaryCard(matches: matches)
+
+                    // Coaching Tab Selector - Moved here
+                    coachingTabSelector
 
                     // Selected coaching content
                     if viewModel?.selectedCoachingTab == .postGame {
@@ -589,129 +589,70 @@ struct CoachingView: View {
     }
 
     private func lastGameSummaryContent(match: Match, participant: Participant) -> some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Header with Win/Loss and Champion Info
-            HStack(spacing: DesignSystem.Spacing.md) {
-                // Champion Image
-                AsyncImage(url: URL(string: participant.champion?.iconURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                        .fill(DesignSystem.Colors.cardBorder)
-                        .overlay(
-                            Image(systemName: "questionmark")
-                                .foregroundColor(DesignSystem.Colors.textTertiary)
+        HStack(spacing: DesignSystem.Spacing.md) {
+            // Champion Image
+            AsyncImage(url: URL(string: participant.champion?.iconURL ?? "")) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } placeholder: {
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                    .fill(DesignSystem.Colors.cardBorder)
+                    .overlay(
+                        Image(systemName: "questionmark")
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                    )
+            }
+            .frame(width: 60, height: 60)
+            .cornerRadius(DesignSystem.CornerRadius.small)
+
+            // Champion Info - Simplified
+            VStack(alignment: .leading, spacing: 2) {
+                Text(participant.champion?.name ?? "Unknown Champion")
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    // Role
+                    Text(RoleUtils.displayName(for: RoleUtils.normalizeRole(teamPosition: participant.teamPosition)))
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    Text("•")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                    // Win/Loss indicator
+                    Circle()
+                        .fill(
+                            participant.win
+                                ? DesignSystem.Colors.accent : DesignSystem.Colors.error
                         )
-                }
-                .frame(width: 60, height: 60)
-                .cornerRadius(DesignSystem.CornerRadius.small)
+                        .frame(width: 6, height: 6)
 
-                // Champion Name and Result
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text(participant.champion?.name ?? "Unknown Champion")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                    Text(participant.win ? "Victory" : "Defeat")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(
+                            participant.win
+                                ? DesignSystem.Colors.accent : DesignSystem.Colors.error
+                        )
 
-                    HStack(spacing: DesignSystem.Spacing.sm) {
-                        // Win/Loss indicator
-                        Circle()
-                            .fill(
-                                participant.win
-                                    ? DesignSystem.Colors.accent : DesignSystem.Colors.error
-                            )
-                            .frame(width: 8, height: 8)
+                    Text("•")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
 
-                        Text(participant.win ? "Victory" : "Defeat")
-                            .font(DesignSystem.Typography.callout)
-                            .foregroundColor(
-                                participant.win
-                                    ? DesignSystem.Colors.accent : DesignSystem.Colors.error
-                            )
-                            .fontWeight(.medium)
-
-                        Text("•")
-                            .font(DesignSystem.Typography.callout)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                        Text("\(match.gameDuration / 60) min")
-                            .font(DesignSystem.Typography.callout)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    }
+                    Text("\(match.gameDuration / 60) min")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
 
-                Spacer()
+                // KDA
+                Text("KDA: \(participant.kills)/\(participant.deaths)/\(participant.assists)")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
             }
 
-            // KPI Metrics
-            VStack(spacing: DesignSystem.Spacing.sm) {
-                HStack {
-                    Text("KDA")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Spacer()
-
-                    Text("\(participant.kills)/\(participant.deaths)/\(participant.assists)")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fontWeight(.medium)
-                }
-
-                HStack {
-                    Text("CS")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Spacer()
-
-                    Text("\(participant.totalMinionsKilled + participant.neutralMinionsKilled)")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fontWeight(.medium)
-                }
-
-                HStack {
-                    Text("CS/Min")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Spacer()
-
-                    Text(String(format: "%.1f", participant.csPerMinute))
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fontWeight(.medium)
-                }
-
-                HStack {
-                    Text("Vision Score")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Spacer()
-
-                    Text("\(participant.visionScore)")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fontWeight(.medium)
-                }
-
-                HStack {
-                    Text("Gold")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    Spacer()
-
-                    Text("\(participant.goldEarned)")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fontWeight(.medium)
-                }
-            }
-            .padding(.top, DesignSystem.Spacing.sm)
+            Spacer()
         }
     }
 
@@ -812,45 +753,23 @@ struct CoachingView: View {
 
     private func postGameAnalysisContent(analysis: PostGameAnalysis) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            // Game Result & Champion Info
-            HStack {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text(analysis.championName)
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-
-                    Text("\(analysis.gameResult) • \(analysis.kda)")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-
-                Spacer()
-
-                // Result indicator
-                Circle()
-                    .fill(
-                        analysis.gameResult.lowercased().contains("win")
-                            ? DesignSystem.Colors.accent : DesignSystem.Colors.error
-                    )
-                    .frame(width: 12, height: 12)
-            }
-
             // Key Takeaways
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                 Text("Key Takeaways")
                     .font(DesignSystem.Typography.callout)
+                    .fontWeight(.semibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
                 ForEach(Array(analysis.keyTakeaways.enumerated()), id: \.offset) {
                     index, takeaway in
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         Text("\(index + 1).")
-                            .font(DesignSystem.Typography.caption)
+                            .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.primary)
-                            .frame(width: 16, alignment: .leading)
+                            .frame(width: 20, alignment: .leading)
 
                         Text(takeaway)
-                            .font(DesignSystem.Typography.caption)
+                            .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
                 }
@@ -861,24 +780,12 @@ struct CoachingView: View {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                     Text("Champion-Specific Advice")
                         .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
 
                     Text(analysis.championSpecificAdvice)
                         .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                }
-            }
-
-            // Champion Pool Advice (if available)
-            if let championPoolAdvice = analysis.championPoolAdvice, !championPoolAdvice.isEmpty {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Champion Pool")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.warning)
-
-                    Text(championPoolAdvice)
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
 
@@ -886,17 +793,18 @@ struct CoachingView: View {
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                 Text("Next Game Focus")
                     .font(DesignSystem.Typography.callout)
+                    .fontWeight(.semibold)
                     .foregroundColor(DesignSystem.Colors.accent)
 
                 ForEach(Array(analysis.nextGameFocus.enumerated()), id: \.offset) { index, focus in
                     HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "target")
                             .foregroundColor(DesignSystem.Colors.accent)
-                            .font(.caption)
+                            .font(.body)
 
                         Text(focus)
                             .font(DesignSystem.Typography.body)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
                 }
             }
