@@ -16,9 +16,14 @@ enum AppConfig {
 
     static var baseURL: URL {
         let urlString = str("ClaimbFunctionBaseURL")
-        NSLog("DEBUG: ClaimbFunctionBaseURL = '\(urlString)'")
-        NSLog("DEBUG: urlString.isEmpty = \(urlString.isEmpty)")
-        NSLog("DEBUG: urlString.count = \(urlString.count)")
+        
+        #if DEBUG
+        ClaimbLogger.debug("Loading base URL configuration", service: "AppConfig", metadata: [
+            "urlString": urlString,
+            "isEmpty": String(urlString.isEmpty),
+            "length": String(urlString.count)
+        ])
+        #endif
 
         if urlString.isEmpty {
             fatalError("ClaimbFunctionBaseURL is empty")
@@ -28,7 +33,10 @@ enum AppConfig {
             fatalError("ClaimbFunctionBaseURL is not a valid URL. Current value: '\(urlString)'")
         }
 
-        NSLog("DEBUG: URL created successfully: \(url)")
+        #if DEBUG
+        ClaimbLogger.debug("Base URL loaded successfully", service: "AppConfig", metadata: ["url": url.absoluteString])
+        #endif
+        
         return url
     }
 
