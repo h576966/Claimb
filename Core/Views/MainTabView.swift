@@ -89,11 +89,11 @@ struct MainTabView: View {
     private func logout() {
         userSession.logout()
     }
-    
+
     private func refreshSummonerRanks() async {
         let dataManager = DataManager.shared(with: userSession.modelContext)
         let result = await dataManager.refreshSummonerRanks(for: summoner)
-        
+
         switch result {
         case .loaded:
             ClaimbLogger.info("Successfully refreshed rank data", service: "MainTabView")
