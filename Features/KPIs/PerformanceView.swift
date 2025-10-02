@@ -192,18 +192,27 @@ struct PerformanceView: View {
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
-                // Rank Badges - Always show rank information
-                rankBadgesView
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
-                    .padding(.bottom, DesignSystem.Spacing.md)
-
-                // Streak Indicators
+                // Rank and Streak Cards - Side by Side
                 if let viewModel = matchDataViewModel,
                     case .loaded(let matches) = viewModel.matchState
                 {
-                    streakIndicatorsView(matches: matches, role: userSession.selectedPrimaryRole)
-                        .padding(.horizontal, DesignSystem.Spacing.lg)
-                        .padding(.bottom, DesignSystem.Spacing.md)
+                    HStack(spacing: DesignSystem.Spacing.md) {
+                        // Left: Rank Badges Card
+                        rankBadgesCardView
+                        
+                        // Right: Streak and Performance Card
+                        streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
+                } else {
+                    // Show rank badges only while loading matches
+                    HStack(spacing: DesignSystem.Spacing.md) {
+                        rankBadgesCardView
+                        Spacer()
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
                 // Content
@@ -267,8 +276,8 @@ struct PerformanceView: View {
         )
     }
 
-    private var rankBadgesView: some View {
-        HStack(spacing: DesignSystem.Spacing.sm) {
+    private var rankBadgesCardView: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {
@@ -298,13 +307,19 @@ struct PerformanceView: View {
                     isPrimary: true
                 )
             }
-
-            Spacer()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
-    private func streakIndicatorsView(matches: [Match], role: String) -> some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
+    private func streakCardView(matches: [Match], role: String) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             if let kpiService = matchDataViewModel?.kpiCalculationService {
                 let losingStreak = kpiService.calculateLosingStreak(
                     matches: matches, summoner: summoner, role: role)
@@ -312,22 +327,6 @@ struct PerformanceView: View {
                     matches: matches, summoner: summoner, role: role)
                 let recentPerformance = kpiService.calculateRecentWinRate(
                     matches: matches, summoner: summoner, role: role)
-
-                // Losing Streak Warning
-                if losingStreak >= 3 {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(DesignSystem.Colors.secondary)
-                            .font(.caption)
-                        Text("\(losingStreak) Loss Streak")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    }
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
-                    .padding(.vertical, DesignSystem.Spacing.xs)
-                    .background(DesignSystem.Colors.secondary.opacity(0.1))
-                    .cornerRadius(DesignSystem.CornerRadius.small)
-                }
 
                 // Winning Streak Indicator
                 if winningStreak >= 3 {
@@ -344,8 +343,24 @@ struct PerformanceView: View {
                     .background(DesignSystem.Colors.primary.opacity(0.1))
                     .cornerRadius(DesignSystem.CornerRadius.small)
                 }
+                
+                // Losing Streak Warning
+                if losingStreak >= 3 {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(DesignSystem.Colors.secondary)
+                            .font(.caption)
+                        Text("\(losingStreak) Loss Streak")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                    .background(DesignSystem.Colors.secondary.opacity(0.1))
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                }
 
-                // Recent Performance
+                // Recent Performance (always show if >= 5 games)
                 if recentPerformance.wins + recentPerformance.losses >= 5 {
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
@@ -364,10 +379,16 @@ struct PerformanceView: View {
                     .background(DesignSystem.Colors.surface)
                     .cornerRadius(DesignSystem.CornerRadius.small)
                 }
-
-                Spacer()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.cardBackground)
+        .cornerRadius(DesignSystem.CornerRadius.medium)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func kpiListView(matches: [Match]) -> some View {
