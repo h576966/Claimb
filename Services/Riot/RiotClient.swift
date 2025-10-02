@@ -106,8 +106,8 @@ public struct RiotLeagueEntry: Codable {
     public let leaguePoints: Int
     public let wins: Int
     public let losses: Int
-    public let summonerId: String
-    public let summonerName: String
+    public let summonerId: String?  // Optional - not returned by edge function
+    public let summonerName: String?  // Optional - not returned by edge function
     public let hotStreak: Bool
     public let veteran: Bool
     public let freshBlood: Bool

@@ -399,17 +399,19 @@ struct PerformanceView: View {
     private func refreshSummonerRanks() async {
         print("🔍 PerformanceView: refreshSummonerRanks called")
         ClaimbLogger.info("Starting rank refresh from PerformanceView", service: "PerformanceView")
-        
+
         let dataManager = DataManager.shared(with: modelContext)
         let result = await dataManager.refreshSummonerRanks(for: summoner)
 
         switch result {
         case .loaded:
             print("🔍 PerformanceView: Rank refresh completed successfully")
-            ClaimbLogger.info("Successfully refreshed rank data", service: "PerformanceView", metadata: [
-                "soloDuoRank": summoner.soloDuoRank ?? "nil",
-                "flexRank": summoner.flexRank ?? "nil"
-            ])
+            ClaimbLogger.info(
+                "Successfully refreshed rank data", service: "PerformanceView",
+                metadata: [
+                    "soloDuoRank": summoner.soloDuoRank ?? "nil",
+                    "flexRank": summoner.flexRank ?? "nil",
+                ])
         case .error(let error):
             print("🔍 PerformanceView: Rank refresh failed: \(error)")
             ClaimbLogger.error(
