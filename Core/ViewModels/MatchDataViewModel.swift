@@ -28,7 +28,7 @@ public class MatchDataViewModel {
     private let dataManager: DataManager?
     private let summoner: Summoner
     private let userSession: UserSession?
-    private let kpiCalculationService: KPICalculationService?
+    public let kpiCalculationService: KPICalculationService?
     // Note: Using private var for task management, accessed carefully in deinit
     private var currentTask: Task<Void, Never>?
 

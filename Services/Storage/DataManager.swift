@@ -168,13 +168,28 @@ public class DataManager {
                 region: region
             )
 
+            // Debug logging for summoner response
+            ClaimbLogger.debug(
+                "Received summoner response", service: "DataManager",
+                metadata: [
+                    "summoner": existing.gameName,
+                    "summonerId": summonerResponse.id,
+                    "accountId": summonerResponse.accountId,
+                    "puuid": summonerResponse.puuid,
+                    "name": summonerResponse.name,
+                    "summonerLevel": String(summonerResponse.summonerLevel),
+                ])
+
             existing.summonerId = summonerResponse.id
             existing.accountId = summonerResponse.accountId
             existing.profileIconId = summonerResponse.profileIconId
             existing.summonerLevel = summonerResponse.summonerLevel
 
-            // Fetch rank data
-            try await updateSummonerRanks(existing, summonerId: summonerResponse.id, region: region)
+            // Fetch rank data using PUUID
+            print(
+                "🔍 DataManager: Calling updateSummonerRanks for existing summoner \(existing.gameName) with puuid: \(existing.puuid)"
+            )
+            try await updateSummonerRanks(existing, region: region)
 
             try modelContext.save()
             return existing
@@ -193,14 +208,28 @@ public class DataManager {
                 region: region
             )
 
+            // Debug logging for summoner response
+            ClaimbLogger.debug(
+                "Received summoner response", service: "DataManager",
+                metadata: [
+                    "summoner": newSummoner.gameName,
+                    "summonerId": summonerResponse.id,
+                    "accountId": summonerResponse.accountId,
+                    "puuid": summonerResponse.puuid,
+                    "name": summonerResponse.name,
+                    "summonerLevel": String(summonerResponse.summonerLevel),
+                ])
+
             newSummoner.summonerId = summonerResponse.id
             newSummoner.accountId = summonerResponse.accountId
             newSummoner.profileIconId = summonerResponse.profileIconId
             newSummoner.summonerLevel = summonerResponse.summonerLevel
 
-            // Fetch rank data
-            try await updateSummonerRanks(
-                newSummoner, summonerId: summonerResponse.id, region: region)
+            // Fetch rank data using PUUID
+            print(
+                "🔍 DataManager: Calling updateSummonerRanks for new summoner \(newSummoner.gameName) with puuid: \(newSummoner.puuid)"
+            )
+            try await updateSummonerRanks(newSummoner, region: region)
 
             modelContext.insert(newSummoner)
             try modelContext.save()
@@ -209,7 +238,7 @@ public class DataManager {
     }
 
     /// Updates summoner rank data from league entries
-    private func updateSummonerRanks(_ summoner: Summoner, summonerId: String, region: String)
+    public func updateSummonerRanks(_ summoner: Summoner, region: String)
         async throws
     {
         do {
@@ -217,15 +246,13 @@ public class DataManager {
                 "Fetching rank data", service: "DataManager",
                 metadata: [
                     "summoner": summoner.gameName,
-                    "summonerId": summonerId,
+                    "puuid": summoner.puuid,
                     "region": region,
                 ])
-            
-            // Debug print for immediate visibility
-            print("🔍 DataManager: About to fetch rank data for \(summoner.gameName) with summonerId: \(summonerId)")
 
-            let leagueResponse = try await riotClient.getLeagueEntries(
-                summonerId: summonerId, region: region)
+            // Use PUUID instead of summonerId for league entries
+            let leagueResponse = try await riotClient.getLeagueEntriesByPUUID(
+                puuid: summoner.puuid, region: region)
 
             ClaimbLogger.info(
                 "Received league response", service: "DataManager",
@@ -273,9 +300,7 @@ public class DataManager {
                     "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
                     "flexRank": summoner.flexRank ?? "Unranked",
                 ])
-            
-            // Debug print for immediate visibility
-            print("🔍 DataManager: Updated ranks - soloDuoRank: \(summoner.soloDuoRank ?? "nil"), flexRank: \(summoner.flexRank ?? "nil"), soloDuoLP: \(summoner.soloDuoLP ?? -1), flexLP: \(summoner.flexLP ?? -1)")
+
         } catch {
             ClaimbLogger.warning(
                 "Failed to fetch rank data, continuing without ranks", service: "DataManager",
@@ -283,6 +308,7 @@ public class DataManager {
                     "summoner": summoner.gameName,
                     "error": error.localizedDescription,
                 ])
+
             // Don't throw - ranks are optional, continue without them
         }
     }
@@ -299,6 +325,44 @@ public class DataManager {
     public func getAllSummoners() async throws -> [Summoner] {
         let descriptor = FetchDescriptor<Summoner>()
         return try modelContext.fetch(descriptor)
+    }
+
+    /// Refreshes rank data for an existing summoner
+    public func refreshSummonerRanks(for summoner: Summoner) async -> UIState<Void> {
+        let requestKey = "refresh_ranks_\(summoner.puuid)"
+
+        return await deduplicateRequest(key: requestKey) {
+            ClaimbLogger.info(
+                "Refreshing rank data for existing summoner", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "puuid": summoner.puuid,
+                ])
+
+            do {
+                try await self.updateSummonerRanks(summoner, region: summoner.region)
+                try self.modelContext.save()
+
+                ClaimbLogger.info(
+                    "Successfully refreshed rank data", service: "DataManager",
+                    metadata: [
+                        "summoner": summoner.gameName,
+                        "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
+                        "flexRank": summoner.flexRank ?? "Unranked",
+                    ])
+
+                return .loaded(())
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to refresh rank data", service: "DataManager",
+                    error: error,
+                    metadata: [
+                        "summoner": summoner.gameName,
+                        "error": error.localizedDescription,
+                    ])
+                return .error(error)
+            }
+        }
     }
 
     // MARK: - Match Management

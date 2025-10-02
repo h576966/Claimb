@@ -197,6 +197,15 @@ struct PerformanceView: View {
                     .padding(.horizontal, DesignSystem.Spacing.lg)
                     .padding(.bottom, DesignSystem.Spacing.md)
 
+                // Streak Indicators
+                if let viewModel = matchDataViewModel,
+                    case .loaded(let matches) = viewModel.matchState
+                {
+                    streakIndicatorsView(matches: matches, role: userSession.selectedPrimaryRole)
+                        .padding(.horizontal, DesignSystem.Spacing.lg)
+                        .padding(.bottom, DesignSystem.Spacing.md)
+                }
+
                 // Content
                 if let viewModel = matchDataViewModel {
                     ClaimbContentWrapper(
@@ -292,6 +301,71 @@ struct PerformanceView: View {
                     queueType: "No Rank",
                     isPrimary: true
                 )
+            }
+        }
+    }
+
+    private func streakIndicatorsView(matches: [Match], role: String) -> some View {
+        HStack(spacing: DesignSystem.Spacing.md) {
+            if let kpiService = matchDataViewModel?.kpiCalculationService {
+                let losingStreak = kpiService.calculateLosingStreak(
+                    matches: matches, summoner: summoner, role: role)
+                let winningStreak = kpiService.calculateWinningStreak(
+                    matches: matches, summoner: summoner, role: role)
+                let recentPerformance = kpiService.calculateRecentWinRate(
+                    matches: matches, summoner: summoner, role: role)
+
+                // Losing Streak Warning
+                if losingStreak >= 3 {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(DesignSystem.Colors.secondary)
+                            .font(.caption)
+                        Text("\(losingStreak) Loss Streak")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                    .background(DesignSystem.Colors.secondary.opacity(0.1))
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                }
+
+                // Winning Streak Indicator
+                if winningStreak >= 3 {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "flame.fill")
+                            .foregroundColor(DesignSystem.Colors.primary)
+                            .font(.caption)
+                        Text("\(winningStreak) Win Streak")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                    .background(DesignSystem.Colors.primary.opacity(0.1))
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                }
+
+                // Recent Performance
+                if recentPerformance.wins + recentPerformance.losses >= 5 {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .foregroundColor(
+                                recentPerformance.winRate >= 50
+                                    ? DesignSystem.Colors.primary
+                                    : DesignSystem.Colors.textSecondary
+                            )
+                            .font(.caption)
+                        Text("\(recentPerformance.wins)W-\(recentPerformance.losses)L")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                    .background(DesignSystem.Colors.surface)
+                    .cornerRadius(DesignSystem.CornerRadius.small)
+                }
             }
         }
     }

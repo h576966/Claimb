@@ -27,20 +27,22 @@ public struct LeagueEntriesResponse: Codable {
     public let entries: [LeagueEntry]
     public let claimbPlatform: String
     public let claimbRegion: String
-    public let claimbSummonerId: String
-    
+    public let claimbPUUID: String
+
     enum CodingKeys: String, CodingKey {
         case entries
         case claimbPlatform = "claimb_platform"
         case claimbRegion = "claimb_region"
-        case claimbSummonerId = "claimb_summonerId"
+        case claimbPUUID = "claimb_puuid"
     }
 }
 
 public struct LeagueEntry: Codable {
+    public let leagueId: String
     public let queueType: String
     public let tier: String
     public let rank: String
+    public let puuid: String
     public let leaguePoints: Int
     public let wins: Int
     public let losses: Int
@@ -511,11 +513,24 @@ public class ProxyService {
         ClaimbLogger.info(
             "Proxy: Retrieved summoner data", service: "ProxyService",
             metadata: ["puuid": puuid, "bytes": String(data.count)])
+
+        // Debug: Log the actual response content
+        if let responseString = String(data: data, encoding: .utf8) {
+            ClaimbLogger.debug(
+                "Proxy: Summoner response content", service: "ProxyService",
+                metadata: [
+                    "puuid": puuid,
+                    "response": responseString,
+                ])
+        }
+
         return data
     }
 
     /// Fetches league entries (rank data) by summoner ID
-    public func riotLeagueEntries(summonerId: String, region: String = "europe") async throws -> LeagueEntriesResponse {
+    public func riotLeagueEntries(summonerId: String, region: String = "europe") async throws
+        -> LeagueEntriesResponse
+    {
         ClaimbLogger.debug(
             "Platform parameter mapping for league entries", service: "ProxyService",
             metadata: [
@@ -525,7 +540,8 @@ public class ProxyService {
             ])
 
         var comps = URLComponents(
-            url: baseURL.appendingPathComponent("riot/league-entries"), resolvingAgainstBaseURL: false)!
+            url: baseURL.appendingPathComponent("riot/league-entries"),
+            resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "summonerId", value: summonerId),
             .init(name: "platform", value: region),  // League-V4 needs platform, not region
@@ -534,7 +550,8 @@ public class ProxyService {
         var req = URLRequest(url: comps.url!)
         AppConfig.addAuthHeaders(&req)
 
-        ClaimbLogger.apiRequest("Proxy: riot/league-entries", method: "GET", service: "ProxyService")
+        ClaimbLogger.apiRequest(
+            "Proxy: riot/league-entries", method: "GET", service: "ProxyService")
 
         let (data, resp) = try await performRequestWithRetry(req)
 
@@ -543,7 +560,8 @@ public class ProxyService {
         }
 
         ClaimbLogger.apiResponse(
-            "Proxy: riot/league-entries", statusCode: httpResponse.statusCode, service: "ProxyService")
+            "Proxy: riot/league-entries", statusCode: httpResponse.statusCode,
+            service: "ProxyService")
 
         guard httpResponse.statusCode == 200 else {
             throw ProxyError.httpError(httpResponse.statusCode)
@@ -562,6 +580,161 @@ public class ProxyService {
         } catch {
             ClaimbLogger.error(
                 "Proxy: Failed to decode league entries response", service: "ProxyService",
+                error: error)
+            throw ProxyError.decodingError(error)
+        }
+    }
+
+    /// Fetches league entries (rank data) by PUUID
+    public func riotLeagueEntriesByPUUID(puuid: String, region: String = "europe") async throws
+        -> LeagueEntriesResponse
+    {
+        ClaimbLogger.debug(
+            "Platform parameter mapping for league entries by PUUID", service: "ProxyService",
+            metadata: [
+                "puuid": puuid,
+                "platform": region,  // This is actually a platform code (euw1, na1, etc.)
+                "note": "League-V4 API requires platform parameter, not region",
+            ])
+
+        var comps = URLComponents(
+            url: baseURL.appendingPathComponent("riot/league-entries-by-puuid"),
+            resolvingAgainstBaseURL: false)!
+        comps.queryItems = [
+            .init(name: "puuid", value: puuid),
+            .init(name: "platform", value: region),  // League-V4 needs platform, not region
+        ]
+
+        var req = URLRequest(url: comps.url!)
+        AppConfig.addAuthHeaders(&req)
+
+        ClaimbLogger.apiRequest(
+            "Proxy: riot/league-entries-by-puuid", method: "GET", service: "ProxyService")
+
+        let (data, resp) = try await performRequestWithRetry(req)
+
+        guard let httpResponse = resp as? HTTPURLResponse else {
+            throw ProxyError.invalidResponse
+        }
+
+        ClaimbLogger.apiResponse(
+            "Proxy: riot/league-entries-by-puuid", statusCode: httpResponse.statusCode,
+            service: "ProxyService")
+
+        guard httpResponse.statusCode == 200 else {
+            throw ProxyError.httpError(httpResponse.statusCode)
+        }
+
+        do {
+            // Debug: Log the raw response data
+            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode as UTF-8"
+            ClaimbLogger.debug(
+                "Proxy: Raw league entries response", service: "ProxyService",
+                metadata: [
+                    "puuid": puuid,
+                    "dataSize": String(data.count),
+                    "response": responseString,
+                ])
+
+            // Check if data is empty
+            if data.isEmpty {
+                ClaimbLogger.warning(
+                    "Proxy: Empty response from league entries API", service: "ProxyService",
+                    metadata: ["puuid": puuid])
+                // Return empty response instead of throwing error
+                return LeagueEntriesResponse(
+                    entries: [],
+                    claimbPlatform: region,
+                    claimbRegion: region,
+                    claimbPUUID: puuid
+                )
+            }
+
+            // Try to parse as JSON first to see what we're getting
+            do {
+                let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                ClaimbLogger.debug(
+                    "Proxy: Successfully parsed JSON object", service: "ProxyService",
+                    metadata: [
+                        "puuid": puuid,
+                        "jsonType": String(describing: type(of: jsonObject)),
+                        "jsonKeys": jsonObject is [String: Any]
+                            ? Array((jsonObject as! [String: Any]).keys).joined(separator: ",") : ""
+                            ,
+                    ]
+                )
+            } catch {
+                ClaimbLogger.error(
+                    "Proxy: Failed to parse as JSON", service: "ProxyService",
+                    metadata: [
+                        "puuid": puuid,
+                        "jsonError": String(describing: error),
+                    ]
+                )
+            }
+
+            let response = try JSONDecoder().decode(LeagueEntriesResponse.self, from: data)
+            ClaimbLogger.info(
+                "Proxy: Retrieved league entries by PUUID", service: "ProxyService",
+                metadata: [
+                    "puuid": puuid,
+                    "entryCount": String(response.entries.count),
+                    "platform": response.claimbPlatform,
+                ])
+            return response
+        } catch let decodingError as DecodingError {
+            ClaimbLogger.error(
+                "Proxy: Failed to decode league entries by PUUID response", service: "ProxyService",
+                error: decodingError)
+
+            // Log specific decoding error details
+            switch decodingError {
+            case .keyNotFound(let key, let context):
+                ClaimbLogger.error(
+                    "Proxy: Missing key in league entries response", service: "ProxyService",
+                    metadata: [
+                        "missingKey": key.stringValue,
+                        "codingPath": context.codingPath.map { $0.stringValue }.joined(
+                            separator: "."),
+                        "debugDescription": context.debugDescription,
+                    ])
+            case .typeMismatch(let type, let context):
+                ClaimbLogger.error(
+                    "Proxy: Type mismatch in league entries response", service: "ProxyService",
+                    metadata: [
+                        "expectedType": String(describing: type),
+                        "codingPath": context.codingPath.map { $0.stringValue }.joined(
+                            separator: "."),
+                        "debugDescription": context.debugDescription,
+                    ])
+            case .valueNotFound(let type, let context):
+                ClaimbLogger.error(
+                    "Proxy: Value not found in league entries response", service: "ProxyService",
+                    metadata: [
+                        "expectedType": String(describing: type),
+                        "codingPath": context.codingPath.map { $0.stringValue }.joined(
+                            separator: "."),
+                        "debugDescription": context.debugDescription,
+                    ])
+            case .dataCorrupted(let context):
+                ClaimbLogger.error(
+                    "Proxy: Data corrupted in league entries response", service: "ProxyService",
+                    metadata: [
+                        "codingPath": context.codingPath.map { $0.stringValue }.joined(
+                            separator: "."),
+                        "debugDescription": context.debugDescription,
+                    ])
+            @unknown default:
+                ClaimbLogger.error(
+                    "Proxy: Unknown decoding error in league entries response",
+                    service: "ProxyService",
+                    error: decodingError)
+            }
+
+            throw ProxyError.decodingError(decodingError)
+        } catch {
+            ClaimbLogger.error(
+                "Proxy: Failed to decode league entries by PUUID response", service: "ProxyService",
                 error: error)
             throw ProxyError.decodingError(error)
         }

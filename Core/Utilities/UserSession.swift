@@ -83,6 +83,38 @@ public class UserSession {
                     $0.gameName == gameName && $0.tagLine == tagLine && $0.region == region
                 }) {
                     ClaimbLogger.userAction("Found existing summoner", service: "UserSession")
+
+                    // Refresh rank data for existing summoner if it's missing
+                    if !summoner.hasAnyRank {
+                        ClaimbLogger.info(
+                            "Existing summoner has no rank data, refreshing",
+                            service: "UserSession",
+                            metadata: [
+                                "summoner": summoner.gameName,
+                                "puuid": summoner.puuid,
+                            ])
+
+                        let rankRefreshState = await dataManager.refreshSummonerRanks(for: summoner)
+                        if case .loaded = rankRefreshState {
+                            ClaimbLogger.info(
+                                "Successfully refreshed rank data for existing summoner",
+                                service: "UserSession",
+                                metadata: [
+                                    "summoner": summoner.gameName,
+                                    "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
+                                    "flexRank": summoner.flexRank ?? "Unranked",
+                                ])
+                        } else {
+                            ClaimbLogger.warning(
+                                "Failed to refresh rank data for existing summoner",
+                                service: "UserSession",
+                                metadata: [
+                                    "summoner": summoner.gameName,
+                                    "error": "Rank refresh failed",
+                                ])
+                        }
+                    }
+
                     await MainActor.run {
                         self.currentSummoner = summoner
                         self.isLoggedIn = true

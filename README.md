@@ -50,6 +50,8 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Champion Pool Analysis**: Track champion performance, win rates, and filtering options
 - **AI Coaching**: Dual-focused coaching system with post-game analysis and performance summaries
 - **Rank Tracking**: Solo/Duo and Flex rank display with LP tracking and win/loss records
+- **Streak Analysis**: Losing/winning streak detection and recent performance tracking
+- **Performance Indicators**: Visual streak warnings and recent win/loss records in Performance view
 - **Offline Caching**: 100 matches cached per summoner with background refresh
 - **Region Support**: EUW, NA, EUNE with proper API routing through Supabase proxy
 - **Role-Based Analysis**: Track performance by role with persistent role selection
@@ -135,6 +137,40 @@ We recently completed a major architecture modernization by integrating Supabase
 - **Focused Coaching**: Actionable insights instead of overwhelming stats
 - **Smart Data Usage**: Leverages existing champion pool and KPI calculations
 
+### **Latest Streak Analysis & Performance Indicators (October 2025)**
+We recently implemented comprehensive streak analysis and performance indicators to help players understand their current form and make better decisions:
+
+#### **🔥 Streak Analysis Features**
+- **Losing Streak Detection**: Identifies consecutive losses with visual warnings (3+ losses)
+- **Winning Streak Tracking**: Highlights positive momentum with streak indicators (3+ wins)
+- **Recent Performance**: Shows last 10 games win/loss record with win rate percentage
+- **Role-Specific Analysis**: Streak calculations based on player's primary role
+- **Visual Indicators**: SF Symbols-based UI with DesignSystem color coding
+- **Performance View Integration**: Streak indicators displayed below rank badges
+
+#### **🎯 AI Coaching Integration**
+- **Streak Context in Prompts**: Current streaks and recent performance included in AI coaching
+- **Personalized Advice**: AI considers losing streaks to suggest breaks or normal games
+- **Momentum Recognition**: AI encourages maintaining positive streaks
+- **Role-Specific Guidance**: Streak analysis tailored to player's primary role
+- **Enhanced Prompts**: 350 token limit with comprehensive streak and performance data
+
+#### **🔧 Technical Implementation**
+- **KPICalculationService Methods**: 
+  - `calculateLosingStreak()` - Counts consecutive losses for specific role
+  - `calculateWinningStreak()` - Counts consecutive wins for specific role
+  - `calculateRecentWinRate()` - Recent performance over last 10 games
+- **Performance View UI**: Streak indicators with SF Symbols and DesignSystem styling
+- **OpenAIService Integration**: Enhanced prompts with streak context and performance data
+- **Data-Driven Insights**: Uses existing match data for accurate streak calculations
+
+#### **📈 Benefits**
+- **Better Decision Making**: Visual warnings help players recognize when to take breaks
+- **Momentum Awareness**: Players can capitalize on winning streaks
+- **Personalized Coaching**: AI advice considers current form and recent performance
+- **Visual Feedback**: Clear indicators help players understand their current state
+- **Role-Specific Analysis**: Streak calculations tailored to player's main role
+
 ### **Latest Rank System Integration (October 2025)**
 We recently completed the integration of League of Legends rank tracking to provide players with comprehensive rank information:
 
@@ -152,6 +188,7 @@ We recently completed the integration of League of Legends rank tracking to prov
 - **DataManager Integration**: Automatic rank fetching during summoner creation/update
 - **UI Components**: RankBadge component with tier-based color coding
 - **Debug Logging**: Comprehensive logging for rank data fetching and display
+- **Model Updates**: Fixed LeagueEntry models to match actual edge function response format
 
 #### **📈 Benefits**
 - **Complete Player Profile**: Full rank information alongside performance metrics
@@ -412,6 +449,17 @@ The app includes comprehensive test views for development:
 - [x] Display rank badges in Performance view
 - [x] Include rank information in AI coaching prompts
 - [x] Add comprehensive debug logging for rank system
+- [x] Fix LeagueEntry model to match actual edge function response format
+
+### **Phase 2.6: Streak Analysis & Performance Indicators (Completed)**
+- [x] Implement losing streak detection and visual warnings
+- [x] Add winning streak tracking and momentum indicators
+- [x] Create recent performance display (last 10 games)
+- [x] Integrate streak analysis into Performance view UI
+- [x] Add streak context to AI coaching prompts
+- [x] Implement role-specific streak calculations
+- [x] Use SF Symbols for visual indicators with DesignSystem styling
+- [x] Add comprehensive streak analysis methods to KPICalculationService
 
 ### **Phase 3: Testing Infrastructure (Next)**
 - [ ] Unit tests for DataManager and critical components

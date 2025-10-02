@@ -481,4 +481,150 @@ public class KPICalculationService {
         }
     }
 
+    // MARK: - Streak Analysis
+
+    /// Calculates losing streak for a specific role from recent matches
+    func calculateLosingStreak(
+        matches: [Match],
+        summoner: Summoner,
+        role: String
+    ) -> Int {
+        // Get recent matches for the specific role, sorted by most recent first
+        let roleMatches =
+            matches
+            .filter { match in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else {
+                    return false
+                }
+                let participantRole = RoleUtils.normalizeRole(
+                    teamPosition: participant.teamPosition)
+                return participantRole == role
+            }
+            .sorted { $0.gameCreation > $1.gameCreation }
+
+        var losingStreak = 0
+
+        for match in roleMatches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+
+            if participant.win {
+                // Win found, streak ends
+                break
+            } else {
+                // Loss found, increment streak
+                losingStreak += 1
+            }
+        }
+
+        ClaimbLogger.debug(
+            "Losing streak calculated", service: "KPICalculationService",
+            metadata: [
+                "role": role,
+                "losingStreak": String(losingStreak),
+                "totalRoleMatches": String(roleMatches.count),
+            ])
+
+        return losingStreak
+    }
+
+    /// Calculates winning streak for a specific role from recent matches
+    func calculateWinningStreak(
+        matches: [Match],
+        summoner: Summoner,
+        role: String
+    ) -> Int {
+        // Get recent matches for the specific role, sorted by most recent first
+        let roleMatches =
+            matches
+            .filter { match in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else {
+                    return false
+                }
+                let participantRole = RoleUtils.normalizeRole(
+                    teamPosition: participant.teamPosition)
+                return participantRole == role
+            }
+            .sorted { $0.gameCreation > $1.gameCreation }
+
+        var winningStreak = 0
+
+        for match in roleMatches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+
+            if participant.win {
+                // Win found, increment streak
+                winningStreak += 1
+            } else {
+                // Loss found, streak ends
+                break
+            }
+        }
+
+        ClaimbLogger.debug(
+            "Winning streak calculated", service: "KPICalculationService",
+            metadata: [
+                "role": role,
+                "winningStreak": String(winningStreak),
+                "totalRoleMatches": String(roleMatches.count),
+            ])
+
+        return winningStreak
+    }
+
+    /// Calculates recent win rate for a specific role (last 10 games)
+    func calculateRecentWinRate(
+        matches: [Match],
+        summoner: Summoner,
+        role: String
+    ) -> (wins: Int, losses: Int, winRate: Double) {
+        // Get last 10 matches for the specific role
+        let recentRoleMatches =
+            matches
+            .filter { match in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else {
+                    return false
+                }
+                let participantRole = RoleUtils.normalizeRole(
+                    teamPosition: participant.teamPosition)
+                return participantRole == role
+            }
+            .sorted { $0.gameCreation > $1.gameCreation }
+            .prefix(10)
+
+        let wins = recentRoleMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })
+        }.filter { $0.win }.count
+
+        let losses = recentRoleMatches.count - wins
+        let winRate =
+            recentRoleMatches.isEmpty ? 0.0 : Double(wins) / Double(recentRoleMatches.count) * 100
+
+        ClaimbLogger.debug(
+            "Recent win rate calculated", service: "KPICalculationService",
+            metadata: [
+                "role": role,
+                "wins": String(wins),
+                "losses": String(losses),
+                "winRate": String(format: "%.1f", winRate),
+                "totalGames": String(recentRoleMatches.count),
+            ])
+
+        return (wins: wins, losses: losses, winRate: winRate)
+    }
+
 }

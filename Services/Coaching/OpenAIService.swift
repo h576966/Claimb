@@ -288,6 +288,7 @@ public class OpenAIService {
     public func generatePerformanceSummary(
         matches: [Match],
         summoner: Summoner,
+        primaryRole: String,
         kpiService: KPICalculationService
     ) async throws -> PerformanceSummary {
 
@@ -314,7 +315,9 @@ public class OpenAIService {
             matches: matches,
             summoner: summoner,
             diversityMetrics: diversityMetrics,
-            roleTrends: roleTrends
+            roleTrends: roleTrends,
+            primaryRole: primaryRole,
+            kpiService: kpiService
         )
 
         // Make API request
@@ -426,7 +429,7 @@ public class OpenAIService {
             personalBaselines.isEmpty ? "" : createBaselineContext(baselines: personalBaselines)
 
         let rankContext = createRankContext(summoner: summoner)
-        
+
         return """
             You are a League of Legends coach. Analyze this player's performance and provide concise coaching insights.
 
@@ -463,7 +466,7 @@ public class OpenAIService {
 
     private func createRankContext(summoner: Summoner) -> String {
         guard summoner.hasAnyRank else { return "" }
-        
+
         var context = " | **Rank:** "
         if let soloDuoRank = summoner.soloDuoRank {
             context += "Solo/Duo: \(soloDuoRank)"
@@ -471,7 +474,7 @@ public class OpenAIService {
                 context += " (\(lp) LP)"
             }
         }
-        
+
         if let flexRank = summoner.flexRank {
             if summoner.soloDuoRank != nil {
                 context += ", Flex: \(flexRank)"
@@ -482,7 +485,7 @@ public class OpenAIService {
                 context += " (\(lp) LP)"
             }
         }
-        
+
         return context
     }
 
@@ -611,7 +614,7 @@ public class OpenAIService {
         let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
 
         let rankContext = createRankContext(summoner: summoner)
-        
+
         return """
             League of Legends coach. Analyze this game and provide concise advice.
 
@@ -650,7 +653,7 @@ public class OpenAIService {
         let gameDuration = match.gameDuration / 60
 
         let rankContext = createRankContext(summoner: summoner)
-        
+
         var prompt = """
             You are a League of Legends post-game analyst specializing in early game performance analysis.
 
@@ -790,7 +793,9 @@ public class OpenAIService {
         matches: [Match],
         summoner: Summoner,
         diversityMetrics: (roleCount: Int, championCount: Int),
-        roleTrends: [String: String]
+        roleTrends: [String: String],
+        primaryRole: String,
+        kpiService: KPICalculationService? = nil
     ) -> String {
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
@@ -799,10 +804,38 @@ public class OpenAIService {
 
         let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
 
+        // Add streak context if kpiService is available
+        var streakContext = ""
+        if let kpiService = kpiService {
+            let losingStreak = kpiService.calculateLosingStreak(
+                matches: matches, summoner: summoner, role: primaryRole)
+            let winningStreak = kpiService.calculateWinningStreak(
+                matches: matches, summoner: summoner, role: primaryRole)
+            let recentPerformance = kpiService.calculateRecentWinRate(
+                matches: matches, summoner: summoner, role: primaryRole)
+
+            streakContext = """
+
+                **Current Streaks & Recent Performance:**
+                - Primary Role: \(primaryRole)
+                - Recent \(primaryRole) Performance: \(recentPerformance.wins)W-\(recentPerformance.losses)L (\(String(format: "%.1f", recentPerformance.winRate))% win rate)
+                - Current Streak: \(winningStreak > 0 ? "\(winningStreak) wins" : losingStreak > 0 ? "\(losingStreak) losses" : "No active streak")
+                """
+
+            if losingStreak >= 3 {
+                streakContext +=
+                    "\n- ⚠️ WARNING: Player is on a \(losingStreak) game losing streak - consider suggesting a break or normal games"
+            }
+            if winningStreak >= 3 {
+                streakContext +=
+                    "\n- 🔥 Player is on a \(winningStreak) game winning streak - encourage maintaining momentum"
+            }
+        }
+
         return """
             League of Legends coach. Analyze performance trends over last 10 games.
 
-            **Player:** \(summoner.gameName) | **Games:** \(recentMatches.count) | **Win Rate:** \(String(format: "%.1f", winRate * 100))% | **Roles:** \(diversityMetrics.roleCount) | **Champions:** \(diversityMetrics.championCount)
+            **Player:** \(summoner.gameName) | **Games:** \(recentMatches.count) | **Win Rate:** \(String(format: "%.1f", winRate * 100))% | **Roles:** \(diversityMetrics.roleCount) | **Champions:** \(diversityMetrics.championCount)\(streakContext)
 
             **Response (JSON only):**
             {
@@ -815,7 +848,7 @@ public class OpenAIService {
               "progressionInsights": "string"
             }
 
-            **Focus:** Role-based trends, improvements, concerns. Score 1-10.
+            **Focus:** Role-based trends, improvements, concerns. Consider current streaks and recent performance. Score 1-10.
             Respond ONLY with valid JSON.
             """
     }

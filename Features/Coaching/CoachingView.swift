@@ -34,6 +34,7 @@ class CoachingViewModel {
     private let openAIService: OpenAIService
     private let kpiService: KPICalculationService
     private let summoner: Summoner
+    private let primaryRole: String
 
     // MARK: - State
     var isAnalyzing = false
@@ -57,11 +58,12 @@ class CoachingViewModel {
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
 
-    init(dataManager: DataManager, summoner: Summoner) {
+    init(dataManager: DataManager, summoner: Summoner, primaryRole: String) {
         self.dataManager = dataManager
         self.summoner = summoner
         self.openAIService = OpenAIService()
         self.kpiService = KPICalculationService(dataManager: dataManager)
+        self.primaryRole = primaryRole
     }
 
     // MARK: - Public Methods
@@ -342,6 +344,7 @@ class CoachingViewModel {
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
                 summoner: summoner,
+                primaryRole: primaryRole,
                 kpiService: kpiService
             )
 
@@ -380,6 +383,7 @@ class CoachingViewModel {
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: matches,
                 summoner: summoner,
+                primaryRole: primaryRole,
                 kpiService: kpiService
             )
 
@@ -1153,7 +1157,8 @@ struct CoachingView: View {
             let dataManager = DataManager.shared(with: modelContext)
             viewModel = CoachingViewModel(
                 dataManager: dataManager,
-                summoner: summoner
+                summoner: summoner,
+                primaryRole: userSession.selectedPrimaryRole
             )
         }
     }

@@ -87,20 +87,22 @@ public struct RiotLeagueEntriesResponse: Codable {
     public let entries: [RiotLeagueEntry]
     public let claimbPlatform: String
     public let claimbRegion: String
-    public let claimbSummonerId: String
-    
+    public let claimbPUUID: String
+
     enum CodingKeys: String, CodingKey {
         case entries
         case claimbPlatform = "claimb_platform"
         case claimbRegion = "claimb_region"
-        case claimbSummonerId = "claimb_summonerId"
+        case claimbPUUID = "claimb_puuid"
     }
 }
 
 public struct RiotLeagueEntry: Codable {
+    public let leagueId: String
     public let queueType: String
     public let tier: String
     public let rank: String
+    public let puuid: String
     public let leaguePoints: Int
     public let wins: Int
     public let losses: Int
@@ -141,7 +143,12 @@ public protocol RiotClient {
     func getMatch(matchId: String, region: String) async throws -> Data
 
     /// Get league entries (rank data) by summoner ID
-    func getLeagueEntries(summonerId: String, region: String) async throws -> RiotLeagueEntriesResponse
+    func getLeagueEntries(summonerId: String, region: String) async throws
+        -> RiotLeagueEntriesResponse
+
+    /// Get league entries (rank data) by PUUID
+    func getLeagueEntriesByPUUID(puuid: String, region: String) async throws
+        -> RiotLeagueEntriesResponse
 }
 
 // MARK: - Riot API Errors
