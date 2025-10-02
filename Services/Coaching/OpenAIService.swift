@@ -116,30 +116,27 @@ public struct PostGameAnalysis: Codable {
 
 /// Performance summary response focused on role-based trends
 public struct PerformanceSummary: Codable {
-    public let overallScore: Int
-    public let improvementsMade: [String]
-    public let areasOfConcern: [String]
-    public let roleDiversity: String
-    public let championDiversity: String
-    public let focusAreas: [String]
-    public let progressionInsights: String
+    public let keyTrends: [String]  // Specific metrics improving/declining with numbers
+    public let roleConsistency: String  // Feedback on role focus
+    public let championPoolAnalysis: String  // Feedback on champion selection
+    public let areasOfImprovement: [String]  // What to work on
+    public let strengthsToMaintain: [String]  // What's working well
+    public let climbingAdvice: String  // Actionable advice to improve rank
 
     public init(
-        overallScore: Int,
-        improvementsMade: [String],
-        areasOfConcern: [String],
-        roleDiversity: String,
-        championDiversity: String,
-        focusAreas: [String],
-        progressionInsights: String
+        keyTrends: [String],
+        roleConsistency: String,
+        championPoolAnalysis: String,
+        areasOfImprovement: [String],
+        strengthsToMaintain: [String],
+        climbingAdvice: String
     ) {
-        self.overallScore = overallScore
-        self.improvementsMade = improvementsMade
-        self.areasOfConcern = areasOfConcern
-        self.roleDiversity = roleDiversity
-        self.championDiversity = championDiversity
-        self.focusAreas = focusAreas
-        self.progressionInsights = progressionInsights
+        self.keyTrends = keyTrends
+        self.roleConsistency = roleConsistency
+        self.championPoolAnalysis = championPoolAnalysis
+        self.areasOfImprovement = areasOfImprovement
+        self.strengthsToMaintain = strengthsToMaintain
+        self.climbingAdvice = climbingAdvice
     }
 }
 
@@ -806,6 +803,157 @@ public class OpenAIService {
         return roleTrends
     }
 
+    /// Prepares detailed match context with KPIs, role consistency, and champion performance
+    private func prepareDetailedMatchContext(
+        matches: [Match],
+        summoner: Summoner,
+        primaryRole: String
+    ) -> String {
+        let recentMatches = Array(matches.prefix(10))
+
+        var context = "**GAME-BY-GAME BREAKDOWN (Last 10 matches):**\n"
+
+        // Track role and champion distribution
+        var roleDistribution: [String: Int] = [:]
+        var championPerformance:
+            [String: (wins: Int, losses: Int, totalCS: Int, totalDeaths: Int, games: Int)] = [:]
+
+        for (index, match) in recentMatches.enumerated() {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else { continue }
+
+            let championName = participant.champion?.name ?? "Unknown"
+            let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            let result = participant.win ? "Win" : "Loss"
+            let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+            let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
+            let csPerMin = String(format: "%.1f", participant.csPerMinute)
+            let vision = participant.visionScore
+
+            context +=
+                "Game \(index + 1): \(championName) (\(role)) - \(result) | KDA: \(kda) | CS/min: \(csPerMin) | Vision: \(vision)\n"
+
+            // Track role distribution
+            roleDistribution[role, default: 0] += 1
+
+            // Track champion performance
+            if championPerformance[championName] == nil {
+                championPerformance[championName] = (
+                    wins: 0, losses: 0, totalCS: 0, totalDeaths: 0, games: 0
+                )
+            }
+            var perf = championPerformance[championName]!
+            if participant.win {
+                perf.wins += 1
+            } else {
+                perf.losses += 1
+            }
+            perf.totalCS += cs
+            perf.totalDeaths += participant.deaths
+            perf.games += 1
+            championPerformance[championName] = perf
+        }
+
+        // Add role consistency analysis
+        context += "\n**ROLE CONSISTENCY:**\n"
+        let primaryRoleGames = roleDistribution[primaryRole, default: 0]
+        let primaryRolePercent =
+            recentMatches.isEmpty
+            ? 0 : (Double(primaryRoleGames) / Double(recentMatches.count)) * 100
+        context +=
+            "- Primary Role (\(RoleUtils.displayName(for: primaryRole))): \(primaryRoleGames)/\(recentMatches.count) games (\(String(format: "%.0f", primaryRolePercent))%)\n"
+
+        for (role, count) in roleDistribution.sorted(by: { $0.value > $1.value })
+        where role != primaryRole {
+            context += "- \(RoleUtils.displayName(for: role)): \(count) games\n"
+        }
+
+        if primaryRolePercent < 70 {
+            context +=
+                "⚠️ Low role consistency - recommend 80%+ games in primary role for improvement\n"
+        }
+
+        // Add champion pool analysis
+        context += "\n**CHAMPION POOL ANALYSIS:**\n"
+        let sortedChampions = championPerformance.sorted { $0.value.games > $1.value.games }
+
+        for (index, (champion, perf)) in sortedChampions.prefix(5).enumerated() {
+            let winRate = perf.games > 0 ? (Double(perf.wins) / Double(perf.games)) * 100 : 0
+            let avgCS = perf.games > 0 ? perf.totalCS / perf.games : 0
+            let avgDeaths = perf.games > 0 ? Double(perf.totalDeaths) / Double(perf.games) : 0
+            context +=
+                "\(index + 1). \(champion): \(perf.wins)-\(perf.losses) (\(String(format: "%.0f", winRate))% WR) - Avg \(avgCS) CS, \(String(format: "%.1f", avgDeaths)) deaths/game\n"
+        }
+
+        if sortedChampions.count > 3 {
+            context +=
+                "⚠️ Playing \(sortedChampions.count) different champions - recommend focusing on 3 or fewer for consistency\n"
+        }
+
+        // Add KPI trends
+        context += "\n**KPI TRENDS:**\n"
+        let firstHalf = recentMatches.prefix(5)
+        let secondHalf = recentMatches.suffix(5)
+
+        let firstHalfAvgCS =
+            firstHalf.compactMap { match -> Double? in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else { return nil }
+                return participant.csPerMinute
+            }.reduce(0.0, +) / Double(max(firstHalf.count, 1))
+
+        let secondHalfAvgCS =
+            secondHalf.compactMap { match -> Double? in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else { return nil }
+                return participant.csPerMinute
+            }.reduce(0.0, +) / Double(max(secondHalf.count, 1))
+
+        let firstHalfAvgDeaths =
+            firstHalf.compactMap { match -> Double? in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else { return nil }
+                return Double(participant.deaths)
+            }.reduce(0.0, +) / Double(max(firstHalf.count, 1))
+
+        let secondHalfAvgDeaths =
+            secondHalf.compactMap { match -> Double? in
+                guard
+                    let participant = match.participants.first(where: { $0.puuid == summoner.puuid }
+                    )
+                else { return nil }
+                return Double(participant.deaths)
+            }.reduce(0.0, +) / Double(max(secondHalf.count, 1))
+
+        context +=
+            "- CS/min: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgCS)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgCS))"
+        if secondHalfAvgCS > firstHalfAvgCS {
+            context += " (↑ improving)\n"
+        } else if secondHalfAvgCS < firstHalfAvgCS {
+            context += " (↓ declining)\n"
+        } else {
+            context += " (→ stable)\n"
+        }
+
+        context +=
+            "- Deaths: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgDeaths)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgDeaths))"
+        if secondHalfAvgDeaths < firstHalfAvgDeaths {
+            context += " (↑ improving)\n"
+        } else if secondHalfAvgDeaths > firstHalfAvgDeaths {
+            context += " (↓ worsening)\n"
+        } else {
+            context += " (→ stable)\n"
+        }
+
+        return context
+    }
+
     private func createPerformanceSummaryPrompt(
         matches: [Match],
         summoner: Summoner,
@@ -821,6 +969,9 @@ public class OpenAIService {
 
         let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
 
+        // Get rank context
+        let rankContext = createRankContext(summoner: summoner)
+
         // Add streak context if kpiService is available
         var streakContext = ""
         if let kpiService = kpiService {
@@ -834,14 +985,14 @@ public class OpenAIService {
             streakContext = """
 
                 **Current Streaks & Recent Performance:**
-                - Primary Role: \(primaryRole)
+                - Primary Role: \(RoleUtils.displayName(for: primaryRole))
                 - Recent \(primaryRole) Performance: \(recentPerformance.wins)W-\(recentPerformance.losses)L (\(String(format: "%.1f", recentPerformance.winRate))% win rate)
                 - Current Streak: \(winningStreak > 0 ? "\(winningStreak) wins" : losingStreak > 0 ? "\(losingStreak) losses" : "No active streak")
                 """
 
             if losingStreak >= 3 {
                 streakContext +=
-                    "\n- ⚠️ WARNING: Player is on a \(losingStreak) game losing streak - consider suggesting a break or normal games"
+                    "\n- ⚠️ WARNING: Player is on a \(losingStreak) game losing streak - suggest taking a break or playing normals"
             }
             if winningStreak >= 3 {
                 streakContext +=
@@ -849,24 +1000,55 @@ public class OpenAIService {
             }
         }
 
+        // Prepare detailed match context
+        let detailedContext = prepareDetailedMatchContext(
+            matches: matches,
+            summoner: summoner,
+            primaryRole: primaryRole
+        )
+
         return """
-            League of Legends coach. Analyze performance trends over last 10 games.
+            You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
 
-            **Player:** \(summoner.gameName) | **Games:** \(recentMatches.count) | **Win Rate:** \(String(format: "%.1f", winRate * 100))% | **Roles:** \(diversityMetrics.roleCount) | **Champions:** \(diversityMetrics.championCount)\(streakContext)
+            **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
 
-            **Response (JSON only):**
+            \(detailedContext)
+
+            **ANALYSIS GUIDELINES:**
+            1. **Key Trends**: Identify 2-3 specific metrics that are improving or declining with actual numbers (e.g., "CS/min improved from 5.2 to 6.1")
+            2. **Role Consistency**: Comment on primary role focus - 80%+ games in primary role is ideal for climbing
+            3. **Champion Pool**: Evaluate champion selection - playing 3 or fewer champions consistently is optimal for improvement
+            4. **Areas of Improvement**: Specific, measurable areas to work on (with numbers when possible)
+            5. **Strengths to Maintain**: What's working well that should be continued
+            6. **Climbing Advice**: Actionable, specific advice to improve rank (not generic tips)
+
+            **IMPORTANT:**
+            - Focus on CONSISTENCY as the key to climbing (role focus + champion pool)
+            - Use ACTUAL NUMBERS from the data provided
+            - Be SPECIFIC and ACTIONABLE, not generic
+            - Identify TRENDS (improving/declining) rather than single-game issues
+            - Consider streaks and recent performance when giving advice
+
+            **RESPONSE FORMAT (JSON only):**
             {
-              "overallScore": 7,
-              "improvementsMade": ["string", "string"],
-              "areasOfConcern": ["string", "string"],
-              "roleDiversity": "string",
-              "championDiversity": "string",
-              "focusAreas": ["string", "string"],
-              "progressionInsights": "string"
+              "keyTrends": [
+                "Specific metric with numbers showing improvement or decline",
+                "Another specific trend with data"
+              ],
+              "roleConsistency": "Specific feedback on role focus with percentage and recommendation",
+              "championPoolAnalysis": "Specific feedback on champion selection, identify best performers and suggest focusing on top 3",
+              "areasOfImprovement": [
+                "Specific, measurable area to work on",
+                "Another specific area with context"
+              ],
+              "strengthsToMaintain": [
+                "Specific strength with supporting data",
+                "Another strength to continue"
+              ],
+              "climbingAdvice": "Specific, actionable advice for improving rank based on the data - focus on consistency and playing strengths"
             }
 
-            **Focus:** Role-based trends, improvements, concerns. Consider current streaks and recent performance. Score 1-10.
-            Respond ONLY with valid JSON.
+            Respond ONLY with valid JSON. No explanations outside JSON.
             """
     }
 
@@ -888,7 +1070,8 @@ public class OpenAIService {
             ClaimbLogger.debug(
                 "Successfully parsed performance summary response", service: "OpenAIService",
                 metadata: [
-                    "overallScore": String(response.overallScore)
+                    "trendsCount": String(response.keyTrends.count),
+                    "improvementsCount": String(response.areasOfImprovement.count),
                 ])
             return response
         } catch {

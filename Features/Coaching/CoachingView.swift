@@ -13,14 +13,14 @@ import SwiftUI
 
 enum CoachingTab: String, CaseIterable {
     case postGame = "Post-Game"
-    case performance = "Performance"
+    case summary = "Summary"
 
     var title: String {
         switch self {
         case .postGame:
             return "Post-Game"
-        case .performance:
-            return "Performance"
+        case .summary:
+            return "Summary"
         }
     }
 }
@@ -360,7 +360,7 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Performance summary completed", service: "CoachingViewModel",
                 metadata: [
-                    "overallScore": String(summary.overallScore),
+                    "trendsCount": String(summary.keyTrends.count),
                     "gameCount": String(recentMatches.count),
                 ])
 
@@ -400,7 +400,7 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Background refresh of performance summary completed", service: "CoachingViewModel",
                 metadata: [
-                    "overallScore": String(summary.overallScore),
+                    "trendsCount": String(summary.keyTrends.count),
                     "gameCount": String(matches.count),
                 ])
 
@@ -540,7 +540,7 @@ struct CoachingView: View {
                     if viewModel?.selectedCoachingTab == .postGame {
                         postGameAnalysisCard()
                     } else {
-                        performanceSummaryCard()
+                        summaryCard()
                     }
 
                     // Legacy coaching insights (for backward compatibility)
@@ -669,11 +669,11 @@ struct CoachingView: View {
 
                 Spacer()
 
-                // Overall Score
+                // Overall Score (legacy)
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Text("\(response.analysis.overallScore)/10")
                         .font(DesignSystem.Typography.title2)
-                        .foregroundColor(scoreColor(response.analysis.overallScore))
+                        .foregroundColor(DesignSystem.Colors.primary)
                     Text("Score")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -844,10 +844,10 @@ struct CoachingView: View {
         }
     }
 
-    private func performanceSummaryCard() -> some View {
+    private func summaryCard() -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             HStack {
-                Text("Performance Summary")
+                Text("Recent Trends (Last 10 Games)")
                     .font(DesignSystem.Typography.title3)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
@@ -859,11 +859,11 @@ struct CoachingView: View {
             }
 
             if let summary = viewModel?.performanceSummary {
-                performanceSummaryContent(summary: summary)
+                summaryContent(summary: summary)
             } else if let error = viewModel?.performanceSummaryError, !error.isEmpty {
-                performanceSummaryErrorContent(error: error)
+                summaryErrorContent(error: error)
             } else {
-                performanceSummaryEmptyContent()
+                summaryEmptyContent()
             }
         }
         .padding(DesignSystem.Spacing.lg)
@@ -875,103 +875,131 @@ struct CoachingView: View {
         )
     }
 
-    private func performanceSummaryContent(summary: PerformanceSummary) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            // Overall Score
-            HStack {
-                Text("Overall Score")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+    private func summaryContent(summary: PerformanceSummary) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+            // Key Trends
+            if !summary.keyTrends.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Key Trends")
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
 
-                Spacer()
+                    ForEach(Array(summary.keyTrends.enumerated()), id: \.offset) {
+                        index, trend in
+                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .font(.body)
 
-                Text("\(summary.overallScore)/10")
-                    .font(DesignSystem.Typography.title2)
-                    .foregroundColor(scoreColor(summary.overallScore))
+                            Text(trend)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
+                    }
+                }
             }
 
-            // Improvements Made
-            if !summary.improvementsMade.isEmpty {
+            // Role Consistency
+            if !summary.roleConsistency.isEmpty {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Improvements Made")
+                    Text("Role Consistency")
                         .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                    Text(summary.roleConsistency)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            }
+
+            // Champion Pool Analysis
+            if !summary.championPoolAnalysis.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Champion Pool")
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+
+                    Text(summary.championPoolAnalysis)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            }
+
+            // Strengths to Maintain
+            if !summary.strengthsToMaintain.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Strengths to Maintain")
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.Colors.accent)
 
-                    ForEach(Array(summary.improvementsMade.enumerated()), id: \.offset) {
-                        index, improvement in
+                    ForEach(Array(summary.strengthsToMaintain.enumerated()), id: \.offset) {
+                        index, strength in
                         HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                            Image(systemName: "arrow.up.circle.fill")
+                            Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(DesignSystem.Colors.accent)
-                                .font(.caption)
+                                .font(.body)
 
-                            Text(improvement)
+                            Text(strength)
                                 .font(DesignSystem.Typography.body)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
                         }
                     }
                 }
             }
 
-            // Areas of Concern
-            if !summary.areasOfConcern.isEmpty {
+            // Areas of Improvement
+            if !summary.areasOfImprovement.isEmpty {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Areas of Concern")
+                    Text("Areas to Improve")
                         .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.warning)
-
-                    ForEach(Array(summary.areasOfConcern.enumerated()), id: \.offset) {
-                        index, concern in
-                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundColor(DesignSystem.Colors.warning)
-                                .font(.caption)
-
-                            Text(concern)
-                                .font(DesignSystem.Typography.body)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                        }
-                    }
-                }
-            }
-
-            // Focus Areas
-            if !summary.focusAreas.isEmpty {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Focus Areas")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.primary)
-
-                    ForEach(Array(summary.focusAreas.enumerated()), id: \.offset) { index, focus in
-                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                            Text("\(index + 1).")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.primary)
-                                .frame(width: 16, alignment: .leading)
-
-                            Text(focus)
-                                .font(DesignSystem.Typography.body)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                        }
-                    }
-                }
-            }
-
-            // Progression Insights
-            if !summary.progressionInsights.isEmpty {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    Text("Progression")
-                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.Colors.secondary)
 
-                    Text(summary.progressionInsights)
+                    ForEach(Array(summary.areasOfImprovement.enumerated()), id: \.offset) {
+                        index, area in
+                        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(DesignSystem.Colors.secondary)
+                                .font(.body)
+
+                            Text(area)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
+                    }
+                }
+            }
+
+            // Climbing Advice (highlighted)
+            if !summary.climbingAdvice.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "target")
+                            .foregroundColor(DesignSystem.Colors.primary)
+                            .font(.body)
+
+                        Text("Action Plan")
+                            .font(DesignSystem.Typography.callout)
+                            .fontWeight(.semibold)
+                            .foregroundColor(DesignSystem.Colors.primary)
+                    }
+
+                    Text(summary.climbingAdvice)
                         .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .padding(DesignSystem.Spacing.md)
+                        .background(DesignSystem.Colors.cardBorder.opacity(0.3))
+                        .cornerRadius(DesignSystem.CornerRadius.small)
                 }
             }
         }
     }
 
-    private func performanceSummaryErrorContent(error: String) -> some View {
+    private func summaryErrorContent(error: String) -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
                 .font(DesignSystem.Typography.title2)
@@ -988,13 +1016,13 @@ struct CoachingView: View {
         }
     }
 
-    private func performanceSummaryEmptyContent() -> some View {
+    private func summaryEmptyContent() -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(DesignSystem.Typography.title2)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
 
-            Text("Play more games for performance summary")
+            Text("Play more games for trends summary")
                 .font(DesignSystem.Typography.callout)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -1075,15 +1103,6 @@ struct CoachingView: View {
     }
 
     // MARK: - Enhanced Coaching UI Components
-
-    private func scoreColor(_ score: Int) -> Color {
-        switch score {
-        case 8...10: return DesignSystem.Colors.accent
-        case 6...7: return DesignSystem.Colors.primary
-        case 4...5: return DesignSystem.Colors.warning
-        default: return DesignSystem.Colors.error
-        }
-    }
 
     private func performanceComparisonCard(comparison: PerformanceComparison) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {

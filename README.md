@@ -18,9 +18,10 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 ### **Core Features**
 - 📊 **Performance Analytics**: Track your performance with role-specific KPIs and baseline comparisons
 - 🏆 **Champion Pool Management**: Analyze your champion performance and get optimization insights
-- 🧠 **AI Coaching**: Post-game analysis with personalized insights and actionable drills
+- 🧠 **AI Coaching**: Post-game analysis with personalized insights, timeline data, and actionable advice with specific timing
+- ⏱️ **Timeline Integration**: Early game analysis with exact minute marks for specific feedback (e.g., "At 6:30, you should have...")
 - 🏅 **Rank Tracking**: Display Solo/Duo and Flex rank information with LP tracking
-- 🔄 **Offline-First**: Works without internet after initial data sync
+- 🔄 **Offline-First**: Works without internet after initial data sync (with optimistic caching for AI responses)
 - 🎮 **iPhone-Optimized**: Designed specifically for one-handed mobile use with Apple Watch-like interface
 
 ## 🏗️ **Architecture**
@@ -49,6 +50,9 @@ Claimb is a **local-first** League of Legends companion app designed for iPhone 
 - **Performance Analytics**: KPI-focused dashboard with role-specific metrics and baseline comparisons
 - **Champion Pool Analysis**: Track champion performance, win rates, and filtering options
 - **AI Coaching**: Dual-focused coaching system with post-game analysis and performance summaries
+- **Timeline Data Integration**: Early game analysis with specific timing insights and minute marks
+- **Optimistic Caching**: Instant cached responses with transparent background refresh for AI coaching
+- **Lane Matchup Analysis**: AI analysis includes opponent champion and team composition context
 - **Rank Tracking**: Solo/Duo and Flex rank display with LP tracking and win/loss records
 - **Streak Analysis**: Losing/winning streak detection and recent performance tracking
 - **Performance Indicators**: Visual streak warnings and recent win/loss records in Performance view
@@ -119,12 +123,14 @@ We recently completed a major architecture modernization by integrating Supabase
 - **OpenAIService**: AI coaching insights via secure proxy
 - **AppConfig**: Centralized configuration management for Supabase credentials
 
-#### **🤖 AI Coaching Redesign (Latest)**
+#### **🤖 AI Coaching Redesign (Latest - October 2025)**
 - **Dual-Focused Coaching**: Separate post-game analysis and performance summary
-- **Post-Game Analysis**: Champion-focused insights for most recent game only
+- **Timeline Data Integration**: Post-game analysis now includes detailed early game timeline data with specific timing insights
+- **Post-Game Analysis**: Champion-focused insights for most recent game with lane matchup context and timing markers
 - **Performance Summary**: Role-focused trends over last 10 games with diversity metrics
 - **Champion Pool Integration**: Leverages existing "Best Performing Champions" logic
 - **Smart Auto-Triggers**: Post-game analysis auto-generates on new matches
+- **Optimistic Caching**: Shows cached responses immediately while refreshing in background
 - **Simplified UI**: Two focused cards instead of complex multi-section layout
 - **Performance Section Cleanup**: Removed role/champion diversity from display (moved to coaching)
 
@@ -136,6 +142,8 @@ We recently completed a major architecture modernization by integrating Supabase
 - **Cost Control**: Better monitoring and control of API usage
 - **Focused Coaching**: Actionable insights instead of overwhelming stats
 - **Smart Data Usage**: Leverages existing champion pool and KPI calculations
+- **Timeline Insights**: Specific timing-based advice with minute marks (e.g., "At 6:30, you should have...")
+- **Optimistic UX**: Instant cached responses with transparent background refresh
 
 ### **Latest Streak Analysis & Performance Indicators (October 2025)**
 We recently implemented comprehensive streak analysis and performance indicators to help players understand their current form and make better decisions:
@@ -170,6 +178,35 @@ We recently implemented comprehensive streak analysis and performance indicators
 - **Personalized Coaching**: AI advice considers current form and recent performance
 - **Visual Feedback**: Clear indicators help players understand their current state
 - **Role-Specific Analysis**: Streak calculations tailored to player's main role
+
+### **Latest Timeline Data Integration (October 2025)**
+We recently enhanced the AI coaching system with detailed early game timeline data for more specific and actionable insights:
+
+#### **⏱️ Timeline Data Features**
+- **Early Game Focus**: Detailed timeline data for first 15 minutes of gameplay
+- **Specific Timing**: AI provides advice with exact minute marks (e.g., "At 3:15, strong first blood showed good aggression")
+- **Lane Matchup Context**: Analysis includes opponent champion and matchup-specific insights
+- **Team Composition**: Full team context included in analysis for better strategic advice
+- **Trading Patterns**: Identifies lane trading opportunities and mistakes with timing data
+- **Wave Management**: Analyzes recall timings and wave state decisions
+- **Objective Participation**: Early game objective involvement with timing context
+
+#### **🔧 Technical Implementation**
+- **RiotTimelineLite Endpoint**: Secure timeline data fetching through Supabase edge functions
+- **Graceful Fallback**: Analysis proceeds without timeline if data unavailable (backward compatibility)
+- **Enhanced Prompts**: AI prompts include comprehensive timeline data when available
+- **Lane Opponent Detection**: Automatic identification of lane opponent for matchup analysis
+- **Team Context Extraction**: Structured team composition data for strategic insights
+- **Background Refresh**: Optimistic caching shows cached analysis while refreshing in background
+- **Cache Management**: Timeline-enhanced analyses cached with proper expiration
+
+#### **📈 Benefits**
+- **Specific Feedback**: Instead of "Farm better", get "At 7:40, died overextended without vision"
+- **Timing-Based Learning**: Understand exactly when mistakes happened for better recall and learning
+- **Matchup Insights**: Champion-specific advice considering actual lane opponent
+- **Power Spike Awareness**: AI can reference specific levels and timing windows
+- **Actionable Improvement**: Concrete examples from actual gameplay to learn from
+- **Faster Coaching**: Instant cached responses with transparent background refresh indicator
 
 ### **Latest Rank System Integration (October 2025)**
 We recently completed the integration of League of Legends rank tracking to provide players with comprehensive rank information:
@@ -410,6 +447,7 @@ The app includes comprehensive test views for development:
 ### **Supported APIs**
 - **Riot Games API**: Account lookup, summoner data, match history and details
 - **Riot League-V4 API**: Rank data for Solo/Duo and Flex queues
+- **Riot Timeline API**: Early game timeline data for detailed analysis (via `riotTimelineLite` endpoint)
 - **Data Dragon API**: Champion data, icons, and version management
 - **OpenAI API**: AI coaching insights and analysis via GPT-4 Turbo (optimized)
 
@@ -440,6 +478,9 @@ The app includes comprehensive test views for development:
 - [x] Simplify CoachingView UI to two focused cards
 - [x] Remove role/champion diversity from Performance section display
 - [x] Add smart auto-trigger logic for post-game analysis
+- [x] Integrate timeline data for specific timing-based insights
+- [x] Implement optimistic caching with background refresh
+- [x] Add lane matchup and team composition context
 
 ### **Phase 2.5: Rank System Integration (Completed)**
 - [x] Implement League-V4 API integration for rank data
