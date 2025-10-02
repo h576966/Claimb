@@ -481,7 +481,7 @@ struct CoachingView: View {
                                 : DesignSystem.Colors.textSecondary
                         )
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, DesignSystem.Spacing.md)
+                        .padding(.vertical, DesignSystem.Spacing.sm)
                         .background(
                             viewModel?.selectedCoachingTab == tab
                                 ? DesignSystem.Colors.cardBackground
@@ -503,9 +503,9 @@ struct CoachingView: View {
         }
         .background(DesignSystem.Colors.background)
         .cornerRadius(DesignSystem.CornerRadius.small)
-        .padding(.horizontal, DesignSystem.Spacing.lg)
-        .padding(.top, DesignSystem.Spacing.md)
-        .padding(.bottom, DesignSystem.Spacing.sm)
+        .padding(.horizontal, 0)
+        .padding(.top, 0)
+        .padding(.bottom, 0)
     }
 
     private func coachingContentView(matches: [Match]) -> some View {
@@ -614,9 +614,12 @@ struct CoachingView: View {
 
                 HStack(spacing: DesignSystem.Spacing.xs) {
                     // Role
-                    Text(RoleUtils.displayName(for: RoleUtils.normalizeRole(teamPosition: participant.teamPosition)))
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                    Text(
+                        RoleUtils.displayName(
+                            for: RoleUtils.normalizeRole(teamPosition: participant.teamPosition))
+                    )
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
 
                     Text("•")
                         .font(DesignSystem.Typography.caption)

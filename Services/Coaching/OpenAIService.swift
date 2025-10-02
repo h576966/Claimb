@@ -277,7 +277,7 @@ public class OpenAIService {
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
             model: "gpt-4o-mini",
-            maxOutputTokens: 600  // Increased for more detailed, game-specific analysis
+            maxOutputTokens: 450  // Balanced for concise but detailed analysis
         )
 
         // Parse response
