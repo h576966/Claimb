@@ -179,7 +179,7 @@ struct PerformanceView: View {
                             showRoleSelection = true
                         }
                     )
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
@@ -194,7 +194,6 @@ struct PerformanceView: View {
                         // Right: Streak and Performance Card
                         streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
                     }
-                    .frame(height: 100)
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 } else {
@@ -206,7 +205,6 @@ struct PerformanceView: View {
                         Color.clear
                             .frame(maxWidth: .infinity)
                     }
-                    .frame(height: 100)
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
@@ -304,7 +302,7 @@ struct PerformanceView: View {
                 )
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
@@ -368,7 +366,7 @@ struct PerformanceView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
