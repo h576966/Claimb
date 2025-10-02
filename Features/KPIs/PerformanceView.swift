@@ -21,9 +21,9 @@ struct RankBadge: View {
         HStack(spacing: DesignSystem.Spacing.xs) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(rank)
-                    .font(DesignSystem.Typography.caption)
+                    .font(DesignSystem.Typography.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(rankColor)
 
                 if lp > 0 {
                     Text("\(lp) LP")
@@ -32,19 +32,12 @@ struct RankBadge: View {
                 }
             }
 
+            Spacer()
+
             Text(queueType)
                 .font(.caption2)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
-                .padding(.leading, DesignSystem.Spacing.xs)
         }
-        .padding(.horizontal, DesignSystem.Spacing.sm)
-        .padding(.vertical, DesignSystem.Spacing.xs)
-        .background(rankBackgroundColor)
-        .cornerRadius(DesignSystem.CornerRadius.small)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                .stroke(rankColor.opacity(0.3), lineWidth: 1)
-        )
     }
 
     private var rankColor: Color {
@@ -196,22 +189,27 @@ struct PerformanceView: View {
                 if let viewModel = matchDataViewModel,
                     case .loaded(let matches) = viewModel.matchState
                 {
-                    HStack(spacing: DesignSystem.Spacing.md) {
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         // Left: Rank Badges Card
                         rankBadgesCardView
                         
                         // Right: Streak and Performance Card
                         streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .frame(height: 100)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 } else {
                     // Show rank badges only while loading matches
-                    HStack(spacing: DesignSystem.Spacing.md) {
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                         rankBadgesCardView
-                        Spacer()
+                        
+                        // Placeholder for streak card
+                        Color.clear
+                            .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .frame(height: 100)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
@@ -277,7 +275,7 @@ struct PerformanceView: View {
     }
 
     private var rankBadgesCardView: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {
@@ -308,7 +306,7 @@ struct PerformanceView: View {
                 )
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
@@ -319,7 +317,7 @@ struct PerformanceView: View {
     }
 
     private func streakCardView(matches: [Match], role: String) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             if let kpiService = matchDataViewModel?.kpiCalculationService {
                 let losingStreak = kpiService.calculateLosingStreak(
                     matches: matches, summoner: summoner, role: role)
@@ -335,13 +333,10 @@ struct PerformanceView: View {
                             .foregroundColor(DesignSystem.Colors.primary)
                             .font(.caption)
                         Text("\(winningStreak) Win Streak")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .font(DesignSystem.Typography.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(DesignSystem.Colors.primary)
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
-                    .padding(.vertical, DesignSystem.Spacing.xs)
-                    .background(DesignSystem.Colors.primary.opacity(0.1))
-                    .cornerRadius(DesignSystem.CornerRadius.small)
                 }
                 
                 // Losing Streak Warning
@@ -351,13 +346,10 @@ struct PerformanceView: View {
                             .foregroundColor(DesignSystem.Colors.secondary)
                             .font(.caption)
                         Text("\(losingStreak) Loss Streak")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .font(DesignSystem.Typography.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(DesignSystem.Colors.secondary)
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
-                    .padding(.vertical, DesignSystem.Spacing.xs)
-                    .background(DesignSystem.Colors.secondary.opacity(0.1))
-                    .cornerRadius(DesignSystem.CornerRadius.small)
                 }
 
                 // Recent Performance (always show if >= 5 games)
@@ -371,17 +363,14 @@ struct PerformanceView: View {
                             )
                             .font(.caption)
                         Text("\(recentPerformance.wins)W-\(recentPerformance.losses)L")
-                            .font(DesignSystem.Typography.caption)
+                            .font(DesignSystem.Typography.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
-                    .padding(.vertical, DesignSystem.Spacing.xs)
-                    .background(DesignSystem.Colors.surface)
-                    .cornerRadius(DesignSystem.CornerRadius.small)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
