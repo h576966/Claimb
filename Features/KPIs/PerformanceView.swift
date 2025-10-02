@@ -268,7 +268,6 @@ struct PerformanceView: View {
 
     private var rankBadgesView: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-
             if summoner.hasAnyRank {
                 // Solo/Duo Rank Badge
                 if let soloDuoRank = summoner.soloDuoRank {
@@ -298,6 +297,8 @@ struct PerformanceView: View {
                     isPrimary: true
                 )
             }
+            
+            Spacer()
         }
     }
 
@@ -362,6 +363,8 @@ struct PerformanceView: View {
                     .background(DesignSystem.Colors.surface)
                     .cornerRadius(DesignSystem.CornerRadius.small)
                 }
+                
+                Spacer()
             }
         }
     }
