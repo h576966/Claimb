@@ -19,26 +19,29 @@ struct MainTabView: View {
             // Champion View
             ChampionView(summoner: summoner, userSession: userSession)
                 .tabItem {
-                    Image(systemName: "person.3.fill")
-                    Text("Champion")
+                    Label("Champion", systemImage: "person.3.fill")
                 }
                 .tag(0)
+                .accessibilityLabel("Champion Pool")
+                .accessibilityHint("View your champion performance and pool analysis")
 
             // Performance View
             PerformanceView(summoner: summoner, userSession: userSession)
                 .tabItem {
-                    Image(systemName: "chart.bar.fill")
-                    Text("Performance")
+                    Label("Performance", systemImage: "chart.bar.fill")
                 }
                 .tag(1)
+                .accessibilityLabel("Performance")
+                .accessibilityHint("View your KPIs and performance metrics")
 
             // Coaching View
             CoachingView(summoner: summoner, userSession: userSession)
                 .tabItem {
-                    Image(systemName: "brain.head.profile")
-                    Text("Coaching")
+                    Label("Coaching", systemImage: "brain.head.profile")
                 }
                 .tag(2)
+                .accessibilityLabel("Coaching")
+                .accessibilityHint("Get AI-powered coaching insights and game analysis")
         }
         .accentColor(DesignSystem.Colors.primary)
         .toolbar {
@@ -63,6 +66,8 @@ struct MainTabView: View {
                     showLogoutConfirmation = true
                 }
                 .foregroundColor(DesignSystem.Colors.secondary)
+                .accessibilityLabel("Logout")
+                .accessibilityHint("Sign out and return to login screen")
             }
         }
         .alert("Logout", isPresented: $showLogoutConfirmation) {

@@ -82,6 +82,8 @@ struct CustomNavigationBar: View {
                     }
                     .claimbButton(variant: .primary, size: .small)
                     .disabled(actionButton.isDisabled || actionButton.isLoading)
+                    .accessibilityLabel(actionButton.isLoading ? "Refreshing" : actionButton.title)
+                    .accessibilityHint("Fetches latest match data from Riot Games")
                 }
 
                 // Logout Button (if provided)
@@ -92,6 +94,8 @@ struct CustomNavigationBar: View {
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("Account")
+                    .accessibilityHint("View account options and logout")
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)

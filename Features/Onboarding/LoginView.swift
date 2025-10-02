@@ -72,6 +72,8 @@ struct LoginView: View {
                                     .padding(DesignSystem.Spacing.md)
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
+                                    .accessibilityLabel("Summoner Name")
+                                    .accessibilityHint("Enter your Riot Games summoner name")
                             }
                             .background(DesignSystem.Colors.cardBackground)
                             .cornerRadius(DesignSystem.CornerRadius.small)
@@ -100,6 +102,8 @@ struct LoginView: View {
                                     .padding(DesignSystem.Spacing.md)
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
+                                    .accessibilityLabel("Tag Line")
+                                    .accessibilityHint("Enter your Riot ID tag, like EUW or NA1")
                             }
                             .background(DesignSystem.Colors.cardBackground)
                             .cornerRadius(DesignSystem.CornerRadius.small)
@@ -130,6 +134,8 @@ struct LoginView: View {
                                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
                                     .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
                             )
+                            .accessibilityLabel("Region")
+                            .accessibilityHint("Select your League of Legends region")
                         }
 
                         // Login Button
@@ -153,6 +159,8 @@ struct LoginView: View {
                         }
                         .claimbButton(variant: .primary, size: .large)
                         .disabled(!isValidInput || isLoading)
+                        .accessibilityLabel(isLoading ? "Logging in" : "Login")
+                        .accessibilityHint("Authenticate with Riot Games to view your match history and stats")
 
                         // Error Message
                         if let errorMessage = errorMessage {
