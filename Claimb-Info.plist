@@ -61,5 +61,19 @@
 	<!-- Network Usage Description -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Claimb needs network access to sync your League of Legends match data and provide coaching insights.</string>
+	
+	<!-- Privacy - User Tracking Usage Description (Required for iOS 14+) -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Claimb does not track you. This permission is required by Apple but is not used by our app.</string>
+	
+	<!-- Export Compliance - Encryption Declaration -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	
+	<!-- Privacy - Photo Library Usage (if ever needed for profile pictures) -->
+	<!-- Commented out - uncomment if adding photo upload feature
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Claimb would like to access your photos to set a profile picture.</string>
+	-->
 </dict>
 </plist>
