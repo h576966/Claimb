@@ -35,8 +35,8 @@ def generate_app_icons(source_path, output_dir="Assets.xcassets/AppIcon.appicons
             
             # Convert to RGB if necessary (remove alpha channel)
             if source.mode in ('RGBA', 'LA', 'P'):
-                # Create white background
-                background = Image.new('RGB', source.size, (255, 255, 255))
+                # Create black background for better contrast
+                background = Image.new('RGB', source.size, (0, 0, 0))
                 if source.mode == 'P':
                     source = source.convert('RGBA')
                 background.paste(source, mask=source.split()[-1] if source.mode == 'RGBA' else None)
