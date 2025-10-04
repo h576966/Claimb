@@ -488,25 +488,15 @@ struct CoachingView: View {
                         .fontWeight(.medium)
                         .foregroundColor(
                             viewModel?.selectedCoachingTab == tab
-                                ? DesignSystem.Colors.textPrimary
+                                ? DesignSystem.Colors.black
                                 : DesignSystem.Colors.textSecondary
                         )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, DesignSystem.Spacing.md)
                         .background(
                             viewModel?.selectedCoachingTab == tab
-                                ? DesignSystem.Colors.cardBackground
-                                : Color.clear
-                        )
-                        .overlay(
-                            Rectangle()
-                                .frame(height: 2)
-                                .foregroundColor(
-                                    viewModel?.selectedCoachingTab == tab
-                                        ? DesignSystem.Colors.primary
-                                        : Color.clear
-                                ),
-                            alignment: .bottom
+                                ? DesignSystem.Colors.accent
+                                : DesignSystem.Colors.cardBackground
                         )
                 }
                 .buttonStyle(PlainButtonStyle())

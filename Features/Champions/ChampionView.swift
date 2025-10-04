@@ -158,25 +158,15 @@ struct ChampionView: View {
                         .fontWeight(.medium)
                         .foregroundColor(
                             selectedFilter == filter
-                                ? DesignSystem.Colors.textPrimary
+                                ? DesignSystem.Colors.black
                                 : DesignSystem.Colors.textSecondary
                         )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, DesignSystem.Spacing.md)
                         .background(
                             selectedFilter == filter
-                                ? DesignSystem.Colors.cardBackground
-                                : Color.clear
-                        )
-                        .overlay(
-                            Rectangle()
-                                .frame(height: 2)
-                                .foregroundColor(
-                                    selectedFilter == filter
-                                        ? DesignSystem.Colors.primary
-                                        : Color.clear
-                                ),
-                            alignment: .bottom
+                                ? DesignSystem.Colors.accent
+                                : DesignSystem.Colors.cardBackground
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
