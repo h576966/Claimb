@@ -426,6 +426,9 @@ public class ProxyService {
                     "matchId": matchId,
                     "participantId": String(response.participantId),
                     "summaryLength": String(timelineSummary.count),
+                    "hasFirstBack": String(response.timings.firstBackMin != nil),
+                    "hasFirstKill": String(response.timings.firstKillMin != nil),
+                    "hasFirstDeath": String(response.timings.firstDeathMin != nil),
                 ])
 
             return timelineSummary

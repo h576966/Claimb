@@ -756,6 +756,7 @@ public class OpenAIService {
                 metadata: [
                     "error": error.localizedDescription,
                     "responseLength": String(responseText.count),
+                    "rawResponse": responseText.prefix(500) + (responseText.count > 500 ? "..." : ""),
                 ])
             throw OpenAIError.invalidResponse
         }
