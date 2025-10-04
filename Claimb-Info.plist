@@ -55,7 +55,7 @@
 	<!-- Background Modes (Optional for background refresh) -->
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>background-fetch</string>
+		<string>fetch</string>
 	</array>
 	
 	<!-- Network Usage Description -->
