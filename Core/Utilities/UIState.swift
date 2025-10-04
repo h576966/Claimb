@@ -63,7 +63,7 @@ public struct ClaimbLoadingView: View {
 
     public var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            GlowCSpinner(size: size)
+            ClaimbSpinner(size: size)
 
             Text(message)
                 .font(DesignSystem.Typography.body)
@@ -84,7 +84,7 @@ public struct ClaimbInlineSpinner: View {
     }
 
     public var body: some View {
-        GlowCSpinner(size: size)
+        ClaimbSpinner(size: size)
     }
 }
 

@@ -144,12 +144,7 @@ struct LoginView: View {
                         }) {
                             HStack {
                                 if isLoading {
-                                    ProgressView()
-                                        .progressViewStyle(
-                                            CircularProgressViewStyle(
-                                                tint: DesignSystem.Colors.white)
-                                        )
-                                        .scaleEffect(0.8)
+                                    ClaimbInlineSpinner(size: 16)
                                 } else {
                                     Text("Login")
                                         .font(DesignSystem.Typography.bodyBold)
@@ -160,7 +155,8 @@ struct LoginView: View {
                         .claimbButton(variant: .primary, size: .large)
                         .disabled(!isValidInput || isLoading)
                         .accessibilityLabel(isLoading ? "Logging in" : "Login")
-                        .accessibilityHint("Authenticate with Riot Games to view your match history and stats")
+                        .accessibilityHint(
+                            "Authenticate with Riot Games to view your match history and stats")
 
                         // Error Message
                         if let errorMessage = errorMessage {

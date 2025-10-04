@@ -38,11 +38,7 @@ struct ContentView: View {
             } else {
                 // Loading state while UserSession is being created
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    ProgressView()
-                        .progressViewStyle(
-                            CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
-                        )
-                        .scaleEffect(1.2)
+                    ClaimbSpinner(size: 60)
 
                     Text("Checking for saved login...")
                         .font(DesignSystem.Typography.body)

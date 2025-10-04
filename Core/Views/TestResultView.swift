@@ -38,8 +38,7 @@ import SwiftUI
                     Button(action: runNetworkDiagnostics) {
                         HStack(spacing: 4) {
                             if isRunningDiagnostics {
-                                ProgressView()
-                                    .scaleEffect(0.8)
+                                ClaimbInlineSpinner(size: 12)
                             } else {
                                 Image(systemName: "network")
                             }

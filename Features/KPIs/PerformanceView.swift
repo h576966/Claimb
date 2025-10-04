@@ -265,7 +265,7 @@ struct PerformanceView: View {
                 icon: "arrow.clockwise",
                 action: { Task { await matchDataViewModel?.refreshMatches() } },
                 isLoading: matchDataViewModel?.isRefreshing ?? false,
-                isDisabled: false
+                isDisabled: matchDataViewModel?.isRefreshing ?? false
             ),
             onLogout: {
                 userSession.logout()

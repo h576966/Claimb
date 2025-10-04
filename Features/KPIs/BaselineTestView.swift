@@ -17,8 +17,6 @@ import SwiftUI
         @State private var errorMessage: String?
         @State private var testResults: [String] = []
 
-        private let testDataCreator = TestDataCreator()
-
         init() {
             // Set model context will be done in onAppear
         }
@@ -57,7 +55,7 @@ import SwiftUI
                 await loadCounts()
             }
             .onAppear {
-                testDataCreator.setModelContext(modelContext)
+                // TestDataCreator removed - using direct model operations
             }
         }
 
@@ -101,9 +99,7 @@ import SwiftUI
                 }) {
                     HStack {
                         if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                                .scaleEffect(0.8)
+                            ClaimbInlineSpinner(size: 16)
                         } else {
                             Image(systemName: "arrow.down.circle")
                         }
@@ -214,7 +210,11 @@ import SwiftUI
                 guard
                     let url = Bundle.main.url(forResource: "baselines_clean", withExtension: "json")
                 else {
-                    throw TestError.missingResource("baselines_clean.json")
+                    throw NSError(
+                        domain: "BaselineTestView", code: 1,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "Missing resource: baselines_clean.json"
+                        ])
                 }
 
                 let data = try Data(contentsOf: url)
@@ -264,7 +264,9 @@ import SwiftUI
                 let summoners = try modelContext.fetch(summonerDescriptor)
 
                 guard let summoner = summoners.first else {
-                    throw TestError.noData("No summoners found")
+                    throw NSError(
+                        domain: "BaselineTestView", code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "No summoners found"])
                 }
 
                 // Get matches
@@ -338,25 +340,9 @@ import SwiftUI
             errorMessage = nil
             testResults = []
 
-            do {
-                // Create test summoner
-                let summoner = try await testDataCreator.createTestSummoner()
-                testResults.append("✅ Created test summoner: \(summoner.gameName)")
-
-                // Create test matches
-                let matches = try await testDataCreator.createTestMatches(for: summoner, count: 5)
-                testResults.append("✅ Created \(matches.count) test matches")
-
-                // Create test baselines
-                let baselines = try await testDataCreator.createTestBaselines()
-                testResults.append("✅ Created \(baselines.count) test baselines")
-
-                await loadCounts()
-
-            } catch {
-                errorMessage = "Failed to create test data: \(error.localizedDescription)"
-                testResults.append("❌ Error creating test data: \(error.localizedDescription)")
-            }
+            // TestDataCreator functionality removed - simplified test
+            testResults.append("✅ Test data creation disabled (TestDataCreator removed)")
+            await loadCounts()
 
             isLoading = false
         }

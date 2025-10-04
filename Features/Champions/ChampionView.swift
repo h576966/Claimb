@@ -112,7 +112,7 @@ struct ChampionView: View {
                 icon: "arrow.clockwise",
                 action: { Task { await matchDataViewModel?.loadAllData() } },
                 isLoading: matchDataViewModel?.isRefreshing ?? false,
-                isDisabled: false
+                isDisabled: matchDataViewModel?.isRefreshing ?? false
             ),
             onLogout: {
                 userSession.logout()

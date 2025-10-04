@@ -67,11 +67,7 @@ struct CustomNavigationBar: View {
                 if let actionButton = actionButton {
                     Button(action: actionButton.action) {
                         if actionButton.isLoading {
-                            ProgressView()
-                                .progressViewStyle(
-                                    CircularProgressViewStyle(tint: DesignSystem.Colors.primary)
-                                )
-                                .frame(width: 20, height: 20)
+                            ClaimbInlineSpinner(size: 20)
                         } else {
                             Image(systemName: actionButton.icon)
                                 .font(DesignSystem.Typography.title3)

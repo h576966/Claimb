@@ -466,8 +466,10 @@ struct CoachingView: View {
                 title: "Refresh",
                 icon: "arrow.clockwise",
                 action: { Task { await viewModel?.loadMatches() } },
-                isLoading: viewModel?.isAnalyzing ?? false,
-                isDisabled: false
+                isLoading: (viewModel?.isAnalyzing ?? false)
+                    || (viewModel?.isRefreshingInBackground ?? false),
+                isDisabled: (viewModel?.isAnalyzing ?? false)
+                    || (viewModel?.isRefreshingInBackground ?? false)
             ),
             onLogout: {
                 userSession.logout()
@@ -519,23 +521,6 @@ struct CoachingView: View {
 
     private func coachingContentView(matches: [Match]) -> some View {
         VStack(spacing: 0) {
-            // Background refresh indicator
-            if let viewModel = viewModel, viewModel.isRefreshingInBackground {
-                HStack(spacing: DesignSystem.Spacing.sm) {
-                    ProgressView()
-                        .progressViewStyle(
-                            CircularProgressViewStyle(tint: DesignSystem.Colors.accent)
-                        )
-                        .scaleEffect(0.6)
-
-                    Text("Updating insights...")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                .padding(.vertical, DesignSystem.Spacing.xs)
-                .transition(.opacity)
-            }
-
             // Content based on selected tab
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.lg) {
@@ -736,10 +721,6 @@ struct CoachingView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
                 Spacer()
-
-                if viewModel?.isAnalyzing == true {
-                    GlowCSpinner(size: 20)
-                }
             }
 
             if let analysis = viewModel?.postGameAnalysis {
@@ -857,10 +838,6 @@ struct CoachingView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
                 Spacer()
-
-                if viewModel?.isAnalyzing == true {
-                    GlowCSpinner(size: 20)
-                }
             }
 
             if let summary = viewModel?.performanceSummary {

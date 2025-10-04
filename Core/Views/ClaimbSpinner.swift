@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct GlowCSpinner: View {
+public struct ClaimbSpinner: View {
     // Tunables
     public var size: CGFloat = 120
     public var speed: Double = 1.5  // seconds per full rotation
@@ -74,6 +74,6 @@ public struct GlowCSpinner: View {
 #Preview {
     ZStack {
         Color.black.ignoresSafeArea()
-        GlowCSpinner(size: 140)
+        ClaimbSpinner(size: 140)
     }
 }
