@@ -1015,8 +1015,8 @@ public class OpenAIService {
             \(detailedContext)
 
             **ANALYSIS GUIDELINES:**
-            1. **Key Trends**: Identify 2-3 specific metrics that are improving or declining with actual numbers (e.g., "CS/min improved from 5.2 to 6.1")
-            2. **Role Consistency**: Comment on primary role focus - 80%+ games in primary role is ideal for climbing
+            1. **Key Trends**: Identify 2-3 specific metrics that are improving or declining with actual numbers (e.g., "CS/min improved from 5.2 to 6.1") - DO NOT include game ranges like "(Games 1-5)" or "(Games 6-10)"
+            2. **Role Consistency**: Give encouraging feedback on role focus with specific percentage. If 80%+, praise their consistency. If below 80%, gently suggest focusing more on primary role.
             3. **Champion Pool**: Evaluate champion selection - playing 3 or fewer champions consistently is optimal for improvement
             4. **Areas of Improvement**: Specific, measurable areas to work on (with numbers when possible)
             5. **Strengths to Maintain**: What's working well that should be continued
@@ -1028,6 +1028,8 @@ public class OpenAIService {
             - Be SPECIFIC and ACTIONABLE, not generic
             - Identify TRENDS (improving/declining) rather than single-game issues
             - Consider streaks and recent performance when giving advice
+            - Be ENCOURAGING and POSITIVE - praise good habits and frame improvements as opportunities
+            - For role consistency: If they're doing well (80%+), celebrate it. If not, encourage improvement without being critical
 
             **RESPONSE FORMAT (JSON only):**
             {
@@ -1035,7 +1037,7 @@ public class OpenAIService {
                 "Specific metric with numbers showing improvement or decline",
                 "Another specific trend with data"
               ],
-              "roleConsistency": "Specific feedback on role focus with percentage and recommendation",
+              "roleConsistency": "Encouraging feedback on role focus with specific percentage. If 80%+, praise their consistency. If below 80%, gently suggest focusing more on primary role.",
               "championPoolAnalysis": "Specific feedback on champion selection, identify best performers and suggest focusing on top 3",
               "areasOfImprovement": [
                 "Specific, measurable area to work on",

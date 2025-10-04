@@ -73,7 +73,6 @@ struct Checkpoint: Codable {
 
 struct Timings: Codable {
     let firstBackMin: Int?
-    let firstFullItemMin: Int?
     let firstKillMin: Int?
     let firstDeathMin: Int?
 }
@@ -457,9 +456,6 @@ public class ProxyService {
         summary += "**Key Timings:**\n"
         if let firstBack = timeline.timings.firstBackMin {
             summary += "• First Back: \(firstBack) minutes\n"
-        }
-        if let firstItem = timeline.timings.firstFullItemMin {
-            summary += "• First Full Item: \(firstItem) minutes\n"
         }
         if let firstKill = timeline.timings.firstKillMin {
             summary += "• First Kill: \(firstKill) minutes\n"
