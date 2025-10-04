@@ -14,7 +14,6 @@ enum AppConstants {
 
     enum UserDefaultsKeys {
         static let dataVersion = "ClaimbDataVersion"
-        static let teamDMGFixAppliedPrefix = "hasRunTeamDMGCacheFix_"
         static let championsLoadedVersion = "championsLoadedVersion"
         static let baselinesLoadedVersion = "baselinesLoadedVersion"
         static let kpiCachePrefix = "kpiCache_"

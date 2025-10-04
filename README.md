@@ -320,7 +320,7 @@ We recently completed a comprehensive architecture cleanup that reduced codebase
 - **Enhanced coaching context** with rank information in AI prompts
 
 ### **Performance Optimizations (September 2025)**
-- **One‑time Team DMG fix**: gated cache clear with `UserDefaults` flag; no longer runs on every launch
+- **Removed unnecessary Team DMG fix**: eliminated wasteful cache clearing that provided no benefit
 - **SwiftData safety**: all `ModelContext` operations are MainActor‑isolated (loaders/parsers/dedup tasks)
 - **Secure logging**: Riot API key masked (only last 4 characters retained)
 - **KPI caching**: 

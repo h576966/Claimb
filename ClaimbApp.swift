@@ -151,41 +151,9 @@ struct ClaimbApp: App {
             "Selective migration completed - all user data preserved", service: "ClaimbApp")
     }
 
-    /// Clears cache programmatically for Team DMG fix
-    private func clearCacheForTeamDMGFix() async {
-        ClaimbLogger.info("Clearing cache for Team DMG fix", service: "ClaimbApp")
-
-        do {
-            let dataManager = DataManager.shared(with: sharedModelContainer.mainContext)
-
-            // Clear match data to force fresh fetch with correct Team DMG values
-            try await dataManager.clearMatchData()
-
-            ClaimbLogger.info("Cache cleared successfully for Team DMG fix", service: "ClaimbApp")
-        } catch {
-            ClaimbLogger.error(
-                "Failed to clear cache for Team DMG fix", service: "ClaimbApp", error: error)
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onAppear {
-                    // Team DMG fix: run cache clear only once per app install/version
-                    let teamDMGFixKey = "TeamDMGFix_Applied_2.0"
-                    if UserDefaults.standard.bool(forKey: teamDMGFixKey) == false {
-                        Task { @MainActor in
-                            await clearCacheForTeamDMGFix()
-                            UserDefaults.standard.set(true, forKey: teamDMGFixKey)
-                            ClaimbLogger.info(
-                                "Team DMG fix applied (one-time)", service: "ClaimbApp")
-                        }
-                    } else {
-                        ClaimbLogger.debug(
-                            "Team DMG fix already applied, skipping", service: "ClaimbApp")
-                    }
-                }
         }
         .modelContainer(sharedModelContainer)
     }
