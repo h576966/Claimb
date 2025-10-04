@@ -183,33 +183,22 @@ struct PerformanceView: View {
                     .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
-                // Rank and Streak Cards - Side by Side
+                // Combined Rank and Streak Card
                 if let viewModel = matchDataViewModel,
                     case .loaded(let matches) = viewModel.matchState
                 {
-                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                        // Left: Rank Badges Card
-                        rankBadgesCardView
-                            .frame(minHeight: 88)
-
-                        // Right: Streak and Performance Card
-                        streakCardView(matches: matches, role: userSession.selectedPrimaryRole)
-                            .frame(minHeight: 88)
-                    }
+                    combinedRankAndStreakCard(
+                        matches: matches, role: userSession.selectedPrimaryRole
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.bottom, DesignSystem.Spacing.md)
                 } else {
                     // Show rank badges only while loading matches
-                    HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                        rankBadgesCardView
-                            .frame(minHeight: 88)
-
-                        // Placeholder for streak card
-                        Color.clear
-                            .frame(maxWidth: .infinity, minHeight: 88)
-                    }
-                    .padding(.horizontal, DesignSystem.Spacing.md)
-                    .padding(.bottom, DesignSystem.Spacing.md)
+                    combinedRankAndStreakCard(matches: [], role: userSession.selectedPrimaryRole)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, DesignSystem.Spacing.md)
+                        .padding(.bottom, DesignSystem.Spacing.md)
                 }
 
                 // Content
@@ -273,51 +262,49 @@ struct PerformanceView: View {
         )
     }
 
-    private var rankBadgesCardView: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            if summoner.hasAnyRank {
-                // Solo/Duo Rank Badge
-                if let soloDuoRank = summoner.soloDuoRank {
+    private func combinedRankAndStreakCard(matches: [Match], role: String) -> some View {
+        HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
+            // Left side: Rank Badges
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                if summoner.hasAnyRank {
+                    // Solo/Duo Rank Badge
+                    if let soloDuoRank = summoner.soloDuoRank {
+                        RankBadge(
+                            rank: soloDuoRank,
+                            lp: summoner.soloDuoLP ?? 0,
+                            queueType: "Solo/Duo",
+                            isPrimary: true
+                        )
+                    }
+
+                    // Flex Rank Badge
+                    if let flexRank = summoner.flexRank {
+                        RankBadge(
+                            rank: flexRank,
+                            lp: summoner.flexLP ?? 0,
+                            queueType: "Flex",
+                            isPrimary: false
+                        )
+                    }
+                } else {
+                    // Show "Unranked" when no ranks are available
                     RankBadge(
-                        rank: soloDuoRank,
-                        lp: summoner.soloDuoLP ?? 0,
-                        queueType: "Solo/Duo",
+                        rank: "Unranked",
+                        lp: 0,
+                        queueType: "No Rank",
                         isPrimary: true
                     )
                 }
-
-                // Flex Rank Badge
-                if let flexRank = summoner.flexRank {
-                    RankBadge(
-                        rank: flexRank,
-                        lp: summoner.flexLP ?? 0,
-                        queueType: "Flex",
-                        isPrimary: false
-                    )
-                }
-            } else {
-                // Show "Unranked" when no ranks are available
-                RankBadge(
-                    rank: "Unranked",
-                    lp: 0,
-                    queueType: "No Rank",
-                    isPrimary: true
-                )
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(DesignSystem.Spacing.md)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.medium)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-        )
-    }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
 
-    private func streakCardView(matches: [Match], role: String) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            if let kpiService = matchDataViewModel?.kpiCalculationService {
+            // Vertical Divider
+            Rectangle()
+                .fill(DesignSystem.Colors.cardBorder)
+                .frame(width: 1)
+
+            // Right side: Streak and Performance
+            if let kpiService = matchDataViewModel?.kpiCalculationService, !matches.isEmpty {
                 let losingStreak = kpiService.calculateLosingStreak(
                     matches: matches, summoner: summoner, role: role)
                 let winningStreak = kpiService.calculateWinningStreak(
@@ -325,51 +312,57 @@ struct PerformanceView: View {
                 let recentPerformance = kpiService.calculateRecentWinRate(
                     matches: matches, summoner: summoner, role: role)
 
-                // Winning Streak Indicator
-                if winningStreak >= 3 {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: "flame.fill")
-                            .foregroundColor(DesignSystem.Colors.primary)
-                            .font(.body)
-                        Text("\(winningStreak) Win Streak")
-                            .font(DesignSystem.Typography.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.primary)
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    // Winning Streak Indicator
+                    if winningStreak >= 3 {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .font(.body)
+                            Text("\(winningStreak) Win Streak")
+                                .font(DesignSystem.Typography.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(DesignSystem.Colors.primary)
+                        }
                     }
-                }
 
-                // Losing Streak Warning
-                if losingStreak >= 3 {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(DesignSystem.Colors.secondary)
-                            .font(.body)
-                        Text("\(losingStreak) Loss Streak")
-                            .font(DesignSystem.Typography.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.secondary)
+                    // Losing Streak Warning
+                    if losingStreak >= 3 {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(DesignSystem.Colors.secondary)
+                                .font(.body)
+                            Text("\(losingStreak) Loss Streak")
+                                .font(DesignSystem.Typography.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(DesignSystem.Colors.secondary)
+                        }
                     }
-                }
 
-                // Recent Performance (always show if >= 5 games)
-                if recentPerformance.wins + recentPerformance.losses >= 5 {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .foregroundColor(
-                                recentPerformance.winRate >= 50
-                                    ? DesignSystem.Colors.primary
-                                    : DesignSystem.Colors.textSecondary
-                            )
-                            .font(.body)
-                        Text("\(recentPerformance.wins)W-\(recentPerformance.losses)L")
-                            .font(DesignSystem.Typography.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    // Recent Performance (always show if >= 5 games)
+                    if recentPerformance.wins + recentPerformance.losses >= 5 {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .foregroundColor(
+                                    recentPerformance.winRate >= 50
+                                        ? DesignSystem.Colors.primary
+                                        : DesignSystem.Colors.textSecondary
+                                )
+                                .font(.body)
+                            Text("\(recentPerformance.wins)W-\(recentPerformance.losses)L")
+                                .font(DesignSystem.Typography.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
+                // Empty state - just a spacer to maintain layout
+                Color.clear
+                    .frame(maxWidth: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
