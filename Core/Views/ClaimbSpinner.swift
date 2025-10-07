@@ -70,10 +70,45 @@ public struct ClaimbSpinner: View {
     }
 }
 
+// MARK: - Inline Spinner (for buttons, smaller contexts)
+
+public struct ClaimbInlineSpinner: View {
+    let size: CGFloat
+    let speed: Double
+
+    public init(size: CGFloat = 20, speed: Double = 1.0) {
+        self.size = size.isNaN ? 20 : max(8, size)
+        self.speed = speed.isNaN ? 1.0 : max(0.1, speed)
+    }
+
+    public var body: some View {
+        ClaimbSpinner(
+            size: size,
+            speed: speed,
+            outerLineWidth: 0.2,
+            gap: 0.2,
+            outerColor: .white,
+            ringColor: Color(red: 1.0, green: 0.30, blue: 0.25),
+            coreColor: Color(red: 1.0, green: 0.74, blue: 0.20)
+        )
+    }
+}
+
 // MARK: - Preview
-#Preview {
+#Preview("Large Spinner") {
     ZStack {
         Color.black.ignoresSafeArea()
         ClaimbSpinner(size: 140)
+    }
+}
+
+#Preview("Inline Spinner") {
+    ZStack {
+        Color.black.ignoresSafeArea()
+        HStack {
+            ClaimbInlineSpinner(size: 16)
+            Text("Loading...")
+                .foregroundColor(.white)
+        }
     }
 }

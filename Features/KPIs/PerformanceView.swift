@@ -6,6 +6,8 @@
 //
 
 import Foundation
+// Import all required types and utilities
+import Observation
 import SwiftData
 import SwiftUI
 

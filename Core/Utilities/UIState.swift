@@ -75,19 +75,6 @@ public struct ClaimbLoadingView: View {
     }
 }
 
-/// Simple inline loading indicator using ClaimbSpinner
-public struct ClaimbInlineSpinner: View {
-    public let size: CGFloat
-
-    public init(size: CGFloat = 20) {
-        self.size = size
-    }
-
-    public var body: some View {
-        ClaimbSpinner(size: size)
-    }
-}
-
 /// Standardized error view component
 public struct ClaimbErrorView: View {
     public let error: Error
