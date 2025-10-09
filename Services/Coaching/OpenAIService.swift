@@ -273,9 +273,8 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-5-mini",  // Responses API with reasoning
-            maxOutputTokens: 800,  // Higher limit: ~200-300 for reasoning + 450-500 for output
-            reasoningEffort: "medium"  // Balanced reasoning quality
+            model: "gpt-4o-mini",  // TODO: Upgrade to gpt-5-mini after edge function supports Responses API
+            maxOutputTokens: 450  // Consistent token limit for concise responses
         )
 
         // Parse response
@@ -330,9 +329,8 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-5-mini",  // Responses API with reasoning
-            maxOutputTokens: 800,  // Higher limit: ~200-300 for reasoning + 450-500 for output
-            reasoningEffort: "medium"  // Balanced reasoning quality
+            model: "gpt-4o-mini",  // TODO: Upgrade to gpt-5-mini after edge function supports Responses API
+            maxOutputTokens: 450  // Consistent token limit for concise responses
         )
 
         // Parse response
@@ -734,7 +732,7 @@ public class OpenAIService {
             }
 
             **REMEMBER:** Focus only on THIS game. No champion pool advice. Be specific and actionable.
-            
+
             Answer in plain text JSON only. Respond ONLY with valid JSON. No explanations outside JSON.
             """
 
