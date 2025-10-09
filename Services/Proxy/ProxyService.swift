@@ -757,12 +757,12 @@ public class ProxyService {
             "prompt": prompt,
             "model": model,
             "max_output_tokens": maxOutputTokens,
-            "modalities": ["text"],  // Ensure text-only output for Responses API
         ]
         
-        // Add reasoning effort for gpt-5 models
+        // Add reasoning effort for gpt-5 models (edge function accepts both formats)
         if let effort = reasoningEffort, model.contains("gpt-5") {
-            requestBody["reasoning"] = ["effort": effort]
+            requestBody["reasoning_effort"] = effort  // Flat field for edge function
+            requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
         }
         
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)

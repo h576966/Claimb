@@ -273,8 +273,9 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",  // TODO: Upgrade to gpt-5-mini after edge function supports Responses API
-            maxOutputTokens: 450  // Consistent token limit for concise responses
+            model: "gpt-5-mini",
+            maxOutputTokens: 450,  // Output tokens (reasoning tokens are separate in gpt-5)
+            reasoningEffort: "medium"  // Balanced reasoning quality
         )
 
         // Parse response
@@ -329,8 +330,9 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",  // TODO: Upgrade to gpt-5-mini after edge function supports Responses API
-            maxOutputTokens: 450  // Consistent token limit for concise responses
+            model: "gpt-5-mini",
+            maxOutputTokens: 450,  // Output tokens (reasoning tokens are separate in gpt-5)
+            reasoningEffort: "medium"  // Balanced reasoning quality
         )
 
         // Parse response
