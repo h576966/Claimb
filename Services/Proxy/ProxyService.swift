@@ -745,18 +745,26 @@ public class ProxyService {
     public func aiCoach(
         prompt: String,
         model: String = "gpt-4o-mini",
-        maxOutputTokens: Int = 1000
+        maxOutputTokens: Int = 1000,
+        reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
         AppConfig.addAuthHeaders(&req)
 
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "prompt": prompt,
             "model": model,
             "max_output_tokens": maxOutputTokens,
+            "modalities": ["text"],  // Ensure text-only output for Responses API
         ]
+        
+        // Add reasoning effort for gpt-5 models
+        if let effort = reasoningEffort, model.contains("gpt-5") {
+            requestBody["reasoning"] = ["effort": effort]
+        }
+        
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         ClaimbLogger.apiRequest("Proxy: ai/coach", method: "POST", service: "ProxyService")
@@ -785,21 +793,82 @@ public class ProxyService {
             throw ProxyError.httpError(httpResponse.statusCode)
         }
 
-        struct Response: Decodable {
+        // Support both legacy format and Responses API format
+        struct LegacyResponse: Decodable {
             let text: String
+            let model: String
+        }
+        
+        struct ResponsesAPIOutput: Decodable {
+            let type: String
+            let content: [ResponsesAPIContent]?
+            let text: String?  // For reasoning items
+        }
+        
+        struct ResponsesAPIContent: Decodable {
+            let type: String
+            let text: String
+        }
+        
+        struct ResponsesAPIFormat: Decodable {
+            let output: [ResponsesAPIOutput]?
+            let output_text: String?  // Direct text field for Responses API
             let model: String
         }
 
         do {
-            let response = try JSONDecoder().decode(Response.self, from: data)
+            // First try Responses API format (for gpt-5-mini)
+            if let responsesAPI = try? JSONDecoder().decode(ResponsesAPIFormat.self, from: data) {
+                // Try direct output_text field first
+                if let outputText = responsesAPI.output_text, !outputText.isEmpty {
+                    ClaimbLogger.info(
+                        "Proxy: Retrieved AI coaching response (Responses API - output_text)", 
+                        service: "ProxyService",
+                        metadata: ["responseLength": String(outputText.count), "model": responsesAPI.model])
+                    return outputText
+                }
+                
+                // Fall back to parsing output array
+                if let outputs = responsesAPI.output {
+                    // Find message items and concatenate their content
+                    var fullText = ""
+                    for output in outputs {
+                        if output.type == "message", let contents = output.content {
+                            for content in contents where content.type == "text" {
+                                fullText += content.text
+                            }
+                        }
+                    }
+                    
+                    if !fullText.isEmpty {
+                        ClaimbLogger.info(
+                            "Proxy: Retrieved AI coaching response (Responses API - output array)", 
+                            service: "ProxyService",
+                            metadata: ["responseLength": String(fullText.count), "model": responsesAPI.model])
+                        return fullText
+                    }
+                }
+                
+                ClaimbLogger.warning(
+                    "Proxy: Responses API format detected but no text found", 
+                    service: "ProxyService",
+                    metadata: ["model": responsesAPI.model])
+            }
+            
+            // Fall back to legacy format (for gpt-4o-mini)
+            let response = try JSONDecoder().decode(LegacyResponse.self, from: data)
             ClaimbLogger.info(
-                "Proxy: Retrieved AI coaching response", service: "ProxyService",
+                "Proxy: Retrieved AI coaching response (Legacy format)", service: "ProxyService",
                 metadata: ["responseLength": String(response.text.count), "model": response.model])
             return response.text
         } catch {
-            ClaimbLogger.error(
-                "Proxy: Failed to decode AI coaching response", service: "ProxyService",
-                error: error)
+            // Log the raw response for debugging
+            if let rawResponse = String(data: data, encoding: .utf8) {
+                ClaimbLogger.error(
+                    "Proxy: Failed to decode AI coaching response", service: "ProxyService",
+                    error: error,
+                    metadata: ["rawResponse": String(rawResponse.prefix(500))])
+            }
             throw ProxyError.decodingError(error)
         }
     }
