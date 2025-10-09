@@ -273,8 +273,8 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",
-            maxOutputTokens: 450  // Balanced for concise but detailed analysis
+            model: "gpt-4o-mini",  // gpt-5-mini tested but returns empty responses
+            maxOutputTokens: 450  // Consistent token limit for concise responses
         )
 
         // Parse response
@@ -329,8 +329,8 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-4o-mini",
-            maxOutputTokens: 350  // Consistent with user preference for concise responses
+            model: "gpt-4o-mini",  // gpt-5-mini tested but returns empty responses
+            maxOutputTokens: 450  // Consistent token limit for concise responses
         )
 
         // Parse response
@@ -764,7 +764,8 @@ public class OpenAIService {
                 metadata: [
                     "error": error.localizedDescription,
                     "responseLength": String(responseText.count),
-                    "rawResponse": responseText.prefix(500) + (responseText.count > 500 ? "..." : ""),
+                    "rawResponse": responseText.prefix(500)
+                        + (responseText.count > 500 ? "..." : ""),
                 ])
             throw OpenAIError.invalidResponse
         }
@@ -779,26 +780,32 @@ public class OpenAIService {
         primaryRole: String
     ) async -> [String: Any] {
         let recentMatches = Array(matches.prefix(10))
-        
+
         // Calculate champion performance statistics
-        var championStats: [String: (games: Int, wins: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = [:]
-        
+        var championStats:
+            [String: (games: Int, wins: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = [:]
+
         for match in recentMatches {
             guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }),
-                  let championName = participant.champion?.name else { continue }
-            
+                let championName = participant.champion?.name
+            else { continue }
+
             let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-            
+
             // Only include champions from primary role for consistency with ChampionView
             guard role == primaryRole else { continue }
-            
+
             let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
-            let kda = (Double(participant.kills) + Double(participant.assists)) / max(Double(participant.deaths), 1.0)
-            
+            let kda =
+                (Double(participant.kills) + Double(participant.assists))
+                / max(Double(participant.deaths), 1.0)
+
             if championStats[championName] == nil {
-                championStats[championName] = (games: 0, wins: 0, winRate: 0.0, avgCS: 0.0, avgKDA: 0.0)
+                championStats[championName] = (
+                    games: 0, wins: 0, winRate: 0.0, avgCS: 0.0, avgKDA: 0.0
+                )
             }
-            
+
             var stats = championStats[championName]!
             stats.games += 1
             if participant.win {
@@ -808,44 +815,55 @@ public class OpenAIService {
             stats.avgKDA = (stats.avgKDA * Double(stats.games - 1) + kda) / Double(stats.games)
             championStats[championName] = stats
         }
-        
+
         // Calculate win rates and filter by minimum games
-        var bestPerformers: [(name: String, games: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = []
-        
+        var bestPerformers:
+            [(name: String, games: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = []
+
         for (champion, stats) in championStats {
-            guard stats.games >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming else { continue }
-            
+            guard stats.games >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming else {
+                continue
+            }
+
             let winRate = Double(stats.wins) / Double(stats.games)
-            bestPerformers.append((
-                name: champion,
-                games: stats.games,
-                winRate: winRate,
-                avgCS: stats.avgCS,
-                avgKDA: stats.avgKDA
-            ))
+            bestPerformers.append(
+                (
+                    name: champion,
+                    games: stats.games,
+                    winRate: winRate,
+                    avgCS: stats.avgCS,
+                    avgKDA: stats.avgKDA
+                ))
         }
-        
+
         // Sort by win rate (best performers first)
         bestPerformers.sort { $0.winRate > $1.winRate }
-        
+
         // Filter by win rate threshold (same logic as ChampionView)
-        let highPerformers = bestPerformers.filter { $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold }
-        
-        let finalChampions = highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback 
-            ? highPerformers 
-            : bestPerformers.filter { $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold }
-        
+        let highPerformers = bestPerformers.filter {
+            $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold
+        }
+
+        let finalChampions =
+            highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback
+            ? highPerformers
+            : bestPerformers.filter {
+                $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold
+            }
+
         ClaimbLogger.debug(
-            "Calculated best performing champions for Summary prompt", 
+            "Calculated best performing champions for Summary prompt",
             service: "OpenAIService",
             metadata: [
                 "primaryRole": primaryRole,
                 "totalChampions": String(championStats.count),
                 "bestPerformers": String(finalChampions.count),
-                "champions": finalChampions.prefix(3).map { "\($0.name) (\(Int($0.winRate * 100))%)" }.joined(separator: ", ")
+                "champions": finalChampions.prefix(3).map {
+                    "\($0.name) (\(Int($0.winRate * 100))%)"
+                }.joined(separator: ", "),
             ]
         )
-        
+
         return [
             "champions": finalChampions.map { champion in
                 [
@@ -853,11 +871,11 @@ public class OpenAIService {
                     "games": champion.games,
                     "winRate": champion.winRate,
                     "avgCS": champion.avgCS,
-                    "avgKDA": champion.avgKDA
+                    "avgKDA": champion.avgKDA,
                 ]
             },
             "count": finalChampions.count,
-            "primaryRole": primaryRole
+            "primaryRole": primaryRole,
         ]
     }
 
@@ -1109,7 +1127,7 @@ public class OpenAIService {
         // Format best performing champions data for the prompt
         let bestChampionsData = bestPerformingChampions["champions"] as? [[String: Any]] ?? []
         let bestChampionsCount = bestPerformingChampions["count"] as? Int ?? 0
-        
+
         var championPoolContext = ""
         if bestChampionsCount > 0 {
             championPoolContext = "\n\n**BEST PERFORMING CHAMPIONS (Primary Role Only):**\n"
@@ -1119,15 +1137,18 @@ public class OpenAIService {
                 let winRate = champion["winRate"] as? Double ?? 0.0
                 let avgCS = champion["avgCS"] as? Double ?? 0.0
                 let avgKDA = champion["avgKDA"] as? Double ?? 0.0
-                
-                championPoolContext += "\(index + 1). \(name): \(games) games, \(String(format: "%.0f", winRate * 100))% WR, \(String(format: "%.0f", avgCS)) avg CS, \(String(format: "%.1f", avgKDA)) avg KDA\n"
+
+                championPoolContext +=
+                    "\(index + 1). \(name): \(games) games, \(String(format: "%.0f", winRate * 100))% WR, \(String(format: "%.0f", avgCS)) avg CS, \(String(format: "%.1f", avgKDA)) avg KDA\n"
             }
-            
+
             if bestChampionsCount < 3 {
-                championPoolContext += "⚠️ Limited champion pool - consider expanding to 3+ champions for better consistency\n"
+                championPoolContext +=
+                    "⚠️ Limited champion pool - consider expanding to 3+ champions for better consistency\n"
             }
         } else {
-            championPoolContext = "\n\n**CHAMPION POOL:** No qualifying champions found (need 3+ games with 50%+ win rate)\n"
+            championPoolContext =
+                "\n\n**CHAMPION POOL:** No qualifying champions found (need 3+ games with 50%+ win rate)\n"
         }
 
         return """
