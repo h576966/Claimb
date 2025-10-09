@@ -873,6 +873,9 @@ public class DataManager {
         let jsonData = try JSONEncoder().encode(analysis)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
 
+        // Remove any existing cache for this match
+        await removeExistingPostGameCache(for: summoner, matchId: matchId)
+
         let cache = CoachingResponseCache(
             summonerPuuid: summoner.puuid,
             responseType: "postGame",
@@ -897,14 +900,19 @@ public class DataManager {
     public func cachePerformanceSummary(
         _ summary: PerformanceSummary,
         for summoner: Summoner,
+        matchCount: Int,
         expirationHours: Int = 24
     ) async throws {
         let jsonData = try JSONEncoder().encode(summary)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
 
+        // Remove any existing cache for this match count
+        await removeExistingPerformanceCache(for: summoner, matchCount: matchCount)
+
         let cache = CoachingResponseCache(
             summonerPuuid: summoner.puuid,
             responseType: "performance",
+            matchId: String(matchCount), // Use match count as matchId for performance summaries
             responseJSON: jsonString,
             expirationHours: expirationHours
         )
@@ -915,7 +923,8 @@ public class DataManager {
         ClaimbLogger.debug(
             "Cached performance summary", service: "DataManager",
             metadata: [
-                "summoner": summoner.gameName
+                "summoner": summoner.gameName,
+                "matchCount": String(matchCount)
             ]
         )
     }
@@ -925,38 +934,141 @@ public class DataManager {
         for summoner: Summoner,
         matchId: String
     ) async throws -> PostGameAnalysis? {
-        let descriptor = FetchDescriptor<CoachingResponseCache>()
-        let allCaches = try modelContext.fetch(descriptor)
-
-        let cached = allCaches.first { cache in
-            cache.summonerPuuid == summoner.puuid && cache.responseType == "postGame"
-                && cache.matchId == matchId && cache.isValid
+        let cacheId = "\(summoner.puuid)_postGame_\(matchId)"
+        let predicate = #Predicate<CoachingResponseCache> { cache in
+            cache.id == cacheId && cache.isValid
         }
+        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
+        let cached = try modelContext.fetch(descriptor).first
 
-        return try cached?.getPostGameAnalysis()
+        if let cached = cached {
+            ClaimbLogger.debug(
+                "Cache hit for post-game analysis", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchId": matchId,
+                    "expiresAt": cached.expiresAt.description
+                ]
+            )
+            return try cached.getPostGameAnalysis()
+        } else {
+            ClaimbLogger.debug(
+                "Cache miss for post-game analysis", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchId": matchId
+                ]
+            )
+            return nil
+        }
     }
 
     /// Retrieves cached PerformanceSummary
     public func getCachedPerformanceSummary(
-        for summoner: Summoner
+        for summoner: Summoner,
+        matchCount: Int? = nil
     ) async throws -> PerformanceSummary? {
-        let descriptor = FetchDescriptor<CoachingResponseCache>()
-        let allCaches = try modelContext.fetch(descriptor)
-
-        let cached = allCaches.first { cache in
-            cache.summonerPuuid == summoner.puuid && cache.responseType == "performance"
-                && cache.isValid
+        let cacheId = "\(summoner.puuid)_performance_\(matchCount ?? 0)"
+        let predicate = #Predicate<CoachingResponseCache> { cache in
+            cache.id == cacheId && cache.isValid
         }
+        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
+        let cached = try modelContext.fetch(descriptor).first
 
-        return try cached?.getPerformanceSummary()
+        if let cached = cached {
+            ClaimbLogger.debug(
+                "Cache hit for performance summary", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchCount": String(matchCount ?? 0),
+                    "expiresAt": cached.expiresAt.description
+                ]
+            )
+            return try cached.getPerformanceSummary()
+        } else {
+            ClaimbLogger.debug(
+                "Cache miss for performance summary", service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "matchCount": String(matchCount ?? 0)
+                ]
+            )
+            return nil
+        }
+    }
+
+    /// Removes existing post-game cache for a specific match
+    private func removeExistingPostGameCache(for summoner: Summoner, matchId: String) async {
+        let cacheId = "\(summoner.puuid)_postGame_\(matchId)"
+        let predicate = #Predicate<CoachingResponseCache> { cache in
+            cache.id == cacheId
+        }
+        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
+        
+        do {
+            let existingCaches = try modelContext.fetch(descriptor)
+            for cache in existingCaches {
+                modelContext.delete(cache)
+            }
+            if !existingCaches.isEmpty {
+                try modelContext.save()
+                ClaimbLogger.debug(
+                    "Removed existing post-game cache", service: "DataManager",
+                    metadata: [
+                        "summoner": summoner.gameName,
+                        "matchId": matchId,
+                        "removedCount": String(existingCaches.count)
+                    ]
+                )
+            }
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to remove existing post-game cache", service: "DataManager",
+                metadata: ["error": error.localizedDescription]
+            )
+        }
+    }
+
+    /// Removes existing performance cache for a specific match count
+    private func removeExistingPerformanceCache(for summoner: Summoner, matchCount: Int) async {
+        let cacheId = "\(summoner.puuid)_performance_\(matchCount)"
+        let predicate = #Predicate<CoachingResponseCache> { cache in
+            cache.id == cacheId
+        }
+        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
+        
+        do {
+            let existingCaches = try modelContext.fetch(descriptor)
+            for cache in existingCaches {
+                modelContext.delete(cache)
+            }
+            if !existingCaches.isEmpty {
+                try modelContext.save()
+                ClaimbLogger.debug(
+                    "Removed existing performance cache", service: "DataManager",
+                    metadata: [
+                        "summoner": summoner.gameName,
+                        "matchCount": String(matchCount),
+                        "removedCount": String(existingCaches.count)
+                    ]
+                )
+            }
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to remove existing performance cache", service: "DataManager",
+                metadata: ["error": error.localizedDescription]
+            )
+        }
     }
 
     /// Cleans up expired coaching responses
     public func cleanupExpiredCoachingResponses() async throws {
-        let descriptor = FetchDescriptor<CoachingResponseCache>()
-        let allCaches = try modelContext.fetch(descriptor)
-
-        let expired = allCaches.filter { !$0.isValid }
+        let predicate = #Predicate<CoachingResponseCache> { cache in
+            !cache.isValid
+        }
+        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
+        let expired = try modelContext.fetch(descriptor)
+        
         for cache in expired {
             modelContext.delete(cache)
         }

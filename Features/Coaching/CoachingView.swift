@@ -82,6 +82,9 @@ class CoachingViewModel {
                     "matchCount": String(matches.count),
                 ])
 
+            // Clean up expired coaching responses periodically
+            await cleanupExpiredResponses()
+
             // Auto-trigger post-game analysis for most recent game
             await autoTriggerPostGameAnalysis(matches: matches)
 
@@ -322,7 +325,8 @@ class CoachingViewModel {
 
         // Check cache first - show immediately if available
         if let cachedSummary = try? await dataManager.getCachedPerformanceSummary(
-            for: summoner
+            for: summoner,
+            matchCount: recentMatches.count
         ) {
             performanceSummary = cachedSummary
             showCachedDataWarning = true
@@ -351,7 +355,8 @@ class CoachingViewModel {
             // Cache the response
             try await dataManager.cachePerformanceSummary(
                 summary,
-                for: summoner
+                for: summoner,
+                matchCount: recentMatches.count
             )
 
             performanceSummary = summary
@@ -390,7 +395,8 @@ class CoachingViewModel {
             // Cache the response
             try await dataManager.cachePerformanceSummary(
                 summary,
-                for: summoner
+                for: summoner,
+                matchCount: matches.count
             )
 
             // Update UI with fresh data
@@ -415,6 +421,18 @@ class CoachingViewModel {
         }
 
         isRefreshingInBackground = false
+    }
+
+    /// Cleans up expired coaching responses periodically
+    private func cleanupExpiredResponses() async {
+        do {
+            try await dataManager.cleanupExpiredCoachingResponses()
+        } catch {
+            ClaimbLogger.warning(
+                "Failed to cleanup expired coaching responses", service: "CoachingViewModel",
+                metadata: ["error": error.localizedDescription]
+            )
+        }
     }
 }
 
