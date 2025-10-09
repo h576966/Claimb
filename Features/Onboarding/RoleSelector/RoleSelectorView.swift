@@ -69,6 +69,10 @@ struct RoleSelectorView: View {
                             totalGames: selectedRoleStat.totalGames,
                             isCompact: true
                         )
+                    } else {
+                        Text("No games")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
                     }
                 }
 
@@ -85,6 +89,8 @@ struct RoleSelectorView: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
                 .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
         )
+        .accessibilityLabel("Primary Role: \(RoleUtils.displayName(for: selectedRole))")
+        .accessibilityHint("Tap to change your primary role")
     }
 
     // MARK: - Full Screen View (Role Selection)
@@ -106,53 +112,86 @@ struct RoleSelectorView: View {
                 .padding(.top, DesignSystem.Spacing.lg)
 
                 // Role Selection Layout - Primary role on top, others below
-                VStack(spacing: DesignSystem.Spacing.lg) {
-                    // Primary role at the top center
-                    if let primaryRoleStat = roleStats.first(where: { $0.role == selectedRole }) {
-                        VStack(spacing: DesignSystem.Spacing.md) {
-                            Text("Current Selection")
+                ScrollView {
+                    VStack(spacing: DesignSystem.Spacing.lg) {
+                        // Primary role at the top center
+                        if let primaryRoleStat = roleStats.first(where: { $0.role == selectedRole }) {
+                            VStack(spacing: DesignSystem.Spacing.md) {
+                                Text("Current Selection")
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+
+                                RoleSelectionCard(
+                                    role: selectedRole,
+                                    winRate: primaryRoleStat.winRate,
+                                    totalGames: primaryRoleStat.totalGames,
+                                    isSelected: true,
+                                    isDisabled: false,
+                                    action: {
+                                        // Primary role is already selected, no action needed
+                                    }
+                                )
+                            }
+                        }
+
+                        // Other roles sorted by games played (most to least)
+                        VStack(spacing: DesignSystem.Spacing.sm) {
+                            Text("Available Roles")
                                 .font(DesignSystem.Typography.caption)
                                 .foregroundColor(DesignSystem.Colors.textSecondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, DesignSystem.Spacing.lg)
 
-                            RoleSelectionCard(
-                                role: selectedRole,
-                                winRate: primaryRoleStat.winRate,
-                                totalGames: primaryRoleStat.totalGames,
-                                isSelected: true,
-                                action: {
-                                    // Primary role is already selected, no action needed
-                                }
-                            )
-                        }
-                    }
+                            LazyVGrid(
+                                columns: [
+                                    GridItem(.flexible()),
+                                    GridItem(.flexible()),
+                                ], spacing: DesignSystem.Spacing.md
+                            ) {
+                                ForEach(sortedOtherRoles, id: \.role) { sortedRole in
+                                    let roleStat =
+                                        roleStats.first(where: { $0.role == sortedRole.role })
+                                        ?? RoleStats(role: sortedRole.role, winRate: 0.0, totalGames: 0)
+                                    let hasGames = roleStat.totalGames > 0
 
-                    // Other roles in a 2x2 grid below
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible()),
-                        ], spacing: DesignSystem.Spacing.md
-                    ) {
-                        ForEach(otherRoles, id: \.self) { role in
-                            let roleStat =
-                                roleStats.first(where: { $0.role == role })
-                                ?? RoleStats(role: role, winRate: 0.0, totalGames: 0)
-                            RoleSelectionCard(
-                                role: role,
-                                winRate: roleStat.winRate,
-                                totalGames: roleStat.totalGames,
-                                isSelected: false,
-                                action: {
-                                    selectedRole = role
-                                    onTap()  // This will dismiss the sheet
+                                    RoleSelectionCard(
+                                        role: sortedRole.role,
+                                        winRate: roleStat.winRate,
+                                        totalGames: roleStat.totalGames,
+                                        isSelected: false,
+                                        isDisabled: !hasGames,
+                                        action: {
+                                            if hasGames {
+                                                selectedRole = sortedRole.role
+                                                onTap()  // This will dismiss the sheet
+                                            }
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
+
+                        // Help text for disabled roles
+                        if sortedOtherRoles.contains(where: { $0.totalGames == 0 }) {
+                            HStack(spacing: DesignSystem.Spacing.xs) {
+                                Image(systemName: "info.circle")
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.textTertiary)
+
+                                Text("Roles with no games are disabled. Play some games in a role to unlock it.")
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(.horizontal, DesignSystem.Spacing.lg)
+                            .padding(.top, DesignSystem.Spacing.sm)
+                        }
+
+                        Spacer()
+                            .frame(height: DesignSystem.Spacing.xl)
                     }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.lg)
-
-                Spacer()
             }
             .background(DesignSystem.Colors.background)
             .navigationBarTitleDisplayMode(.inline)
@@ -179,6 +218,15 @@ struct RoleSelectorView: View {
         allRoles.filter { $0 != selectedRole }
     }
 
+    /// Other roles sorted by games played (most to least), with role info
+    private var sortedOtherRoles: [(role: String, totalGames: Int)] {
+        otherRoles.map { role in
+            let roleStat = roleStats.first(where: { $0.role == role })
+            return (role: role, totalGames: roleStat?.totalGames ?? 0)
+        }
+        .sorted { $0.totalGames > $1.totalGames }
+    }
+
 }
 
 // MARK: - Reusable Components
@@ -188,14 +236,32 @@ struct RoleIconView: View {
     let role: String
     let size: CGFloat
     let isSelected: Bool
+    let isDisabled: Bool
+
+    init(role: String, size: CGFloat, isSelected: Bool, isDisabled: Bool = false) {
+        self.role = role
+        self.size = size
+        self.isSelected = isSelected
+        self.isDisabled = isDisabled
+    }
 
     var body: some View {
         Image(RoleUtils.iconName(for: role))
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
-            .foregroundColor(
-                isSelected ? DesignSystem.Colors.primary : DesignSystem.Colors.textSecondary)
+            .foregroundColor(iconColor)
+            .opacity(isDisabled ? 0.4 : 1.0)
+    }
+
+    private var iconColor: Color {
+        if isDisabled {
+            return DesignSystem.Colors.textTertiary
+        } else if isSelected {
+            return DesignSystem.Colors.primary
+        } else {
+            return DesignSystem.Colors.textSecondary
+        }
     }
 }
 
@@ -204,17 +270,40 @@ struct WinRateDisplayView: View {
     let winRate: Double
     let totalGames: Int
     let isCompact: Bool
+    let isDisabled: Bool
+
+    init(
+        winRate: Double, totalGames: Int, isCompact: Bool, isDisabled: Bool = false
+    ) {
+        self.winRate = winRate
+        self.totalGames = totalGames
+        self.isCompact = isCompact
+        self.isDisabled = isDisabled
+    }
 
     var body: some View {
         VStack(spacing: isCompact ? 2 : DesignSystem.Spacing.xs) {
-            Text("\(Int(winRate * 100))%")
-                .font(DesignSystem.Typography.body)
-                .fontWeight(.semibold)
-                .foregroundColor(winRateColor)
+            if totalGames > 0 {
+                Text("\(Int(winRate * 100))%")
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(isDisabled ? DesignSystem.Colors.textTertiary : winRateColor)
+                    .opacity(isDisabled ? 0.5 : 1.0)
 
-            Text("\(totalGames) games")
-                .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                Text("\(totalGames) \(totalGames == 1 ? "game" : "games")")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .opacity(isDisabled ? 0.5 : 1.0)
+            } else {
+                Text("—")
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
+
+                Text("No games")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
+            }
         }
     }
 
@@ -238,61 +327,152 @@ struct RoleSelectionCard: View {
     let winRate: Double
     let totalGames: Int
     let isSelected: Bool
+    let isDisabled: Bool
     let action: () -> Void
+
+    init(
+        role: String,
+        winRate: Double,
+        totalGames: Int,
+        isSelected: Bool,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.role = role
+        self.winRate = winRate
+        self.totalGames = totalGames
+        self.isSelected = isSelected
+        self.isDisabled = isDisabled
+        self.action = action
+    }
 
     // MARK: - View Body
 
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            if !isDisabled {
+                action()
+            }
+        }) {
             VStack(spacing: DesignSystem.Spacing.md) {
                 // Role Icon
-                RoleIconView(role: role, size: 48, isSelected: isSelected)
+                RoleIconView(role: role, size: 48, isSelected: isSelected, isDisabled: isDisabled)
 
                 // Role Name
                 Text(RoleUtils.displayName(for: role))
                     .font(DesignSystem.Typography.title3)
-                    .foregroundColor(
-                        isSelected ? DesignSystem.Colors.primary : DesignSystem.Colors.textPrimary)
+                    .foregroundColor(textColor)
+                    .opacity(isDisabled ? 0.5 : 1.0)
 
-                // Win Rate and Games
-                WinRateDisplayView(
-                    winRate: winRate,
-                    totalGames: totalGames,
-                    isCompact: false
-                )
+                // Win Rate and Games (or disabled state)
+                if isDisabled {
+                    VStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "lock.fill")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+
+                        Text("Play some games")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                    }
+                } else {
+                    WinRateDisplayView(
+                        winRate: winRate,
+                        totalGames: totalGames,
+                        isCompact: false,
+                        isDisabled: isDisabled
+                    )
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(DesignSystem.Spacing.lg)
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                    .fill(
-                        isSelected
-                            ? DesignSystem.Colors.primary.opacity(0.1)
-                            : DesignSystem.Colors.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                    .stroke(
-                        isSelected
-                            ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBorder,
-                        lineWidth: isSelected ? 2 : 1
-                    )
-            )
+            .background(backgroundFill)
+            .overlay(borderOverlay)
         }
         .buttonStyle(PlainButtonStyle())
+        .disabled(isDisabled)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    // MARK: - Computed Properties
+
+    private var textColor: Color {
+        if isDisabled {
+            return DesignSystem.Colors.textTertiary
+        } else if isSelected {
+            return DesignSystem.Colors.primary
+        } else {
+            return DesignSystem.Colors.textPrimary
+        }
+    }
+
+    private var backgroundFill: some View {
+        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+            .fill(backgroundColor)
+    }
+
+    private var backgroundColor: Color {
+        if isDisabled {
+            return DesignSystem.Colors.cardBackground.opacity(0.5)
+        } else if isSelected {
+            return DesignSystem.Colors.primary.opacity(0.1)
+        } else {
+            return DesignSystem.Colors.cardBackground
+        }
+    }
+
+    private var borderOverlay: some View {
+        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+            .stroke(borderColor, lineWidth: borderWidth)
+    }
+
+    private var borderColor: Color {
+        if isDisabled {
+            return DesignSystem.Colors.cardBorder.opacity(0.5)
+        } else if isSelected {
+            return DesignSystem.Colors.primary
+        } else {
+            return DesignSystem.Colors.cardBorder
+        }
+    }
+
+    private var borderWidth: CGFloat {
+        isSelected ? 2 : 1
+    }
+
+    private var accessibilityLabel: String {
+        let roleName = RoleUtils.displayName(for: role)
+        if isDisabled {
+            return "\(roleName) - No games played"
+        } else if isSelected {
+            return "\(roleName) - Currently selected"
+        } else {
+            return "\(roleName) - \(totalGames) games, \(Int(winRate * 100))% win rate"
+        }
+    }
+
+    private var accessibilityHint: String {
+        if isDisabled {
+            return "This role is disabled because you haven't played any games in it yet"
+        } else if isSelected {
+            return "This is your currently selected primary role"
+        } else {
+            return "Double tap to select this as your primary role"
+        }
     }
 
 }
 
 // MARK: - Preview
 
-#Preview {
+#Preview("With Mixed Stats") {
     let roleStats = [
         RoleStats(role: "TOP", winRate: 0.65, totalGames: 20),
         RoleStats(role: "JUNGLE", winRate: 0.45, totalGames: 15),
         RoleStats(role: "MID", winRate: 0.70, totalGames: 25),
         RoleStats(role: "BOTTOM", winRate: 0.55, totalGames: 18),
-        RoleStats(role: "SUPPORT", winRate: 0.60, totalGames: 12),
+        RoleStats(role: "SUPPORT", winRate: 0.0, totalGames: 0),  // No games
     ]
 
     RoleSelectorView(
@@ -302,4 +482,21 @@ struct RoleSelectionCard: View {
     )
     .padding()
     .background(DesignSystem.Colors.background)
+}
+
+#Preview("Full Screen") {
+    let roleStats = [
+        RoleStats(role: "TOP", winRate: 0.65, totalGames: 20),
+        RoleStats(role: "JUNGLE", winRate: 0.0, totalGames: 0),  // No games
+        RoleStats(role: "MID", winRate: 0.70, totalGames: 25),
+        RoleStats(role: "BOTTOM", winRate: 0.55, totalGames: 5),
+        RoleStats(role: "SUPPORT", winRate: 0.0, totalGames: 0),  // No games
+    ]
+
+    RoleSelectorView(
+        selectedRole: .constant("MID"),
+        roleStats: roleStats,
+        onTap: { ClaimbLogger.debug("Dismiss", service: "RoleSelectorView") },
+        showFullScreen: true
+    )
 }
