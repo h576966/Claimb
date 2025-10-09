@@ -307,12 +307,20 @@ public class OpenAIService {
             kpiService: kpiService
         )
 
+        // Get best performing champions data (aligned with ChampionView)
+        let bestPerformingChampions = await getBestPerformingChampions(
+            matches: matches,
+            summoner: summoner,
+            primaryRole: primaryRole
+        )
+
         // Create performance summary prompt
         let prompt = createPerformanceSummaryPrompt(
             matches: matches,
             summoner: summoner,
             diversityMetrics: diversityMetrics,
             roleTrends: roleTrends,
+            bestPerformingChampions: bestPerformingChampions,
             primaryRole: primaryRole,
             kpiService: kpiService
         )
@@ -322,7 +330,7 @@ public class OpenAIService {
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
             model: "gpt-4o-mini",
-            maxOutputTokens: 800  // Longer response for performance summary
+            maxOutputTokens: 350  // Consistent with user preference for concise responses
         )
 
         // Parse response
@@ -764,6 +772,95 @@ public class OpenAIService {
 
     // MARK: - Performance Summary Helpers
 
+    /// Gets best performing champions data aligned with ChampionView filtering logic
+    private func getBestPerformingChampions(
+        matches: [Match],
+        summoner: Summoner,
+        primaryRole: String
+    ) async -> [String: Any] {
+        let recentMatches = Array(matches.prefix(10))
+        
+        // Calculate champion performance statistics
+        var championStats: [String: (games: Int, wins: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = [:]
+        
+        for match in recentMatches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }),
+                  let championName = participant.champion?.name else { continue }
+            
+            let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            
+            // Only include champions from primary role for consistency with ChampionView
+            guard role == primaryRole else { continue }
+            
+            let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
+            let kda = (Double(participant.kills) + Double(participant.assists)) / max(Double(participant.deaths), 1.0)
+            
+            if championStats[championName] == nil {
+                championStats[championName] = (games: 0, wins: 0, winRate: 0.0, avgCS: 0.0, avgKDA: 0.0)
+            }
+            
+            var stats = championStats[championName]!
+            stats.games += 1
+            if participant.win {
+                stats.wins += 1
+            }
+            stats.avgCS = (stats.avgCS * Double(stats.games - 1) + Double(cs)) / Double(stats.games)
+            stats.avgKDA = (stats.avgKDA * Double(stats.games - 1) + kda) / Double(stats.games)
+            championStats[championName] = stats
+        }
+        
+        // Calculate win rates and filter by minimum games
+        var bestPerformers: [(name: String, games: Int, winRate: Double, avgCS: Double, avgKDA: Double)] = []
+        
+        for (champion, stats) in championStats {
+            guard stats.games >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming else { continue }
+            
+            let winRate = Double(stats.wins) / Double(stats.games)
+            bestPerformers.append((
+                name: champion,
+                games: stats.games,
+                winRate: winRate,
+                avgCS: stats.avgCS,
+                avgKDA: stats.avgKDA
+            ))
+        }
+        
+        // Sort by win rate (best performers first)
+        bestPerformers.sort { $0.winRate > $1.winRate }
+        
+        // Filter by win rate threshold (same logic as ChampionView)
+        let highPerformers = bestPerformers.filter { $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold }
+        
+        let finalChampions = highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback 
+            ? highPerformers 
+            : bestPerformers.filter { $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold }
+        
+        ClaimbLogger.debug(
+            "Calculated best performing champions for Summary prompt", 
+            service: "OpenAIService",
+            metadata: [
+                "primaryRole": primaryRole,
+                "totalChampions": String(championStats.count),
+                "bestPerformers": String(finalChampions.count),
+                "champions": finalChampions.prefix(3).map { "\($0.name) (\(Int($0.winRate * 100))%)" }.joined(separator: ", ")
+            ]
+        )
+        
+        return [
+            "champions": finalChampions.map { champion in
+                [
+                    "name": champion.name,
+                    "games": champion.games,
+                    "winRate": champion.winRate,
+                    "avgCS": champion.avgCS,
+                    "avgKDA": champion.avgKDA
+                ]
+            },
+            "count": finalChampions.count,
+            "primaryRole": primaryRole
+        ]
+    }
+
     private func getRoleTrends(
         matches: [Match],
         summoner: Summoner,
@@ -960,6 +1057,7 @@ public class OpenAIService {
         summoner: Summoner,
         diversityMetrics: (roleCount: Int, championCount: Int),
         roleTrends: [String: String],
+        bestPerformingChampions: [String: Any],
         primaryRole: String,
         kpiService: KPICalculationService? = nil
     ) -> String {
@@ -1008,20 +1106,51 @@ public class OpenAIService {
             primaryRole: primaryRole
         )
 
+        // Format best performing champions data for the prompt
+        let bestChampionsData = bestPerformingChampions["champions"] as? [[String: Any]] ?? []
+        let bestChampionsCount = bestPerformingChampions["count"] as? Int ?? 0
+        
+        var championPoolContext = ""
+        if bestChampionsCount > 0 {
+            championPoolContext = "\n\n**BEST PERFORMING CHAMPIONS (Primary Role Only):**\n"
+            for (index, champion) in bestChampionsData.prefix(5).enumerated() {
+                let name = champion["name"] as? String ?? "Unknown"
+                let games = champion["games"] as? Int ?? 0
+                let winRate = champion["winRate"] as? Double ?? 0.0
+                let avgCS = champion["avgCS"] as? Double ?? 0.0
+                let avgKDA = champion["avgKDA"] as? Double ?? 0.0
+                
+                championPoolContext += "\(index + 1). \(name): \(games) games, \(String(format: "%.0f", winRate * 100))% WR, \(String(format: "%.0f", avgCS)) avg CS, \(String(format: "%.1f", avgKDA)) avg KDA\n"
+            }
+            
+            if bestChampionsCount < 3 {
+                championPoolContext += "⚠️ Limited champion pool - consider expanding to 3+ champions for better consistency\n"
+            }
+        } else {
+            championPoolContext = "\n\n**CHAMPION POOL:** No qualifying champions found (need 3+ games with 50%+ win rate)\n"
+        }
+
         return """
             You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
 
             **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
 
-            \(detailedContext)
+            \(detailedContext)\(championPoolContext)
 
             **ANALYSIS GUIDELINES:**
             1. **Key Trends**: Identify 2-3 specific metrics that are improving or declining with actual numbers (e.g., "CS/min improved from 5.2 to 6.1") - DO NOT include game ranges like "(Games 1-5)" or "(Games 6-10)"
             2. **Role Consistency**: Give encouraging feedback on role focus with specific percentage. If 80%+, praise their consistency. If below 80%, gently suggest focusing more on primary role.
-            3. **Champion Pool**: Evaluate champion selection - playing 3 or fewer champions consistently is optimal for improvement
+            3. **Champion Pool**: CRITICAL - Only recommend champions from the "BEST PERFORMING CHAMPIONS" list above. Focus on their top 3 performers. Do NOT suggest champions not in this list.
             4. **Areas of Improvement**: Specific, measurable areas to work on (with numbers when possible)
             5. **Strengths to Maintain**: What's working well that should be continued
             6. **Climbing Advice**: Actionable, specific advice to improve rank (not generic tips)
+
+            **IMPORTANT CHAMPION POOL RULES:**
+            - ONLY suggest champions from the "BEST PERFORMING CHAMPIONS" list above
+            - Focus on their top 3 champions by win rate and games played
+            - If they have <3 qualifying champions, encourage them to play more games with their best performers
+            - NEVER suggest champions not in the best performing list
+            - Emphasize consistency with proven performers over trying new champions
 
             **IMPORTANT:**
             - Focus on CONSISTENCY as the key to climbing (role focus + champion pool)
@@ -1039,7 +1168,7 @@ public class OpenAIService {
                 "Another specific trend with data"
               ],
               "roleConsistency": "Encouraging feedback on role focus with specific percentage. If 80%+, praise their consistency. If below 80%, gently suggest focusing more on primary role.",
-              "championPoolAnalysis": "Specific feedback on champion selection, identify best performers and suggest focusing on top 3",
+              "championPoolAnalysis": "Specific feedback focusing ONLY on champions from the best performing list. Recommend sticking with top 3 performers and explain why these champions work well for them.",
               "areasOfImprovement": [
                 "Specific, measurable area to work on",
                 "Another specific area with context"
@@ -1048,7 +1177,7 @@ public class OpenAIService {
                 "Specific strength with supporting data",
                 "Another strength to continue"
               ],
-              "climbingAdvice": "Specific, actionable advice for improving rank based on the data - focus on consistency and playing strengths"
+              "climbingAdvice": "Specific, actionable advice for improving rank based on the data - focus on consistency and playing strengths. Emphasize sticking with proven champion performers."
             }
 
             Respond ONLY with valid JSON. No explanations outside JSON.
