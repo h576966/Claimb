@@ -115,7 +115,8 @@ struct RoleSelectorView: View {
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.lg) {
                         // Primary role at the top center
-                        if let primaryRoleStat = roleStats.first(where: { $0.role == selectedRole }) {
+                        if let primaryRoleStat = roleStats.first(where: { $0.role == selectedRole })
+                        {
                             VStack(spacing: DesignSystem.Spacing.md) {
                                 Text("Current Selection")
                                     .font(DesignSystem.Typography.caption)
@@ -151,7 +152,8 @@ struct RoleSelectorView: View {
                                 ForEach(sortedOtherRoles, id: \.role) { sortedRole in
                                     let roleStat =
                                         roleStats.first(where: { $0.role == sortedRole.role })
-                                        ?? RoleStats(role: sortedRole.role, winRate: 0.0, totalGames: 0)
+                                        ?? RoleStats(
+                                            role: sortedRole.role, winRate: 0.0, totalGames: 0)
                                     let hasGames = roleStat.totalGames > 0
 
                                     RoleSelectionCard(
@@ -178,10 +180,12 @@ struct RoleSelectorView: View {
                                     .font(DesignSystem.Typography.caption)
                                     .foregroundColor(DesignSystem.Colors.textTertiary)
 
-                                Text("Roles with no games are disabled. Play some games in a role to unlock it.")
-                                    .font(DesignSystem.Typography.caption)
-                                    .foregroundColor(DesignSystem.Colors.textTertiary)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(
+                                    "Roles with no games are disabled. Play some games in a role to unlock it."
+                                )
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
                             }
                             .padding(.horizontal, DesignSystem.Spacing.lg)
                             .padding(.top, DesignSystem.Spacing.sm)
