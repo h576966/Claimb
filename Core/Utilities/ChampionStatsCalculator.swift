@@ -11,9 +11,9 @@ import SwiftData
 /// Calculates champion statistics from match data
 /// Extracted from MatchDataViewModel to reduce file size and improve testability
 public struct ChampionStatsCalculator {
-    
+
     // MARK: - Champion Statistics Calculation
-    
+
     /// Calculates champion statistics from matches and champions
     public static func calculateChampionStats(
         from matches: [Match],
@@ -23,30 +23,30 @@ public struct ChampionStatsCalculator {
         filter: ChampionFilter
     ) -> [ChampionStats] {
         var championStats: [String: ChampionStats] = [:]
-        
+
         for match in matches {
             guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
             else {
                 continue
             }
-            
+
             let championId = participant.championId
             let champion = champions.first { $0.id == championId }
-            
+
             guard let champion = champion else { continue }
-            
+
             let actualRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-            
+
             // Skip games with unknown/invalid teamPosition
             if actualRole == "UNKNOWN" {
                 continue
             }
-            
+
             // Only include champions played in the selected role
             if actualRole != role {
                 continue
             }
-            
+
             if championStats[champion.name] == nil {
                 championStats[champion.name] = ChampionStats(
                     champion: champion,
@@ -64,12 +64,12 @@ public struct ChampionStatsCalculator {
                     averageDamageTakenShare: 0.0
                 )
             }
-            
+
             championStats[champion.name]?.gamesPlayed += 1
             if participant.win {
                 championStats[champion.name]?.wins += 1
             }
-            
+
             // Update averages (simplified calculation)
             let current = championStats[champion.name]!
             let newKDA =
@@ -89,15 +89,15 @@ public struct ChampionStatsCalculator {
             championStats[champion.name]?.averageVisionScore = newVision
             championStats[champion.name]?.averageDeaths = newDeaths
         }
-        
+
         // Filter champions with at least minimum games and calculate win rates
         let filteredStats = championStats.values.compactMap { stats -> ChampionStats? in
             guard stats.gamesPlayed >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming
             else { return nil }
-            
+
             let winRate =
                 stats.gamesPlayed > 0 ? Double(stats.wins) / Double(stats.gamesPlayed) : 0.0
-            
+
             return ChampionStats(
                 champion: stats.champion,
                 gamesPlayed: stats.gamesPlayed,
@@ -114,7 +114,7 @@ public struct ChampionStatsCalculator {
                 averageDamageTakenShare: stats.averageDamageTakenShare
             )
         }
-        
+
         // Apply sorting and filtering based on filter type
         switch filter {
         case .mostPlayed:
@@ -123,14 +123,14 @@ public struct ChampionStatsCalculator {
             return applyBestPerformingFilter(to: filteredStats)
         }
     }
-    
+
     /// Applies smart filtering for Best Performing champions
     private static func applyBestPerformingFilter(to stats: [ChampionStats]) -> [ChampionStats] {
         // First try with default 50% win rate threshold
         let highPerformers = stats.filter {
             $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold
         }
-        
+
         // If we have enough champions, return them sorted by win rate
         if highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback {
             ClaimbLogger.debug(
@@ -143,12 +143,12 @@ public struct ChampionStatsCalculator {
             )
             return highPerformers.sorted { $0.winRate > $1.winRate }
         }
-        
+
         // Fallback to 40% threshold if too few champions meet 50% criteria
         let fallbackPerformers = stats.filter {
             $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold
         }
-        
+
         ClaimbLogger.debug(
             "Using fallback win rate threshold for Best Performing",
             service: "ChampionStatsCalculator",
@@ -160,12 +160,12 @@ public struct ChampionStatsCalculator {
                 "fallbackCount": String(fallbackPerformers.count),
             ]
         )
-        
+
         return fallbackPerformers.sorted { $0.winRate > $1.winRate }
     }
-    
+
     // MARK: - Champion Match Filtering
-    
+
     /// Gets champion-specific matches for a role
     public static func getChampionMatches(
         for champion: Champion,
@@ -184,4 +184,3 @@ public struct ChampionStatsCalculator {
         }
     }
 }
-

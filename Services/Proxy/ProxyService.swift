@@ -9,73 +9,7 @@ import Foundation
 import Observation
 import UIKit
 
-// MARK: - Timeline Response Models
-
-struct TimelineLiteResponse: Codable {
-    let matchId: String
-    let region: String
-    let puuid: String
-    let participantId: Int
-    let checkpoints: Checkpoints
-    let timings: Timings
-    let platesPre14: Int
-}
-
-// MARK: - League Response Models
-
-public struct LeagueEntriesResponse: Codable {
-    public let entries: [LeagueEntry]
-    public let claimbPlatform: String
-    public let claimbRegion: String
-    public let claimbPUUID: String
-
-    enum CodingKeys: String, CodingKey {
-        case entries
-        case claimbPlatform = "claimb_platform"
-        case claimbRegion = "claimb_region"
-        case claimbPUUID = "claimb_puuid"
-    }
-}
-
-public struct LeagueEntry: Codable {
-    public let leagueId: String
-    public let queueType: String
-    public let tier: String
-    public let rank: String
-    public let puuid: String
-    public let leaguePoints: Int
-    public let wins: Int
-    public let losses: Int
-    public let summonerId: String?  // Optional - not returned by edge function
-    public let summonerName: String?  // Optional - not returned by edge function
-    public let hotStreak: Bool
-    public let veteran: Bool
-    public let freshBlood: Bool
-    public let inactive: Bool
-}
-
-struct Checkpoints: Codable {
-    let tenMin: Checkpoint
-    let fifteenMin: Checkpoint
-
-    enum CodingKeys: String, CodingKey {
-        case tenMin = "10min"
-        case fifteenMin = "15min"
-    }
-}
-
-struct Checkpoint: Codable {
-    let cs: Int
-    let gold: Int
-    let xp: Int
-    let kda: String
-}
-
-struct Timings: Codable {
-    let firstBackMin: Int?
-    let firstKillMin: Int?
-    let firstDeathMin: Int?
-}
+// Note: Response models moved to Models/ProxyResponseModels.swift
 
 /// Proxy service for secure API calls through Supabase edge function
 @MainActor

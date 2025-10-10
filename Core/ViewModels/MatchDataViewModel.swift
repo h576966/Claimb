@@ -35,7 +35,7 @@ public class MatchDataViewModel {
     // MARK: - In-Memory Caches
     private var kpiCache: [String: [KPIMetric]] = [:]
     private let kpiPersistPrefix = "kpiCache_"
-    
+
     // Baseline cache to eliminate RunLoop blocking pattern
     private var baselineCache: [String: Baseline] = [:]
     private var baselinesLoaded = false
@@ -46,7 +46,7 @@ public class MatchDataViewModel {
         let latestId = matches.first?.matchId ?? "none"
         return "\(summoner.puuid)|\(role)|\(recentCount)|\(latestId)"
     }
-    
+
     /// Creates baseline cache key
     private func baselineCacheKey(role: String, classTag: String, metric: String) -> String {
         return "\(role)_\(classTag)_\(metric)"
@@ -95,7 +95,7 @@ public class MatchDataViewModel {
 
             matchState = matches
             championState = champions
-            
+
             // Pre-cache baselines to eliminate RunLoop blocking pattern
             if !baselinesLoaded {
                 await loadBaselinesIntoCache()
@@ -452,7 +452,6 @@ public class MatchDataViewModel {
             filter: filter
         )
     }
-    
 
     /// Gets champion KPI display data using existing ChampionStats and baselines
     public func getChampionKPIDisplay(for championStat: ChampionStats, role: String)
@@ -467,7 +466,6 @@ public class MatchDataViewModel {
         )
     }
 
-
     /// Loads all baselines into memory cache (eliminates async→sync RunLoop hack)
     private func loadBaselinesIntoCache() async {
         guard let dataManager = dataManager else {
@@ -477,17 +475,17 @@ public class MatchDataViewModel {
             )
             return
         }
-        
+
         ClaimbLogger.info(
             "Pre-caching baselines to eliminate blocking pattern",
             service: AppConstants.LoggingServices.matchDataViewModel
         )
-        
+
         do {
             // Load all baselines from database
             let descriptor = FetchDescriptor<Baseline>()
             let baselines = try dataManager.modelContext.fetch(descriptor)
-            
+
             // Store in dictionary for O(1) lookup
             for baseline in baselines {
                 let key = baselineCacheKey(
@@ -497,15 +495,15 @@ public class MatchDataViewModel {
                 )
                 baselineCache[key] = baseline
             }
-            
+
             baselinesLoaded = true
-            
+
             ClaimbLogger.info(
                 "Baselines cached in memory",
                 service: AppConstants.LoggingServices.matchDataViewModel,
                 metadata: [
                     "baselineCount": String(baselines.count),
-                    "cacheSize": String(baselineCache.count)
+                    "cacheSize": String(baselineCache.count),
                 ]
             )
         } catch {
@@ -516,7 +514,7 @@ public class MatchDataViewModel {
             )
         }
     }
-    
+
 }
 
 // MARK: - Supporting Types

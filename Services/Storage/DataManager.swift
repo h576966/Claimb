@@ -22,7 +22,7 @@ public class DataManager {
     // MARK: - Dependencies
     private let _modelContext: ModelContext
     private let riotClient: RiotClient
-    
+
     /// Public accessor for modelContext (needed for baseline caching)
     public var modelContext: ModelContext {
         return _modelContext
