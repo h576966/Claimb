@@ -79,6 +79,18 @@ struct RoleUtils {
         let validRoles = ["TOP", "JUNGLE", "MID", "ADC", "BOTTOM", "SUPPORT"]
         return validRoles.contains(role.uppercased())
     }
+    
+    /// Converts normalized role names to baseline role names
+    public static func normalizedRoleToBaselineRole(_ role: String) -> String {
+        switch role.uppercased() {
+        case "MID": return "MIDDLE"
+        case "BOTTOM": return "BOTTOM"
+        case "TOP": return "TOP"
+        case "JUNGLE": return "JUNGLE"
+        case "SUPPORT": return "UTILITY"
+        default: return role.uppercased()
+        }
+    }
 
 }
 

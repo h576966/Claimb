@@ -35,12 +35,21 @@ public class MatchDataViewModel {
     // MARK: - In-Memory Caches
     private var kpiCache: [String: [KPIMetric]] = [:]
     private let kpiPersistPrefix = "kpiCache_"
+    
+    // Baseline cache to eliminate RunLoop blocking pattern
+    private var baselineCache: [String: Baseline] = [:]
+    private var baselinesLoaded = false
 
     private func kpiCacheKey(matches: [Match], role: String) -> String {
         // Use recent 20 matches for cache key to ensure cache consistency
         let recentCount = min(matches.count, 20)
         let latestId = matches.first?.matchId ?? "none"
         return "\(summoner.puuid)|\(role)|\(recentCount)|\(latestId)"
+    }
+    
+    /// Creates baseline cache key
+    private func baselineCacheKey(role: String, classTag: String, metric: String) -> String {
+        return "\(role)_\(classTag)_\(metric)"
     }
 
     // MARK: - Initialization
@@ -86,6 +95,11 @@ public class MatchDataViewModel {
 
             matchState = matches
             championState = champions
+            
+            // Pre-cache baselines to eliminate RunLoop blocking pattern
+            if !baselinesLoaded {
+                await loadBaselinesIntoCache()
+            }
 
             // Update all statistics if we have data
             if case .loaded(let matchData) = matches {
@@ -298,7 +312,7 @@ public class MatchDataViewModel {
 
         do {
             // Try to get baseline for the role with "ALL" class tag
-            let baselineRole = normalizedRoleToBaselineRole(role)
+            let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
             return try await dataManager.getBaseline(
                 role: baselineRole,
                 classTag: "ALL",
@@ -426,491 +440,83 @@ public class MatchDataViewModel {
         }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
 
-    /// Calculates champion statistics from matches and champions
+    /// Calculates champion statistics from matches and champions (delegates to ChampionStatsCalculator)
     private func calculateChampionStats(
         from matches: [Match], champions: [Champion], role: String, filter: ChampionFilter
     ) -> [ChampionStats] {
-        var championStats: [String: ChampionStats] = [:]
-
-        for match in matches {
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
-            else {
-                continue
-            }
-
-            let championId = participant.championId
-            let champion = champions.first { $0.id == championId }
-
-            guard let champion = champion else { continue }
-
-            let actualRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-
-            // Skip games with unknown/invalid teamPosition
-            if actualRole == "UNKNOWN" {
-                continue
-            }
-
-            // Only include champions played in the selected role
-            if actualRole != role {
-                continue
-            }
-
-            if championStats[champion.name] == nil {
-                championStats[champion.name] = ChampionStats(
-                    champion: champion,
-                    gamesPlayed: 0,
-                    wins: 0,
-                    winRate: 0.0,
-                    averageKDA: 0.0,
-                    averageCS: 0.0,
-                    averageVisionScore: 0.0,
-                    averageDeaths: 0.0,
-                    averageGoldPerMin: 0.0,
-                    averageKillParticipation: 0.0,
-                    averageObjectiveParticipation: 0.0,
-                    averageTeamDamagePercent: 0.0,
-                    averageDamageTakenShare: 0.0
-                )
-            }
-
-            championStats[champion.name]?.gamesPlayed += 1
-            if participant.win {
-                championStats[champion.name]?.wins += 1
-            }
-
-            // Update averages (simplified calculation)
-            let current = championStats[champion.name]!
-            let newKDA =
-                (current.averageKDA * Double(current.gamesPlayed - 1) + participant.kda)
-                / Double(current.gamesPlayed)
-            let newCS =
-                (current.averageCS * Double(current.gamesPlayed - 1) + participant.csPerMinute)
-                / Double(current.gamesPlayed)
-            let newVision =
-                (current.averageVisionScore * Double(current.gamesPlayed - 1)
-                    + participant.visionScorePerMinute) / Double(current.gamesPlayed)
-            let newDeaths =
-                (current.averageDeaths * Double(current.gamesPlayed - 1)
-                    + Double(participant.deaths)) / Double(current.gamesPlayed)
-            championStats[champion.name]?.averageKDA = newKDA
-            championStats[champion.name]?.averageCS = newCS
-            championStats[champion.name]?.averageVisionScore = newVision
-            championStats[champion.name]?.averageDeaths = newDeaths
-            // Note: Other metrics (kill participation, team damage, etc.) are calculated
-            // directly from match data in getChampionKPIDisplay to avoid duplication with KPICalculationService
-        }
-
-        // Filter champions with at least minimum games and calculate win rates
-        let filteredStats = championStats.values.compactMap { stats -> ChampionStats? in
-            guard stats.gamesPlayed >= AppConstants.ChampionFiltering.minimumGamesForBestPerforming
-            else { return nil }
-
-            let winRate =
-                stats.gamesPlayed > 0 ? Double(stats.wins) / Double(stats.gamesPlayed) : 0.0
-
-            return ChampionStats(
-                champion: stats.champion,
-                gamesPlayed: stats.gamesPlayed,
-                wins: stats.wins,
-                winRate: winRate,
-                averageKDA: stats.averageKDA,
-                averageCS: stats.averageCS,
-                averageVisionScore: stats.averageVisionScore,
-                averageDeaths: stats.averageDeaths,
-                averageGoldPerMin: stats.averageGoldPerMin,
-                averageKillParticipation: stats.averageKillParticipation,
-                averageObjectiveParticipation: stats.averageObjectiveParticipation,
-                averageTeamDamagePercent: stats.averageTeamDamagePercent,
-                averageDamageTakenShare: stats.averageDamageTakenShare
-            )
-        }
-
-        // Apply sorting and filtering based on filter type
-        switch filter {
-        case .mostPlayed:
-            return filteredStats.sorted { $0.gamesPlayed > $1.gamesPlayed }
-        case .bestPerforming:
-            return applyBestPerformingFilter(to: filteredStats)
-        }
-    }
-
-    /// Applies smart filtering for Best Performing champions
-    private func applyBestPerformingFilter(to stats: [ChampionStats]) -> [ChampionStats] {
-        // First try with default 50% win rate threshold
-        let highPerformers = stats.filter {
-            $0.winRate >= AppConstants.ChampionFiltering.defaultWinRateThreshold
-        }
-
-        // If we have enough champions, return them sorted by win rate
-        if highPerformers.count >= AppConstants.ChampionFiltering.minimumChampionsForFallback {
-            ClaimbLogger.debug(
-                "Using default win rate threshold for Best Performing",
-                service: AppConstants.LoggingServices.matchDataViewModel,
-                metadata: [
-                    "threshold": String(AppConstants.ChampionFiltering.defaultWinRateThreshold),
-                    "championCount": String(highPerformers.count),
-                ]
-            )
-            return highPerformers.sorted { $0.winRate > $1.winRate }
-        }
-
-        // Fallback to 40% threshold if too few champions meet 50% criteria
-        let fallbackPerformers = stats.filter {
-            $0.winRate >= AppConstants.ChampionFiltering.fallbackWinRateThreshold
-        }
-
-        ClaimbLogger.debug(
-            "Using fallback win rate threshold for Best Performing",
-            service: AppConstants.LoggingServices.matchDataViewModel,
-            metadata: [
-                "defaultThreshold": String(AppConstants.ChampionFiltering.defaultWinRateThreshold),
-                "fallbackThreshold": String(
-                    AppConstants.ChampionFiltering.fallbackWinRateThreshold),
-                "defaultCount": String(highPerformers.count),
-                "fallbackCount": String(fallbackPerformers.count),
-            ]
+        return ChampionStatsCalculator.calculateChampionStats(
+            from: matches,
+            champions: champions,
+            summoner: summoner,
+            role: role,
+            filter: filter
         )
-
-        return fallbackPerformers.sorted { $0.winRate > $1.winRate }
     }
-
-    /// Converts normalized role names to baseline role names
-    private func normalizedRoleToBaselineRole(_ role: String) -> String {
-        switch role.uppercased() {
-        case "MID": return "MIDDLE"
-        case "BOTTOM": return "BOTTOM"
-        case "TOP": return "TOP"
-        case "JUNGLE": return "JUNGLE"
-        case "SUPPORT": return "UTILITY"
-        default: return role.uppercased()
-        }
-    }
+    
 
     /// Gets champion KPI display data using existing ChampionStats and baselines
     public func getChampionKPIDisplay(for championStat: ChampionStats, role: String)
         -> [ChampionKPIDisplay]
     {
-        let championClass = championStat.champion.championClass
-        let baselineRole = normalizedRoleToBaselineRole(role)
-        let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[baselineRole] ?? []
-
-        ClaimbLogger.debug(
-            "Getting champion KPI display",
-            service: AppConstants.LoggingServices.matchDataViewModel,
-            metadata: [
-                "champion": championStat.champion.name,
-                "championClass": championClass,
-                "role": role,
-                "baselineRole": baselineRole,
-                "keyMetrics": keyMetrics.joined(separator: ", "),
-            ]
+        return KPIDisplayService.getChampionKPIDisplay(
+            for: championStat,
+            role: role,
+            summoner: summoner,
+            allMatches: currentMatches,
+            baselineCache: baselineCache
         )
-
-        // Get champion-specific matches for this role (limit to last 20 for recent performance)
-        let championMatches = getChampionMatches(for: championStat.champion, role: role)
-        let recentChampionMatches = Array(championMatches.prefix(20))
-
-        guard !recentChampionMatches.isEmpty else {
-            ClaimbLogger.debug(
-                "No recent matches found for champion",
-                service: AppConstants.LoggingServices.matchDataViewModel,
-                metadata: [
-                    "champion": championStat.champion.name,
-                    "role": role,
-                    "totalMatches": String(championMatches.count),
-                    "recentMatches": String(recentChampionMatches.count),
-                ]
-            )
-            return []
-        }
-
-        let results = keyMetrics.compactMap { metric in
-            let value = calculateChampionMetricValue(
-                metric: metric,
-                matches: recentChampionMatches,
-                champion: championStat.champion,
-                role: role
-            )
-
-            // Try to get baseline for specific class, fallback to "ALL"
-            let baseline =
-                getBaselineSync(role: baselineRole, classTag: championClass, metric: metric)
-                ?? getBaselineSync(role: baselineRole, classTag: "ALL", metric: metric)
-
-            // Use the same logic as KPICalculationService for consistent color coding
-            let (performanceLevel, color) = getPerformanceLevelWithBaseline(
-                value: value,
-                metric: metric,
-                baseline: baseline
-            )
-
-            ClaimbLogger.debug(
-                "KPI calculation",
-                service: AppConstants.LoggingServices.matchDataViewModel,
-                metadata: [
-                    "metric": metric,
-                    "value": String(value),
-                    "formattedValue": formatValue(value, for: metric),
-                    "hasBaseline": baseline != nil ? "true" : "false",
-                    "performanceLevel": performanceLevel.rawValue,
-                ]
-            )
-
-            return ChampionKPIDisplay(
-                metric: metric,
-                value: formatValue(value, for: metric),
-                performanceLevel: performanceLevel,
-                color: color
-            )
-        }
-
-        ClaimbLogger.debug(
-            "Champion KPI display results",
-            service: AppConstants.LoggingServices.matchDataViewModel,
-            metadata: [
-                "champion": championStat.champion.name,
-                "resultCount": String(results.count),
-            ]
-        )
-
-        return results
     }
 
-    /// Gets champion-specific matches for a role
-    private func getChampionMatches(for champion: Champion, role: String) -> [Match] {
-        return currentMatches.filter { match in
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
-            else {
-                return false
-            }
-            let actualRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-            return participant.championId == champion.id && actualRole == role
-                && actualRole != "UNKNOWN"
-        }
-    }
 
-    /// Calculates metric value using KPICalculationService logic (reused to avoid duplication)
-    private func calculateChampionMetricValue(
-        metric: String, matches: [Match], champion: Champion, role: String
-    ) -> Double {
-        let participants = matches.compactMap { match in
-            match.participants.first(where: {
-                $0.puuid == summoner.puuid && $0.championId == champion.id
-            })
-        }
-
-        guard !participants.isEmpty else { return 0.0 }
-
-        switch metric {
-        case "cs_per_min":
-            return participants.map { participant in
-                let match = matches.first { $0.participants.contains(participant) }
-                let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
-                return gameDurationMinutes > 0
-                    ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
-            }.reduce(0, +) / Double(participants.count)
-
-        case "deaths_per_game":
-            return participants.map { Double($0.deaths) }.reduce(0, +) / Double(participants.count)
-
-        case "kill_participation_pct":
-            return participants.map { participant in
-                let match = matches.first { $0.participants.contains(participant) }
-                let teamKills =
-                    match?.participants
-                    .filter { $0.teamId == participant.teamId }
-                    .reduce(0) { $0 + $1.kills } ?? 0
-                return teamKills > 0
-                    ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
-            }.reduce(0, +) / Double(participants.count)
-
-        case "vision_score_per_min":
-            return participants.map { $0.visionScorePerMinute }.reduce(0, +)
-                / Double(participants.count)
-
-        case "team_damage_pct":
-            return participants.map { participant in
-                // Use challenge data if available, otherwise calculate from raw damage data
-                if participant.teamDamagePercentage > 0 {
-                    return participant.teamDamagePercentage
-                } else {
-                    // Fallback calculation: participant damage / team total damage
-                    let match = matches.first { $0.participants.contains(participant) }
-                    let teamParticipants =
-                        match?.participants.filter { $0.teamId == participant.teamId } ?? []
-                    let teamTotalDamage = teamParticipants.reduce(0) {
-                        $0 + $1.totalDamageDealtToChampions
-                    }
-                    return teamTotalDamage > 0
-                        ? Double(participant.totalDamageDealtToChampions) / Double(teamTotalDamage)
-                        : 0.0
-                }
-            }.reduce(0, +) / Double(participants.count)
-
-        case "objective_participation_pct":
-            return participants.map { $0.objectiveParticipationPercentage }.reduce(0, +)
-                / Double(participants.count)
-
-        case "damage_taken_share_pct":
-            return participants.map { $0.damageTakenSharePercentage }.reduce(0, +)
-                / Double(participants.count)
-
-        default:
-            return 0.0
-        }
-    }
-
-    /// Synchronous baseline lookup (baselines are already loaded)
-    private func getBaselineSync(role: String, classTag: String, metric: String) -> Baseline? {
+    /// Loads all baselines into memory cache (eliminates async→sync RunLoop hack)
+    private func loadBaselinesIntoCache() async {
         guard let dataManager = dataManager else {
             ClaimbLogger.debug(
-                "No dataManager available for baseline lookup",
-                service: AppConstants.LoggingServices.matchDataViewModel)
-            return nil
+                "No dataManager available for baseline loading",
+                service: AppConstants.LoggingServices.matchDataViewModel
+            )
+            return
         }
-
-        // Use RunLoop to avoid deadlocks with semaphores on MainActor
-        var result: Baseline?
-        var completed = false
-
-        Task {
-            do {
-                result = try await dataManager.getBaseline(
-                    role: role, classTag: classTag, metric: metric)
-                ClaimbLogger.debug(
-                    "Baseline lookup result",
-                    service: AppConstants.LoggingServices.matchDataViewModel,
-                    metadata: [
-                        "role": role,
-                        "classTag": classTag,
-                        "metric": metric,
-                        "found": result != nil ? "true" : "false",
-                    ]
+        
+        ClaimbLogger.info(
+            "Pre-caching baselines to eliminate blocking pattern",
+            service: AppConstants.LoggingServices.matchDataViewModel
+        )
+        
+        do {
+            // Load all baselines from database
+            let descriptor = FetchDescriptor<Baseline>()
+            let baselines = try dataManager.modelContext.fetch(descriptor)
+            
+            // Store in dictionary for O(1) lookup
+            for baseline in baselines {
+                let key = baselineCacheKey(
+                    role: baseline.role,
+                    classTag: baseline.classTag,
+                    metric: baseline.metric
                 )
-            } catch {
-                ClaimbLogger.debug(
-                    "Baseline lookup failed",
-                    service: AppConstants.LoggingServices.matchDataViewModel,
-                    metadata: [
-                        "role": role,
-                        "classTag": classTag,
-                        "metric": metric,
-                        "error": error.localizedDescription,
-                    ]
-                )
-                result = nil
+                baselineCache[key] = baseline
             }
-            completed = true
-        }
-
-        // Wait for completion with timeout
-        let timeout = Date().addingTimeInterval(1.0)  // 1 second timeout
-        while !completed && Date() < timeout {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
-        }
-
-        if !completed {
-            ClaimbLogger.warning(
-                "Baseline lookup timed out",
+            
+            baselinesLoaded = true
+            
+            ClaimbLogger.info(
+                "Baselines cached in memory",
                 service: AppConstants.LoggingServices.matchDataViewModel,
                 metadata: [
-                    "role": role,
-                    "classTag": classTag,
-                    "metric": metric,
+                    "baselineCount": String(baselines.count),
+                    "cacheSize": String(baselineCache.count)
                 ]
             )
-        }
-
-        return result
-    }
-
-    /// Formats metric values for display
-    private func formatValue(_ value: Double, for metric: String) -> String {
-        switch metric {
-        case "kill_participation_pct", "team_damage_pct", "objective_participation_pct",
-            "damage_taken_share_pct":
-            return String(format: "%.0f%%", value * 100)
-        case "cs_per_min", "vision_score_per_min":
-            return String(format: "%.1f", value)
-        case "deaths_per_game":
-            return String(format: "%.1f", value)
-        default:
-            return String(format: "%.1f", value)
+        } catch {
+            ClaimbLogger.error(
+                "Failed to load baselines into cache",
+                service: AppConstants.LoggingServices.matchDataViewModel,
+                error: error
+            )
         }
     }
-
-    /// Gets performance level and color using the same logic as KPICalculationService
-    private func getPerformanceLevelWithBaseline(value: Double, metric: String, baseline: Baseline?)
-        -> (Baseline.PerformanceLevel, Color)
-    {
-        if let baseline = baseline {
-            // Special handling for Deaths per Game - lower is better
-            if metric == "deaths_per_game" {
-                if value <= baseline.p40 * 0.9 {
-                    return (.excellent, DesignSystem.Colors.accent)
-                } else if value <= baseline.p60 {
-                    return (.good, DesignSystem.Colors.white)
-                } else if value <= baseline.p60 * 1.2 {
-                    return (.needsImprovement, DesignSystem.Colors.warning)
-                } else {
-                    return (.needsImprovement, DesignSystem.Colors.secondary)
-                }
-            } else {
-                // Standard logic for other metrics - higher is better
-                if value >= baseline.p60 * 1.1 {
-                    return (.excellent, DesignSystem.Colors.accent)
-                } else if value >= baseline.p60 {
-                    return (.good, DesignSystem.Colors.white)
-                } else if value >= baseline.p40 {
-                    return (.needsImprovement, DesignSystem.Colors.warning)
-                } else {
-                    return (.needsImprovement, DesignSystem.Colors.secondary)
-                }
-            }
-        } else {
-            // Fallback to basic performance levels
-            return getBasicPerformanceLevel(value: value, metric: metric)
-        }
-    }
-
-    /// Basic performance levels without baseline data
-    private func getBasicPerformanceLevel(value: Double, metric: String) -> (
-        Baseline.PerformanceLevel, Color
-    ) {
-        // Basic performance levels without baseline data
-        switch metric {
-        case "deaths_per_game":
-            // For deaths, lower is better
-            if value <= 3.0 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value <= 5.0 {
-                return (.good, DesignSystem.Colors.white)
-            } else {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            }
-        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
-            "damage_taken_share_pct":
-            // Percentage metrics - higher is better
-            if value >= 0.7 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= 0.5 {
-                return (.good, DesignSystem.Colors.white)
-            } else {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            }
-        case "cs_per_min", "vision_score_per_min":
-            // Rate metrics - higher is better
-            if value >= 8.0 {
-                return (.excellent, DesignSystem.Colors.accent)
-            } else if value >= 6.0 {
-                return (.good, DesignSystem.Colors.white)
-            } else {
-                return (.needsImprovement, DesignSystem.Colors.warning)
-            }
-        default:
-            return (.needsImprovement, DesignSystem.Colors.warning)
-        }
-    }
+    
 }
 
 // MARK: - Supporting Types

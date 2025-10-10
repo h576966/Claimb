@@ -20,8 +20,13 @@ public class DataManager {
     private static var sharedInstance: DataManager?
 
     // MARK: - Dependencies
-    private let modelContext: ModelContext
+    private let _modelContext: ModelContext
     private let riotClient: RiotClient
+    
+    /// Public accessor for modelContext (needed for baseline caching)
+    public var modelContext: ModelContext {
+        return _modelContext
+    }
 
     // MARK: - Repositories
     private let summonerRepository: SummonerRepository
@@ -51,7 +56,7 @@ public class DataManager {
         riotClient: RiotClient,
         dataDragonService: DataDragonServiceProtocol
     ) {
-        self.modelContext = modelContext
+        self._modelContext = modelContext
         self.riotClient = riotClient
 
         // Initialize shared components
