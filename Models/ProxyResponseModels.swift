@@ -83,4 +83,3 @@ public struct LeagueEntry: Codable {
     public let freshBlood: Bool
     public let inactive: Bool
 }
-

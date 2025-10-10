@@ -84,8 +84,8 @@ public class OpenAIService {
             "Post-game analysis completed",
             service: "OpenAIService",
             metadata: [
-                "championName": analysis.championName,
-                "gameResult": analysis.gameResult,
+                "championName": championName,
+                "gameResult": participant.win ? "Victory" : "Defeat",
             ]
         )
 

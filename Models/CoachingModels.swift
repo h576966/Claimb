@@ -86,29 +86,17 @@ public struct CoachingResponse: Codable {
 
 /// Post-game analysis response focused on champion-specific advice
 public struct PostGameAnalysis: Codable {
-    public let championName: String
-    public let gameResult: String
-    public let kda: String
     public let keyTakeaways: [String]
     public let championSpecificAdvice: String
-    public let championPoolAdvice: String?
     public let nextGameFocus: [String]
 
     public init(
-        championName: String,
-        gameResult: String,
-        kda: String,
         keyTakeaways: [String],
         championSpecificAdvice: String,
-        championPoolAdvice: String?,
         nextGameFocus: [String]
     ) {
-        self.championName = championName
-        self.gameResult = gameResult
-        self.kda = kda
         self.keyTakeaways = keyTakeaways
         self.championSpecificAdvice = championSpecificAdvice
-        self.championPoolAdvice = championPoolAdvice
         self.nextGameFocus = nextGameFocus
     }
 }

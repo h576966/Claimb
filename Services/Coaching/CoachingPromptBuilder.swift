@@ -61,15 +61,13 @@ public struct CoachingPromptBuilder {
 
             **OUTPUT (JSON, max 100 words):**
             {
-              "championName": "\(championName)",
-              "gameResult": "\(gameResult)",
-              "kda": "\(kda)",
-              "keyTakeaways": ["3 insights with timing, 1 sentence each"],
+              "keyTakeaways": ["3 actionable insights, avoid stats and parentheses"],
               "championSpecificAdvice": "2 sentences: what worked, what didn't",
               "nextGameFocus": ["1 specific goal", "1 measurable target"]
             }
 
-            JSON only. Be concise.
+            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
+            Focus on actionable advice, avoid technical stats and parentheses.
             """
 
         return prompt
@@ -130,15 +128,16 @@ public struct CoachingPromptBuilder {
 
             **OUTPUT (JSON, max 120 words):**
             {
-              "keyTrends": ["2 trends with numbers, 1 sentence each"],
-              "roleConsistency": "1 sentence with %",
+              "keyTrends": ["2 trends, avoid stats and parentheses"],
+              "roleConsistency": "1 sentence about role focus",
               "championPoolAnalysis": "Focus on top 3 from BEST PERFORMING list. 2 sentences.",
-              "areasOfImprovement": ["2 areas, concise"],
+              "areasOfImprovement": ["2 areas, concise and actionable"],
               "strengthsToMaintain": ["2 strengths, concise"],
               "climbingAdvice": "2 sentences - consistency with proven champions"
             }
 
-            JSON only. Be brief.
+            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
+            Focus on actionable advice, avoid technical stats and parentheses.
             """
     }
 
@@ -205,14 +204,14 @@ public struct CoachingPromptBuilder {
     ) -> String {
         let recentMatches = Array(matches.prefix(10))
 
-        var context = "**GAME-BY-GAME BREAKDOWN (Last 10 matches):**\n"
+        var context = "**RECENT GAMES SUMMARY (Last 10 matches):**\n"
 
         // Track role and champion distribution
         var roleDistribution: [String: Int] = [:]
         var championPerformance:
-            [String: (wins: Int, losses: Int, totalCS: Int, totalDeaths: Int, games: Int)] = [:]
+            [String: (wins: Int, losses: Int, games: Int)] = [:]
 
-        for (index, match) in recentMatches.enumerated() {
+        for match in recentMatches {
             guard
                 let participant = MatchStatsCalculator.findParticipant(
                     summoner: summoner, in: match)
@@ -220,14 +219,6 @@ public struct CoachingPromptBuilder {
 
             let championName = participant.champion?.name ?? "Unknown"
             let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-            let result = participant.win ? "Win" : "Loss"
-            let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
-            let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
-            let csPerMin = String(format: "%.1f", participant.csPerMinute)
-            let vision = participant.visionScore
-
-            context +=
-                "Game \(index + 1): \(championName) (\(role)) - \(result) | KDA: \(kda) | CS/min: \(csPerMin) | Vision: \(vision)\n"
 
             // Track role distribution
             roleDistribution[role, default: 0] += 1
@@ -235,7 +226,7 @@ public struct CoachingPromptBuilder {
             // Track champion performance
             if championPerformance[championName] == nil {
                 championPerformance[championName] = (
-                    wins: 0, losses: 0, totalCS: 0, totalDeaths: 0, games: 0
+                    wins: 0, losses: 0, games: 0
                 )
             }
             var perf = championPerformance[championName]!
@@ -244,8 +235,6 @@ public struct CoachingPromptBuilder {
             } else {
                 perf.losses += 1
             }
-            perf.totalCS += cs
-            perf.totalDeaths += participant.deaths
             perf.games += 1
             championPerformance[championName] = perf
         }
@@ -273,12 +262,10 @@ public struct CoachingPromptBuilder {
         context += "\n**CHAMPION POOL ANALYSIS:**\n"
         let sortedChampions = championPerformance.sorted { $0.value.games > $1.value.games }
 
-        for (index, (champion, perf)) in sortedChampions.prefix(5).enumerated() {
-            let winRate = perf.games > 0 ? (Double(perf.wins) / Double(perf.games)) * 100 : 0
-            let avgCS = perf.games > 0 ? perf.totalCS / perf.games : 0
-            let avgDeaths = perf.games > 0 ? Double(perf.totalDeaths) / Double(perf.games) : 0
+        for (index, (champion, perf)) in sortedChampions.prefix(3).enumerated() {
+            let result = perf.wins > perf.losses ? "positive" : "struggling"
             context +=
-                "\(index + 1). \(champion): \(perf.wins)-\(perf.losses) (\(String(format: "%.0f", winRate))% WR) - Avg \(avgCS) CS, \(String(format: "%.1f", avgDeaths)) deaths/game\n"
+                "\(index + 1). \(champion) - \(result)\n"
         }
 
         if sortedChampions.count > 3 {
@@ -300,9 +287,9 @@ public struct CoachingPromptBuilder {
 
         if !bestPerformingChampions.isEmpty {
             context = "\n\n**BEST PERFORMING CHAMPIONS (Primary Role Only):**\n"
-            for (index, champion) in bestPerformingChampions.prefix(5).enumerated() {
+            for (index, champion) in bestPerformingChampions.prefix(3).enumerated() {
                 context +=
-                    "\(index + 1). \(champion.name): \(champion.games) games, \(String(format: "%.0f", champion.winRate * 100))% WR, \(String(format: "%.0f", champion.avgCS)) avg CS, \(String(format: "%.1f", champion.avgKDA)) avg KDA\n"
+                    "\(index + 1). \(champion.name) - performing well\n"
             }
 
             if bestPerformingChampions.count < 3 {
@@ -326,27 +313,23 @@ public struct CoachingPromptBuilder {
         let firstHalfAvgCS = calculateAverageCS(matches: firstHalf, summoner: summoner)
         let secondHalfAvgCS = calculateAverageCS(matches: secondHalf, summoner: summoner)
 
-        context +=
-            "- CS/min: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgCS)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgCS))"
         if secondHalfAvgCS > firstHalfAvgCS {
-            context += " (↑ improving)\n"
+            context += "- CS/min: improving\n"
         } else if secondHalfAvgCS < firstHalfAvgCS {
-            context += " (↓ declining)\n"
+            context += "- CS/min: declining\n"
         } else {
-            context += " (→ stable)\n"
+            context += "- CS/min: stable\n"
         }
 
         let firstHalfAvgDeaths = calculateAverageDeaths(matches: firstHalf, summoner: summoner)
         let secondHalfAvgDeaths = calculateAverageDeaths(matches: secondHalf, summoner: summoner)
 
-        context +=
-            "- Deaths: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgDeaths)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgDeaths))"
         if secondHalfAvgDeaths < firstHalfAvgDeaths {
-            context += " (↑ improving)\n"
+            context += "- Deaths: improving\n"
         } else if secondHalfAvgDeaths > firstHalfAvgDeaths {
-            context += " (↓ worsening)\n"
+            context += "- Deaths: worsening\n"
         } else {
-            context += " (→ stable)\n"
+            context += "- Deaths: stable\n"
         }
 
         return context

@@ -256,8 +256,8 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Post-game analysis completed", service: "CoachingViewModel",
                 metadata: [
-                    "championName": analysis.championName,
-                    "gameResult": analysis.gameResult,
+                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?.champion?.name ?? "Unknown",
+                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?.win == true ? "Victory" : "Defeat",
                 ])
 
         } catch {
@@ -299,8 +299,8 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Background refresh completed", service: "CoachingViewModel",
                 metadata: [
-                    "championName": analysis.championName,
-                    "gameResult": analysis.gameResult,
+                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?.champion?.name ?? "Unknown",
+                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?.win == true ? "Victory" : "Defeat",
                 ])
 
         } catch {
