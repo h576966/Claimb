@@ -37,11 +37,13 @@
 		F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaimbUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F35F16462E95BF1500E1DD47 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F36188B22E89D05900D6A86A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F36367782E986F640055041E /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3867B262E7B25AD00B2ECF4 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F390B7FA2E9198820032FCC8 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3911DA32E89445800B33B6A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3911DE72E8958C600B33B6A /* Claimb-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Claimb-Info.plist"; sourceTree = "<group>"; };
+		F3A4194E2E98603E00E0475B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3B89FC82E8DD0E6007AAF06 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3CD951D2E8DE51D002B709A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -172,6 +174,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F363677C2E986F640055041E /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F36F09B92E7AADC000B06E02 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -188,6 +195,11 @@
 			sourceTree = "<group>";
 		};
 		F3911DA72E89445800B33B6A /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3A419522E98603E00E0475B /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -382,6 +394,14 @@
 				{
 					ProductGroup = F3539F832E895ED80073B155 /* Products */;
 					ProjectRef = F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F3A419522E98603E00E0475B /* Products */;
+					ProjectRef = F3A4194E2E98603E00E0475B /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F363677C2E986F640055041E /* Products */;
+					ProjectRef = F36367782E986F640055041E /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F3CD95262E8DE51D002B709A /* Products */;

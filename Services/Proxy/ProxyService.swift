@@ -754,22 +754,45 @@ public class ProxyService {
         AppConfig.addAuthHeaders(&req)
 
         var requestBody: [String: Any] = [
-            "prompt": prompt,
+            "prompt": prompt,  // Edge function expects "prompt" and converts to "input" for OpenAI
             "model": model,
             "max_output_tokens": maxOutputTokens,
+                // Note: modalities is added by edge function, don't send it from client
         ]
-        
+
         // Add reasoning effort for gpt-5 models (edge function accepts both formats)
         if let effort = reasoningEffort, model.contains("gpt-5") {
             requestBody["reasoning_effort"] = effort  // Flat field for edge function
             requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
         }
-        
+
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         ClaimbLogger.apiRequest("Proxy: ai/coach", method: "POST", service: "ProxyService")
 
         // Log request details for debugging
+        #if DEBUG
+            if let bodyData = req.httpBody,
+                let bodyDict = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+            {
+                let promptText = bodyDict["prompt"] as? String ?? ""
+                ClaimbLogger.debug(
+                    "AI Coach request body (parsed back)", service: "ProxyService",
+                    metadata: [
+                        "model": bodyDict["model"] as? String ?? "missing",
+                        "max_output_tokens": String(
+                            describing: bodyDict["max_output_tokens"] ?? "missing"),
+                        "modalities": String(describing: bodyDict["modalities"] ?? "missing"),
+                        "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "missing",
+                        "reasoning": String(describing: bodyDict["reasoning"] ?? "missing"),
+                        "hasPrompt": String(!promptText.isEmpty),
+                        "promptLength": String(promptText.count),
+                        "bodyKeys": bodyDict.keys.sorted().joined(separator: ", "),
+                    ]
+                )
+            }
+        #endif
+
         ClaimbLogger.debug(
             "AI Coach request details", service: "ProxyService",
             metadata: [
@@ -790,6 +813,22 @@ public class ProxyService {
             "Proxy: ai/coach", statusCode: httpResponse.statusCode, service: "ProxyService")
 
         guard httpResponse.statusCode == 200 else {
+            // Log the error response body for 400 errors
+            if httpResponse.statusCode == 400 {
+                if let errorBody = String(data: data, encoding: .utf8) {
+                    ClaimbLogger.error(
+                        "Proxy: AI coach returned 400 Bad Request",
+                        service: "ProxyService",
+                        metadata: [
+                            "statusCode": "400",
+                            "errorBody": errorBody,
+                            "requestModel": model,
+                            "requestTokens": String(maxOutputTokens),
+                            "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
+                        ]
+                    )
+                }
+            }
             throw ProxyError.httpError(httpResponse.statusCode)
         }
 
@@ -798,18 +837,18 @@ public class ProxyService {
             let text: String
             let model: String
         }
-        
+
         struct ResponsesAPIOutput: Decodable {
             let type: String
             let content: [ResponsesAPIContent]?
             let text: String?  // For reasoning items
         }
-        
+
         struct ResponsesAPIContent: Decodable {
             let type: String
             let text: String
         }
-        
+
         struct ResponsesAPIFormat: Decodable {
             let output: [ResponsesAPIOutput]?
             let output_text: String?  // Direct text field for Responses API
@@ -822,12 +861,14 @@ public class ProxyService {
                 // Try direct output_text field first
                 if let outputText = responsesAPI.output_text, !outputText.isEmpty {
                     ClaimbLogger.info(
-                        "Proxy: Retrieved AI coaching response (Responses API - output_text)", 
+                        "Proxy: Retrieved AI coaching response (Responses API - output_text)",
                         service: "ProxyService",
-                        metadata: ["responseLength": String(outputText.count), "model": responsesAPI.model])
+                        metadata: [
+                            "responseLength": String(outputText.count), "model": responsesAPI.model,
+                        ])
                     return outputText
                 }
-                
+
                 // Fall back to parsing output array
                 if let outputs = responsesAPI.output {
                     // Find message items and concatenate their content
@@ -839,22 +880,25 @@ public class ProxyService {
                             }
                         }
                     }
-                    
+
                     if !fullText.isEmpty {
                         ClaimbLogger.info(
-                            "Proxy: Retrieved AI coaching response (Responses API - output array)", 
+                            "Proxy: Retrieved AI coaching response (Responses API - output array)",
                             service: "ProxyService",
-                            metadata: ["responseLength": String(fullText.count), "model": responsesAPI.model])
+                            metadata: [
+                                "responseLength": String(fullText.count),
+                                "model": responsesAPI.model,
+                            ])
                         return fullText
                     }
                 }
-                
+
                 ClaimbLogger.warning(
-                    "Proxy: Responses API format detected but no text found", 
+                    "Proxy: Responses API format detected but no text found",
                     service: "ProxyService",
                     metadata: ["model": responsesAPI.model])
             }
-            
+
             // Fall back to legacy format (for gpt-4o-mini)
             let response = try JSONDecoder().decode(LegacyResponse.self, from: data)
             ClaimbLogger.info(

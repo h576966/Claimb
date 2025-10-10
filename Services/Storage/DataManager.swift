@@ -245,11 +245,9 @@ public class DataManager {
                     "region": region,
                 ])
 
-
             // Use PUUID instead of summonerId for league entries
             let leagueResponse = try await riotClient.getLeagueEntriesByPUUID(
                 puuid: summoner.puuid, region: region)
-
 
             ClaimbLogger.info(
                 "Received league response", service: "DataManager",
@@ -912,7 +910,7 @@ public class DataManager {
         let cache = CoachingResponseCache(
             summonerPuuid: summoner.puuid,
             responseType: "performance",
-            matchId: String(matchCount), // Use match count as matchId for performance summaries
+            matchId: String(matchCount),  // Use match count as matchId for performance summaries
             responseJSON: jsonString,
             expirationHours: expirationHours
         )
@@ -924,7 +922,7 @@ public class DataManager {
             "Cached performance summary", service: "DataManager",
             metadata: [
                 "summoner": summoner.gameName,
-                "matchCount": String(matchCount)
+                "matchCount": String(matchCount),
             ]
         )
     }
@@ -935,8 +933,9 @@ public class DataManager {
         matchId: String
     ) async throws -> PostGameAnalysis? {
         let cacheId = "\(summoner.puuid)_postGame_\(matchId)"
+        let now = Date()
         let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId && cache.isValid
+            cache.id == cacheId && cache.expiresAt > now
         }
         let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
         let cached = try modelContext.fetch(descriptor).first
@@ -947,7 +946,7 @@ public class DataManager {
                 metadata: [
                     "summoner": summoner.gameName,
                     "matchId": matchId,
-                    "expiresAt": cached.expiresAt.description
+                    "expiresAt": cached.expiresAt.description,
                 ]
             )
             return try cached.getPostGameAnalysis()
@@ -956,7 +955,7 @@ public class DataManager {
                 "Cache miss for post-game analysis", service: "DataManager",
                 metadata: [
                     "summoner": summoner.gameName,
-                    "matchId": matchId
+                    "matchId": matchId,
                 ]
             )
             return nil
@@ -969,8 +968,9 @@ public class DataManager {
         matchCount: Int? = nil
     ) async throws -> PerformanceSummary? {
         let cacheId = "\(summoner.puuid)_performance_\(matchCount ?? 0)"
+        let now = Date()
         let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId && cache.isValid
+            cache.id == cacheId && cache.expiresAt > now
         }
         let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
         let cached = try modelContext.fetch(descriptor).first
@@ -981,7 +981,7 @@ public class DataManager {
                 metadata: [
                     "summoner": summoner.gameName,
                     "matchCount": String(matchCount ?? 0),
-                    "expiresAt": cached.expiresAt.description
+                    "expiresAt": cached.expiresAt.description,
                 ]
             )
             return try cached.getPerformanceSummary()
@@ -990,7 +990,7 @@ public class DataManager {
                 "Cache miss for performance summary", service: "DataManager",
                 metadata: [
                     "summoner": summoner.gameName,
-                    "matchCount": String(matchCount ?? 0)
+                    "matchCount": String(matchCount ?? 0),
                 ]
             )
             return nil
@@ -1004,7 +1004,7 @@ public class DataManager {
             cache.id == cacheId
         }
         let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-        
+
         do {
             let existingCaches = try modelContext.fetch(descriptor)
             for cache in existingCaches {
@@ -1017,7 +1017,7 @@ public class DataManager {
                     metadata: [
                         "summoner": summoner.gameName,
                         "matchId": matchId,
-                        "removedCount": String(existingCaches.count)
+                        "removedCount": String(existingCaches.count),
                     ]
                 )
             }
@@ -1036,7 +1036,7 @@ public class DataManager {
             cache.id == cacheId
         }
         let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-        
+
         do {
             let existingCaches = try modelContext.fetch(descriptor)
             for cache in existingCaches {
@@ -1049,7 +1049,7 @@ public class DataManager {
                     metadata: [
                         "summoner": summoner.gameName,
                         "matchCount": String(matchCount),
-                        "removedCount": String(existingCaches.count)
+                        "removedCount": String(existingCaches.count),
                     ]
                 )
             }
@@ -1063,12 +1063,13 @@ public class DataManager {
 
     /// Cleans up expired coaching responses
     public func cleanupExpiredCoachingResponses() async throws {
+        let now = Date()
         let predicate = #Predicate<CoachingResponseCache> { cache in
-            !cache.isValid
+            cache.expiresAt < now
         }
         let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
         let expired = try modelContext.fetch(descriptor)
-        
+
         for cache in expired {
             modelContext.delete(cache)
         }

@@ -1,0 +1,378 @@
+//
+//  CoachingPromptBuilder.swift
+//  Claimb
+//
+//  Created by AI Assistant on 2025-10-09.
+//
+
+import Foundation
+
+/// Builds AI coaching prompts for different analysis types
+public struct CoachingPromptBuilder {
+
+    // MARK: - Post-Game Analysis Prompts
+
+    /// Creates a comprehensive post-game analysis prompt with timeline data
+    public static func createPostGamePrompt(
+        match: Match,
+        participant: Participant,
+        summoner: Summoner,
+        championName: String,
+        role: String,
+        timelineData: String?,
+        laneOpponent: String?,
+        teamContext: String
+    ) -> String {
+        let gameResult = participant.win ? "Victory" : "Defeat"
+        let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+        let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
+        let gameDuration = match.gameDuration / 60
+
+        let rankContext = createRankContext(summoner: summoner)
+
+        var prompt = """
+            You are a League of Legends coach analyzing a single game for immediate improvement.
+
+            **GAME CONTEXT:**
+            Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
+            Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min\(rankContext)
+            \(teamContext)
+            """
+
+        // Add lane opponent information if available
+        if let opponent = laneOpponent {
+            prompt += """
+
+                **LANE MATCHUP:**
+                \(championName) (\(role)) vs \(opponent)
+                """
+        }
+
+        // Add timeline data if available
+        if let timeline = timelineData {
+            prompt += """
+
+                **TIMELINE:** \(timeline)
+                Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
+                """
+        }
+
+        prompt += """
+
+            **OUTPUT (JSON, max 100 words):**
+            {
+              "championName": "\(championName)",
+              "gameResult": "\(gameResult)",
+              "kda": "\(kda)",
+              "keyTakeaways": ["3 insights with timing, 1 sentence each"],
+              "championSpecificAdvice": "2 sentences: what worked, what didn't",
+              "nextGameFocus": ["1 specific goal", "1 measurable target"]
+            }
+
+            JSON only. Be concise.
+            """
+
+        return prompt
+    }
+
+    // MARK: - Performance Summary Prompts
+
+    /// Streak data for prompt context
+    public struct StreakData {
+        public let losingStreak: Int
+        public let winningStreak: Int
+        public let recentWins: Int
+        public let recentLosses: Int
+        public let recentWinRate: Double
+
+        public init(
+            losingStreak: Int, winningStreak: Int, recentWins: Int, recentLosses: Int,
+            recentWinRate: Double
+        ) {
+            self.losingStreak = losingStreak
+            self.winningStreak = winningStreak
+            self.recentWins = recentWins
+            self.recentLosses = recentLosses
+            self.recentWinRate = recentWinRate
+        }
+    }
+
+    /// Creates a performance summary prompt for trend analysis
+    public static func createPerformanceSummaryPrompt(
+        matches: [Match],
+        summoner: Summoner,
+        primaryRole: String,
+        bestPerformingChampions: [MatchStatsCalculator.ChampionStats],
+        streakData: StreakData?
+    ) -> String {
+        let recentMatches = Array(matches.prefix(10))
+        let wins = recentMatches.compactMap { match in
+            match.participants.first(where: { $0.puuid == summoner.puuid })?.win
+        }.filter { $0 }.count
+
+        let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
+
+        let rankContext = createRankContext(summoner: summoner)
+        let streakContext = createStreakContext(
+            primaryRole: primaryRole, streakData: streakData)
+        let detailedContext = createDetailedMatchContext(
+            matches: matches, summoner: summoner, primaryRole: primaryRole)
+        let championPoolContext = createChampionPoolContext(
+            bestPerformingChampions: bestPerformingChampions)
+
+        return """
+            You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
+
+            **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
+
+            \(detailedContext)\(championPoolContext)
+
+
+            **OUTPUT (JSON, max 120 words):**
+            {
+              "keyTrends": ["2 trends with numbers, 1 sentence each"],
+              "roleConsistency": "1 sentence with %",
+              "championPoolAnalysis": "Focus on top 3 from BEST PERFORMING list. 2 sentences.",
+              "areasOfImprovement": ["2 areas, concise"],
+              "strengthsToMaintain": ["2 strengths, concise"],
+              "climbingAdvice": "2 sentences - consistency with proven champions"
+            }
+
+            JSON only. Be brief.
+            """
+    }
+
+    // MARK: - Context Builders
+
+    /// Creates rank context string for prompts
+    public static func createRankContext(summoner: Summoner) -> String {
+        guard summoner.hasAnyRank else { return "" }
+
+        var context = " | **Rank:** "
+        if let soloDuoRank = summoner.soloDuoRank {
+            context += "Solo/Duo: \(soloDuoRank)"
+            if let lp = summoner.soloDuoLP {
+                context += " (\(lp) LP)"
+            }
+        }
+
+        if let flexRank = summoner.flexRank {
+            if summoner.soloDuoRank != nil {
+                context += ", Flex: \(flexRank)"
+            } else {
+                context += "Flex: \(flexRank)"
+            }
+            if let lp = summoner.flexLP {
+                context += " (\(lp) LP)"
+            }
+        }
+
+        return context
+    }
+
+    /// Creates streak and recent performance context from pre-calculated data
+    private static func createStreakContext(
+        primaryRole: String,
+        streakData: StreakData?
+    ) -> String {
+        guard let data = streakData else { return "" }
+
+        var context = """
+
+            **Current Streaks & Recent Performance:**
+            - Primary Role: \(RoleUtils.displayName(for: primaryRole))
+            - Recent \(primaryRole) Performance: \(data.recentWins)W-\(data.recentLosses)L (\(String(format: "%.1f", data.recentWinRate))% win rate)
+            - Current Streak: \(data.winningStreak > 0 ? "\(data.winningStreak) wins" : data.losingStreak > 0 ? "\(data.losingStreak) losses" : "No active streak")
+            """
+
+        if data.losingStreak >= 3 {
+            context +=
+                "\n- ⚠️ WARNING: Player is on a \(data.losingStreak) game losing streak - suggest taking a break or playing normals"
+        }
+        if data.winningStreak >= 3 {
+            context +=
+                "\n- 🔥 Player is on a \(data.winningStreak) game winning streak - encourage maintaining momentum"
+        }
+
+        return context
+    }
+
+    /// Creates detailed match-by-match context with role and champion distribution
+    private static func createDetailedMatchContext(
+        matches: [Match],
+        summoner: Summoner,
+        primaryRole: String
+    ) -> String {
+        let recentMatches = Array(matches.prefix(10))
+
+        var context = "**GAME-BY-GAME BREAKDOWN (Last 10 matches):**\n"
+
+        // Track role and champion distribution
+        var roleDistribution: [String: Int] = [:]
+        var championPerformance:
+            [String: (wins: Int, losses: Int, totalCS: Int, totalDeaths: Int, games: Int)] = [:]
+
+        for (index, match) in recentMatches.enumerated() {
+            guard
+                let participant = MatchStatsCalculator.findParticipant(
+                    summoner: summoner, in: match)
+            else { continue }
+
+            let championName = participant.champion?.name ?? "Unknown"
+            let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            let result = participant.win ? "Win" : "Loss"
+            let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+            let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
+            let csPerMin = String(format: "%.1f", participant.csPerMinute)
+            let vision = participant.visionScore
+
+            context +=
+                "Game \(index + 1): \(championName) (\(role)) - \(result) | KDA: \(kda) | CS/min: \(csPerMin) | Vision: \(vision)\n"
+
+            // Track role distribution
+            roleDistribution[role, default: 0] += 1
+
+            // Track champion performance
+            if championPerformance[championName] == nil {
+                championPerformance[championName] = (
+                    wins: 0, losses: 0, totalCS: 0, totalDeaths: 0, games: 0
+                )
+            }
+            var perf = championPerformance[championName]!
+            if participant.win {
+                perf.wins += 1
+            } else {
+                perf.losses += 1
+            }
+            perf.totalCS += cs
+            perf.totalDeaths += participant.deaths
+            perf.games += 1
+            championPerformance[championName] = perf
+        }
+
+        // Add role consistency analysis
+        context += "\n**ROLE CONSISTENCY:**\n"
+        let primaryRoleGames = roleDistribution[primaryRole, default: 0]
+        let primaryRolePercent =
+            recentMatches.isEmpty
+            ? 0 : (Double(primaryRoleGames) / Double(recentMatches.count)) * 100
+        context +=
+            "- Primary Role (\(RoleUtils.displayName(for: primaryRole))): \(primaryRoleGames)/\(recentMatches.count) games (\(String(format: "%.0f", primaryRolePercent))%)\n"
+
+        for (role, count) in roleDistribution.sorted(by: { $0.value > $1.value })
+        where role != primaryRole {
+            context += "- \(RoleUtils.displayName(for: role)): \(count) games\n"
+        }
+
+        if primaryRolePercent < 70 {
+            context +=
+                "⚠️ Low role consistency - recommend 80%+ games in primary role for improvement\n"
+        }
+
+        // Add champion pool analysis
+        context += "\n**CHAMPION POOL ANALYSIS:**\n"
+        let sortedChampions = championPerformance.sorted { $0.value.games > $1.value.games }
+
+        for (index, (champion, perf)) in sortedChampions.prefix(5).enumerated() {
+            let winRate = perf.games > 0 ? (Double(perf.wins) / Double(perf.games)) * 100 : 0
+            let avgCS = perf.games > 0 ? perf.totalCS / perf.games : 0
+            let avgDeaths = perf.games > 0 ? Double(perf.totalDeaths) / Double(perf.games) : 0
+            context +=
+                "\(index + 1). \(champion): \(perf.wins)-\(perf.losses) (\(String(format: "%.0f", winRate))% WR) - Avg \(avgCS) CS, \(String(format: "%.1f", avgDeaths)) deaths/game\n"
+        }
+
+        if sortedChampions.count > 3 {
+            context +=
+                "⚠️ Playing \(sortedChampions.count) different champions - recommend focusing on 3 or fewer for consistency\n"
+        }
+
+        // Add KPI trends
+        context += createKPITrendsContext(matches: recentMatches, summoner: summoner)
+
+        return context
+    }
+
+    /// Creates champion pool context for performance summary prompts
+    private static func createChampionPoolContext(
+        bestPerformingChampions: [MatchStatsCalculator.ChampionStats]
+    ) -> String {
+        var context = ""
+
+        if !bestPerformingChampions.isEmpty {
+            context = "\n\n**BEST PERFORMING CHAMPIONS (Primary Role Only):**\n"
+            for (index, champion) in bestPerformingChampions.prefix(5).enumerated() {
+                context +=
+                    "\(index + 1). \(champion.name): \(champion.games) games, \(String(format: "%.0f", champion.winRate * 100))% WR, \(String(format: "%.0f", champion.avgCS)) avg CS, \(String(format: "%.1f", champion.avgKDA)) avg KDA\n"
+            }
+
+            if bestPerformingChampions.count < 3 {
+                context +=
+                    "⚠️ Limited champion pool - consider expanding to 3+ champions for better consistency\n"
+            }
+        } else {
+            context =
+                "\n\n**CHAMPION POOL:** No qualifying champions found (need 3+ games with 50%+ win rate)\n"
+        }
+
+        return context
+    }
+
+    /// Creates KPI trends context comparing first half vs second half of recent games
+    private static func createKPITrendsContext(matches: [Match], summoner: Summoner) -> String {
+        var context = "\n**KPI TRENDS:**\n"
+        let firstHalf = Array(matches.prefix(5))
+        let secondHalf = Array(matches.suffix(5))
+
+        let firstHalfAvgCS = calculateAverageCS(matches: firstHalf, summoner: summoner)
+        let secondHalfAvgCS = calculateAverageCS(matches: secondHalf, summoner: summoner)
+
+        context +=
+            "- CS/min: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgCS)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgCS))"
+        if secondHalfAvgCS > firstHalfAvgCS {
+            context += " (↑ improving)\n"
+        } else if secondHalfAvgCS < firstHalfAvgCS {
+            context += " (↓ declining)\n"
+        } else {
+            context += " (→ stable)\n"
+        }
+
+        let firstHalfAvgDeaths = calculateAverageDeaths(matches: firstHalf, summoner: summoner)
+        let secondHalfAvgDeaths = calculateAverageDeaths(matches: secondHalf, summoner: summoner)
+
+        context +=
+            "- Deaths: Games 1-5 avg \(String(format: "%.1f", firstHalfAvgDeaths)), Games 6-10 avg \(String(format: "%.1f", secondHalfAvgDeaths))"
+        if secondHalfAvgDeaths < firstHalfAvgDeaths {
+            context += " (↑ improving)\n"
+        } else if secondHalfAvgDeaths > firstHalfAvgDeaths {
+            context += " (↓ worsening)\n"
+        } else {
+            context += " (→ stable)\n"
+        }
+
+        return context
+    }
+
+    // MARK: - Helper Methods
+
+    private static func calculateAverageCS(matches: [Match], summoner: Summoner) -> Double {
+        let values = matches.compactMap { match -> Double? in
+            guard
+                let participant = MatchStatsCalculator.findParticipant(
+                    summoner: summoner, in: match)
+            else { return nil }
+            return participant.csPerMinute
+        }
+        return values.isEmpty ? 0.0 : values.reduce(0.0, +) / Double(values.count)
+    }
+
+    private static func calculateAverageDeaths(matches: [Match], summoner: Summoner) -> Double {
+        let values = matches.compactMap { match -> Double? in
+            guard
+                let participant = MatchStatsCalculator.findParticipant(
+                    summoner: summoner, in: match)
+            else { return nil }
+            return Double(participant.deaths)
+        }
+        return values.isEmpty ? 0.0 : values.reduce(0.0, +) / Double(values.count)
+    }
+}

@@ -121,6 +121,7 @@ class CoachingViewModel {
                 ])
 
             // Generate enhanced coaching insights with personal baselines
+            // Note: This uses deprecated method for legacy coaching UI
             let response = try await openAIService.generateCoachingInsights(
                 summoner: summoner,
                 matches: recentMatches,
