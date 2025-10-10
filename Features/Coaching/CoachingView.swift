@@ -113,35 +113,47 @@ class CoachingViewModel {
             let recentMatches = Array(matches.prefix(20))
 
             ClaimbLogger.info(
-                "Starting coaching analysis", service: "CoachingViewModel",
+                "Starting legacy coaching analysis", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
                     "role": primaryRole,
                     "matchCount": String(recentMatches.count),
                 ])
 
-            // Generate enhanced coaching insights with personal baselines
-            // Note: This uses deprecated method for legacy coaching UI
-            let response = try await openAIService.generateCoachingInsights(
+            // Use new methods instead of deprecated generateCoachingInsights
+            // Generate both post-game analysis and performance summary
+            let mostRecentMatch = recentMatches[0]
+            
+            // Generate post-game analysis for the most recent match
+            let postGameAnalysis = try await openAIService.generatePostGameAnalysis(
+                match: mostRecentMatch,
                 summoner: summoner,
+                kpiService: kpiService
+            )
+            
+            // Generate performance summary for recent matches
+            let performanceSummary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
+                summoner: summoner,
                 primaryRole: primaryRole,
                 kpiService: kpiService
             )
-
-            coachingResponse = response
+            
+            // Update the new coaching state
+            self.postGameAnalysis = postGameAnalysis
+            self.performanceSummary = performanceSummary
 
             ClaimbLogger.info(
-                "Coaching analysis completed", service: "CoachingViewModel",
+                "Legacy coaching analysis completed", service: "CoachingViewModel",
                 metadata: [
-                    "overallScore": String(response.analysis.overallScore),
-                    "priorityFocus": response.analysis.priorityFocus,
+                    "summoner": summoner.gameName,
+                    "role": primaryRole,
                 ])
 
         } catch {
             coachingError = ErrorHandler.userFriendlyMessage(for: error)
             ClaimbLogger.error(
-                "Coaching analysis failed", service: "CoachingViewModel",
+                "Legacy coaching analysis failed", service: "CoachingViewModel",
                 error: error)
         }
 
