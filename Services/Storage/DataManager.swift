@@ -3,6 +3,7 @@
 //  Claimb
 //
 //  Created by Niklas Johansson on 2025-09-08.
+//  Refactored by AI Assistant on 2025-10-10.
 //
 
 import Foundation
@@ -10,51 +11,72 @@ import Observation
 import SwiftData
 import SwiftUI
 
-/// Manages SwiftData operations with cache-first offline strategy
+/// Orchestrates data operations through specialized repositories
+/// Provides unified interface for all data access with request deduplication
 @MainActor
 @Observable
 public class DataManager {
     // MARK: - Singleton
     private static var sharedInstance: DataManager?
 
+    // MARK: - Dependencies
     private let modelContext: ModelContext
     private let riotClient: RiotClient
-    private let dataDragonService: DataDragonServiceProtocol
 
-    // Extracted components
-    private let matchParser: MatchParser
+    // MARK: - Repositories
+    private let summonerRepository: SummonerRepository
+    private let matchRepository: MatchRepository
+    private let coachingCacheRepository: CoachingCacheRepository
     private let championDataLoader: ChampionDataLoader
     private let baselineDataLoader: BaselineDataLoader
+    private let matchParser: MatchParser
 
-    // Cache limits
-    private let maxMatchesPerSummoner = 100  // Increased from 50 to 100
-    private let maxGameAgeInDays = 365  // Filter out games older than 1 year
+    // MARK: - Cache Configuration
+    private let maxMatchesPerSummoner = 100
+    private let maxGameAgeInDays = 365
 
-    // Request deduplication - unified generic system
+    // MARK: - Request Deduplication
     private var activeRequests: Set<String> = []
     private var requestTasks: [String: Any] = [:]
 
+    // MARK: - Observable State
     public var isLoading = false
     public var lastRefreshTime: Date?
     public var errorMessage: String?
 
+    // MARK: - Initialization
+
     private init(
-        modelContext: ModelContext, riotClient: RiotClient,
+        modelContext: ModelContext,
+        riotClient: RiotClient,
         dataDragonService: DataDragonServiceProtocol
     ) {
         self.modelContext = modelContext
         self.riotClient = riotClient
-        self.dataDragonService = dataDragonService
 
-        // Initialize extracted components
+        // Initialize shared components
         self.matchParser = MatchParser(modelContext: modelContext)
+
+        // Initialize repositories
+        self.summonerRepository = SummonerRepository(
+            modelContext: modelContext,
+            riotClient: riotClient
+        )
+        self.matchRepository = MatchRepository(
+            modelContext: modelContext,
+            riotClient: riotClient,
+            matchParser: matchParser,
+            maxMatchesPerSummoner: maxMatchesPerSummoner
+        )
+        self.coachingCacheRepository = CoachingCacheRepository(modelContext: modelContext)
         self.championDataLoader = ChampionDataLoader(
-            modelContext: modelContext, dataDragonService: dataDragonService)
+            modelContext: modelContext,
+            dataDragonService: dataDragonService
+        )
         self.baselineDataLoader = BaselineDataLoader(modelContext: modelContext)
     }
 
     /// Gets the shared DataManager instance, creating it if needed
-    /// Ensures all views use the same instance for proper request deduplication
     public static func shared(with modelContext: ModelContext) -> DataManager {
         if let existing = sharedInstance {
             return existing
@@ -70,30 +92,27 @@ public class DataManager {
         return instance
     }
 
-    // MARK: - Request Deduplication Helper
+    // MARK: - Request Deduplication Helpers
 
     /// Generic helper for request deduplication
-    /// Eliminates code duplication across different request types
     private func deduplicateRequest<T>(
         key: String,
         operation: @escaping @MainActor () async -> UIState<T>
     ) async -> UIState<T> {
-        // Check if request is already in progress
         if let existingTask = requestTasks[key] as? Task<UIState<T>, Never> {
             ClaimbLogger.debug(
-                "Request already in progress, waiting for result", service: "DataManager",
-                metadata: ["requestKey": key])
+                "Request already in progress, waiting for result",
+                service: "DataManager",
+                metadata: ["requestKey": key]
+            )
             return await existingTask.value
         }
 
-        // Create new task
         let task = Task<UIState<T>, Never> { @MainActor in
             defer {
-                // Clean up when task completes
                 requestTasks.removeValue(forKey: key)
                 activeRequests.remove(key)
             }
-
             activeRequests.insert(key)
             return await operation()
         }
@@ -107,22 +126,20 @@ public class DataManager {
         key: String,
         operation: @escaping @MainActor () async throws -> T
     ) async throws -> T {
-        // Check if request is already in progress
         if let existingTask = requestTasks[key] as? Task<T, Error> {
             ClaimbLogger.debug(
-                "Request already in progress, waiting for result", service: "DataManager",
-                metadata: ["requestKey": key])
+                "Request already in progress, waiting for result",
+                service: "DataManager",
+                metadata: ["requestKey": key]
+            )
             return try await existingTask.value
         }
 
-        // Create new task
         let task = Task<T, Error> { @MainActor in
             defer {
-                // Clean up when task completes
                 requestTasks.removeValue(forKey: key)
                 activeRequests.remove(key)
             }
-
             activeRequests.insert(key)
             return try await operation()
         }
@@ -131,196 +148,56 @@ public class DataManager {
         return try await task.value
     }
 
-    // MARK: - Summoner Management
-
-    /// Creates or updates a summoner with account data
-    public func createOrUpdateSummonerInternal(gameName: String, tagLine: String, region: String)
-        async throws -> Summoner
-    {
-        ClaimbLogger.info(
-            "Creating/updating summoner", service: "DataManager",
-            metadata: [
-                "gameName": gameName,
-                "tagLine": tagLine,
-                "region": region,
-            ])
-
-        // Get account data from Riot API
-        let accountResponse = try await riotClient.getAccountByRiotId(
-            gameName: gameName,
-            tagLine: tagLine,
-            region: region
-        )
-
-        // Check if summoner already exists
-        let existingSummoner = try await getSummoner(by: accountResponse.puuid)
-
-        if let existing = existingSummoner {
-            ClaimbLogger.debug("Updating existing summoner", service: "DataManager")
-            existing.gameName = gameName
-            existing.tagLine = tagLine
-            existing.region = region
-            existing.lastUpdated = Date()
-
-            // Get updated summoner data
-            let summonerResponse = try await riotClient.getSummonerByPuuid(
-                puuid: accountResponse.puuid,
-                region: region
-            )
-
-            // Debug logging for summoner response
-            ClaimbLogger.debug(
-                "Received summoner response", service: "DataManager",
-                metadata: [
-                    "summoner": existing.gameName,
-                    "summonerId": summonerResponse.id,
-                    "accountId": summonerResponse.accountId,
-                    "puuid": summonerResponse.puuid,
-                    "name": summonerResponse.name,
-                    "summonerLevel": String(summonerResponse.summonerLevel),
-                ])
-
-            existing.summonerId = summonerResponse.id
-            existing.accountId = summonerResponse.accountId
-            existing.profileIconId = summonerResponse.profileIconId
-            existing.summonerLevel = summonerResponse.summonerLevel
-
-            // Fetch rank data using PUUID
-            try await updateSummonerRanks(existing, region: region)
-
-            try modelContext.save()
-            return existing
-        } else {
-            ClaimbLogger.debug("Creating new summoner", service: "DataManager")
-            let newSummoner = Summoner(
-                puuid: accountResponse.puuid,
-                gameName: gameName,
-                tagLine: tagLine,
-                region: region
-            )
-
-            // Get summoner data
-            let summonerResponse = try await riotClient.getSummonerByPuuid(
-                puuid: accountResponse.puuid,
-                region: region
-            )
-
-            // Debug logging for summoner response
-            ClaimbLogger.debug(
-                "Received summoner response", service: "DataManager",
-                metadata: [
-                    "summoner": newSummoner.gameName,
-                    "summonerId": summonerResponse.id,
-                    "accountId": summonerResponse.accountId,
-                    "puuid": summonerResponse.puuid,
-                    "name": summonerResponse.name,
-                    "summonerLevel": String(summonerResponse.summonerLevel),
-                ])
-
-            newSummoner.summonerId = summonerResponse.id
-            newSummoner.accountId = summonerResponse.accountId
-            newSummoner.profileIconId = summonerResponse.profileIconId
-            newSummoner.summonerLevel = summonerResponse.summonerLevel
-
-            // Fetch rank data using PUUID
-            try await updateSummonerRanks(newSummoner, region: region)
-
-            modelContext.insert(newSummoner)
-            try modelContext.save()
-            return newSummoner
-        }
-    }
-
-    /// Updates summoner rank data from league entries
-    public func updateSummonerRanks(_ summoner: Summoner, region: String)
-        async throws
-    {
-
-        do {
-            ClaimbLogger.info(
-                "Fetching rank data", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "puuid": summoner.puuid,
-                    "region": region,
-                ])
-
-            // Use PUUID instead of summonerId for league entries
-            let leagueResponse = try await riotClient.getLeagueEntriesByPUUID(
-                puuid: summoner.puuid, region: region)
-
-            ClaimbLogger.info(
-                "Received league response", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "entryCount": String(leagueResponse.entries.count),
-                    "entries": leagueResponse.entries.map {
-                        "\($0.queueType): \($0.tier) \($0.rank)"
-                    }.joined(separator: ", "),
-                ])
-
-            // Reset rank data
-            summoner.soloDuoRank = nil
-            summoner.flexRank = nil
-            summoner.soloDuoLP = nil
-            summoner.flexLP = nil
-            summoner.soloDuoWins = nil
-            summoner.soloDuoLosses = nil
-            summoner.flexWins = nil
-            summoner.flexLosses = nil
-
-            // Process league entries
-            for entry in leagueResponse.entries {
-                switch entry.queueType {
-                case "RANKED_SOLO_5x5":
-                    summoner.soloDuoRank = "\(entry.tier) \(entry.rank)"
-                    summoner.soloDuoLP = entry.leaguePoints
-                    summoner.soloDuoWins = entry.wins
-                    summoner.soloDuoLosses = entry.losses
-                case "RANKED_FLEX_SR":
-                    summoner.flexRank = "\(entry.tier) \(entry.rank)"
-                    summoner.flexLP = entry.leaguePoints
-                    summoner.flexWins = entry.wins
-                    summoner.flexLosses = entry.losses
-                default:
-                    // Skip other queue types
-                    continue
-                }
-            }
-
-            ClaimbLogger.info(
-                "Updated summoner ranks", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
-                    "flexRank": summoner.flexRank ?? "Unranked",
-                ])
-
-        } catch {
-
-            ClaimbLogger.warning(
-                "Failed to fetch rank data, continuing without ranks", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "error": error.localizedDescription,
-                ])
-
-            // Don't throw - ranks are optional, continue without them
-        }
-    }
+    // MARK: - Summoner Operations (Delegated to SummonerRepository)
 
     /// Gets a summoner by PUUID
     public func getSummoner(by puuid: String) async throws -> Summoner? {
-        let descriptor = FetchDescriptor<Summoner>(
-            predicate: #Predicate { $0.puuid == puuid }
-        )
-        return try modelContext.fetch(descriptor).first
+        return try await summonerRepository.getSummoner(by: puuid)
     }
 
     /// Gets all summoners
     public func getAllSummoners() async throws -> [Summoner] {
-        let descriptor = FetchDescriptor<Summoner>()
-        return try modelContext.fetch(descriptor)
+        return try await summonerRepository.getAllSummoners()
+    }
+
+    /// Creates or updates a summoner with deduplication
+    public func createOrUpdateSummoner(
+        gameName: String,
+        tagLine: String,
+        region: String
+    ) async -> UIState<Summoner> {
+        let requestKey = "summoner_\(gameName)_\(tagLine)_\(region)"
+
+        return await deduplicateRequest(key: requestKey) {
+            ClaimbLogger.info(
+                "Creating/updating summoner",
+                service: "DataManager",
+                metadata: [
+                    "gameName": gameName,
+                    "tagLine": tagLine,
+                    "region": region,
+                ])
+
+            do {
+                let summoner = try await self.summonerRepository.createOrUpdate(
+                    gameName: gameName,
+                    tagLine: tagLine,
+                    region: region
+                )
+
+                try await self.championDataLoader.loadChampionData()
+                _ = await self.refreshMatches(for: summoner)
+
+                return .loaded(summoner)
+            } catch {
+                ClaimbLogger.error(
+                    "Failed to create/update summoner",
+                    service: "DataManager",
+                    error: error
+                )
+                return .error(error)
+            }
+        }
     }
 
     /// Refreshes rank data for an existing summoner
@@ -329,18 +206,20 @@ public class DataManager {
 
         return await deduplicateRequest(key: requestKey) {
             ClaimbLogger.info(
-                "Refreshing rank data for existing summoner", service: "DataManager",
+                "Refreshing rank data for existing summoner",
+                service: "DataManager",
                 metadata: [
                     "summoner": summoner.gameName,
                     "puuid": summoner.puuid,
                 ])
 
             do {
-                try await self.updateSummonerRanks(summoner, region: summoner.region)
+                try await self.summonerRepository.updateRanks(summoner, region: summoner.region)
                 try self.modelContext.save()
 
                 ClaimbLogger.info(
-                    "Successfully refreshed rank data", service: "DataManager",
+                    "Successfully refreshed rank data",
+                    service: "DataManager",
                     metadata: [
                         "summoner": summoner.gameName,
                         "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
@@ -350,7 +229,8 @@ public class DataManager {
                 return .loaded(())
             } catch {
                 ClaimbLogger.error(
-                    "Failed to refresh rank data", service: "DataManager",
+                    "Failed to refresh rank data",
+                    service: "DataManager",
                     error: error,
                     metadata: [
                         "summoner": summoner.gameName,
@@ -361,38 +241,128 @@ public class DataManager {
         }
     }
 
-    // MARK: - Match Management
+    // MARK: - Match Operations (Delegated to MatchRepository)
 
-    /// Forces a refresh of matches (bypasses cache)
-    public func forceRefreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
+    /// Gets a match by ID
+    public func getMatch(by matchId: String) async throws -> Match? {
+        return try await matchRepository.getMatch(by: matchId)
+    }
+
+    /// Gets matches for a summoner
+    public func getMatches(for summoner: Summoner, limit: Int = 50) async throws -> [Match] {
+        return try await matchRepository.getMatches(for: summoner, limit: limit)
+    }
+
+    /// Loads matches with cache-first strategy and deduplication
+    public func loadMatches(for summoner: Summoner, limit: Int = 50) async -> UIState<[Match]> {
+        let requestKey = "matches_\(summoner.puuid)_\(limit)"
+
+        return await deduplicateRequest(key: requestKey) {
+            ClaimbLogger.info(
+                "Loading matches",
+                service: "DataManager",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "limit": String(limit),
+                ])
+
+            do {
+                // CACHE-FIRST STRATEGY
+                let existingMatches = try await self.matchRepository.getMatches(for: summoner)
+
+                if !existingMatches.isEmpty {
+                    ClaimbLogger.info(
+                        "Returning cached matches immediately",
+                        service: "DataManager",
+                        metadata: [
+                            "count": String(existingMatches.count),
+                            "lastUpdated": summoner.lastUpdated.description,
+                        ])
+
+                    // Background refresh if needed
+                    if self.shouldRefreshMatches(for: summoner) {
+                        Task {
+                            ClaimbLogger.info(
+                                "Refreshing matches in background", service: "DataManager")
+                            do {
+                                try await self.matchRepository.refreshMatches(for: summoner)
+                                self.lastRefreshTime = Date()
+                                ClaimbLogger.info(
+                                    "Background refresh completed", service: "DataManager")
+                            } catch {
+                                ClaimbLogger.warning(
+                                    "Background refresh failed (cached data still available)",
+                                    service: "DataManager",
+                                    metadata: ["error": error.localizedDescription]
+                                )
+                            }
+                        }
+                    }
+
+                    return .loaded(existingMatches)
+                }
+
+                // No cache - load from network
+                ClaimbLogger.info("No cached matches, loading from network", service: "DataManager")
+                self.isLoading = true
+
+                do {
+                    try await self.matchRepository.loadInitialMatches(for: summoner)
+                    let loadedMatches = try await self.matchRepository.getMatches(
+                        for: summoner, limit: limit)
+                    self.isLoading = false
+                    self.lastRefreshTime = Date()
+                    return .loaded(loadedMatches)
+                } catch {
+                    self.isLoading = false
+                    ClaimbLogger.error(
+                        "Failed to load initial matches (no cache available)",
+                        service: "DataManager",
+                        error: error
+                    )
+                    return .error(error)
+                }
+
+            } catch {
+                ClaimbLogger.error("Failed to load matches", service: "DataManager", error: error)
+                return .error(error)
+            }
+        }
+    }
+
+    /// Refreshes matches with fallback to cache
+    public func refreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
         ClaimbLogger.info(
-            "Force refreshing matches", service: "DataManager",
-            metadata: ["summoner": summoner.gameName])
+            "Refreshing matches",
+            service: "DataManager",
+            metadata: ["summoner": summoner.gameName]
+        )
 
         do {
-            try await refreshMatchesInternal(for: summoner)
-            let refreshedMatches = try await getMatches(for: summoner)
+            try await matchRepository.refreshMatches(for: summoner)
+            let refreshedMatches = try await matchRepository.getMatches(for: summoner)
+            lastRefreshTime = Date()
             return .loaded(refreshedMatches)
         } catch {
-            // If force refresh fails due to network, fall back to cached data
+            // Fall back to cached data
             ClaimbLogger.warning(
-                "Force refresh failed, falling back to cached data", service: "DataManager",
+                "Refresh failed, falling back to cached data",
+                service: "DataManager",
                 metadata: [
                     "error": error.localizedDescription,
                     "summoner": summoner.gameName,
                 ])
 
             do {
-                let cachedMatches = try await getMatches(for: summoner)
+                let cachedMatches = try await matchRepository.getMatches(for: summoner)
                 if !cachedMatches.isEmpty {
                     ClaimbLogger.info(
-                        "Using cached matches as fallback", service: "DataManager",
-                        metadata: ["cachedCount": String(cachedMatches.count)])
+                        "Using cached matches as fallback",
+                        service: "DataManager",
+                        metadata: ["cachedCount": String(cachedMatches.count)]
+                    )
                     return .loaded(cachedMatches)
                 } else {
-                    ClaimbLogger.error(
-                        "No cached data available and network failed", service: "DataManager",
-                        error: error)
                     return .error(error)
                 }
             } catch {
@@ -403,920 +373,60 @@ public class DataManager {
         }
     }
 
-    /// Refreshes match data for a summoner with efficient incremental fetching
-    public func refreshMatchesInternal(for summoner: Summoner) async throws {
-        let requestKey = "refresh_matches_\(summoner.puuid)"
-
-        // Use deduplication to prevent concurrent refresh requests
-        return try await deduplicateRequestInternal(key: requestKey) {
-            self.isLoading = true
-            self.errorMessage = nil
-
-            do {
-                // Ensure baseline data is loaded
-                _ = await self.loadBaselineData()
-                // Get existing matches to determine how many new ones to fetch
-                let existingMatches = try await self.getMatches(for: summoner)
-                let existingMatchIds = Set(existingMatches.map { $0.matchId })
-
-                // Efficient incremental fetching strategy
-                let targetCount = MatchFilteringUtils.targetInitialMatchCount
-                let currentCount = existingMatches.count
-
-                // Only fetch if we're below target or if matches are very old
-                guard currentCount < targetCount else {
-                    ClaimbLogger.debug(
-                        "Already at target match count, skipping refresh", service: "DataManager",
-                        metadata: [
-                            "currentCount": String(currentCount),
-                            "targetCount": String(targetCount),
-                        ])
-                    return
-                }
-
-                // Use the same smart fetching strategy as initial load
-                ClaimbLogger.info(
-                    "Incremental refresh: using smart fetch strategy", service: "DataManager",
-                    metadata: [
-                        "currentCount": String(currentCount),
-                        "targetCount": String(targetCount),
-                        "neededMatches": String(targetCount - currentCount),
-                    ]
-                )
-
-                // Use smart fetch to get more matches from all queues
-                let smartFetchResult = try await self.performSmartMatchFetch(for: summoner)
-
-                var newMatchesCount = 0
-                var skippedMatchesCount = 0
-                for matchId in smartFetchResult.matchIds {
-                    // Skip if we already have this match
-                    if existingMatchIds.contains(matchId) {
-                        continue
-                    }
-
-                    do {
-                        try await self.processMatch(
-                            matchId: matchId, region: summoner.region, summoner: summoner)
-                        newMatchesCount += 1
-                    } catch MatchFilterError.irrelevantMatch {
-                        skippedMatchesCount += 1
-                        // Continue processing other matches
-                    }
-                }
-
-                ClaimbLogger.dataOperation(
-                    "Added new matches", count: newMatchesCount, service: "DataManager")
-
-                if skippedMatchesCount > 0 {
-                    ClaimbLogger.debug(
-                        "Skipped irrelevant matches", service: "DataManager",
-                        metadata: [
-                            "skippedCount": String(skippedMatchesCount),
-                            "addedCount": String(newMatchesCount),
-                        ])
-                }
-
-                try await self.cleanupOldMatches(for: summoner)
-                summoner.lastUpdated = Date()
-                self.lastRefreshTime = Date()
-                try self.modelContext.save()
-
-            } catch {
-                self.errorMessage = "Failed to refresh matches: \(error.localizedDescription)"
-                throw error
-            }
-
-            self.isLoading = false
-        }
-    }
-
-    /// Loads initial match data for a summoner using smart fetching strategy
-    public func loadInitialMatches(for summoner: Summoner) async throws {
-        isLoading = true
-        errorMessage = nil
+    /// Forces a refresh of matches (bypasses cache freshness check)
+    public func forceRefreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
+        ClaimbLogger.info(
+            "Force refreshing matches",
+            service: "DataManager",
+            metadata: ["summoner": summoner.gameName]
+        )
 
         do {
-            // Load baseline data first if not already loaded
-            _ = await loadBaselineData()
-
-            ClaimbLogger.info(
-                "Smart loading initial matches", service: "DataManager",
-                metadata: [
-                    "gameName": summoner.gameName,
-                    "strategy": "ranked-first-with-fallback",
-                ])
-
-            // Smart fetching strategy: Try ranked games first, fallback to normal if needed
-            let smartResult = try await performSmartMatchFetch(for: summoner)
-
-            var addedMatchesCount = 0
-            var skippedMatchesCount = 0
-
-            for matchId in smartResult.matchIds {
-                do {
-                    try await processMatch(
-                        matchId: matchId, region: summoner.region, summoner: summoner)
-                    addedMatchesCount += 1
-                } catch MatchFilterError.irrelevantMatch {
-                    skippedMatchesCount += 1
-                    // Continue processing other matches
-                }
-            }
-
-            summoner.lastUpdated = Date()
+            try await matchRepository.refreshMatches(for: summoner)
+            let refreshedMatches = try await matchRepository.getMatches(for: summoner)
             lastRefreshTime = Date()
-            try modelContext.save()
-
-            ClaimbLogger.dataOperation(
-                "Smart loaded initial matches", count: addedMatchesCount, service: "DataManager")
-
-            // Get final count of matches in database for this summoner
-            let finalMatchCount = try await getMatches(for: summoner).count
-
-            ClaimbLogger.info(
-                "Smart fetch completed", service: "DataManager",
-                metadata: [
-                    "strategy": String(describing: smartResult.strategy),
-                    "totalFetched": String(smartResult.totalFetched),
-                    "relevantCount": String(smartResult.relevantCount),
-                    "addedCount": String(addedMatchesCount),
-                    "skippedCount": String(skippedMatchesCount),
-                    "finalDatabaseCount": String(finalMatchCount),
-                ])
-
+            return .loaded(refreshedMatches)
         } catch {
-            isLoading = false
-            errorMessage = "Failed to load initial matches: \(error.localizedDescription)"
-            throw error
-        }
-
-        isLoading = false
-    }
-
-    /// Performs smart match fetching with ranked-first strategy and fallback
-    private func performSmartMatchFetch(for summoner: Summoner) async throws -> SmartFetchResult {
-        let targetCount = MatchFilteringUtils.targetInitialMatchCount
-        var allMatchIds: [String] = []
-        var totalFetched = 0
-
-        // Smart strategy: Prioritize ranked games, only fetch normal if needed
-        let rankedQueues = [420, 440]  // Solo/Duo, Flex
-        let normalQueue = 400  // Normal Draft
-
-        // Start with ranked games - fetch 50 per queue to get ~100 total
-        let matchesPerRankedQueue = min(30, targetCount / 2)
-
-        ClaimbLogger.info(
-            "Smart fetch: prioritizing ranked games first", service: "DataManager",
-            metadata: [
-                "targetCount": String(targetCount),
-                "rankedQueues": rankedQueues.map(String.init).joined(separator: ","),
-                "matchesPerRankedQueue": String(matchesPerRankedQueue),
-                "strategy": "ranked-first-with-normal-fallback",
-            ]
-        )
-
-        // Fetch from ranked queues first
-        for queueId in rankedQueues {
-            do {
-                let queueHistory = try await riotClient.getMatchHistory(
-                    puuid: summoner.puuid,
-                    region: summoner.region,
-                    count: matchesPerRankedQueue,
-                    type: nil,
-                    queue: queueId,
-                    startTime: nil,
-                    endTime: nil
-                )
-
-                let queueCount = queueHistory.history.count
-                totalFetched += queueCount
-                allMatchIds.append(contentsOf: queueHistory.history)
-
-                ClaimbLogger.info(
-                    "Fetched from ranked queue", service: "DataManager",
-                    metadata: [
-                        "queueId": String(queueId),
-                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
-                        "requestedCount": String(matchesPerRankedQueue),
-                        "receivedCount": String(queueCount),
-                        "totalSoFar": String(allMatchIds.count),
-                    ]
-                )
-
-                // Stop early if we have enough matches
-                if allMatchIds.count >= targetCount {
-                    ClaimbLogger.info(
-                        "Target reached with ranked games, stopping", service: "DataManager",
-                        metadata: [
-                            "currentCount": String(allMatchIds.count),
-                            "targetCount": String(targetCount),
-                        ]
-                    )
-                    break
-                }
-            } catch {
-                ClaimbLogger.warning(
-                    "Failed to fetch from ranked queue", service: "DataManager",
-                    metadata: [
-                        "queueId": String(queueId),
-                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
-                        "error": error.localizedDescription,
-                    ]
-                )
-            }
-        }
-
-        // Only fetch normal games if we still need more matches
-        let currentCount = allMatchIds.count
-        if currentCount < targetCount {
-            let neededMatches = targetCount - currentCount
-            let normalMatchesToFetch = min(neededMatches + 20, 100)  // Add buffer, cap at API limit
-
-            ClaimbLogger.info(
-                "Need more matches, fetching from normal draft", service: "DataManager",
-                metadata: [
-                    "currentCount": String(currentCount),
-                    "neededMatches": String(neededMatches),
-                    "normalMatchesToFetch": String(normalMatchesToFetch),
-                ]
-            )
-
-            do {
-                let normalHistory = try await riotClient.getMatchHistory(
-                    puuid: summoner.puuid,
-                    region: summoner.region,
-                    count: normalMatchesToFetch,
-                    type: nil,
-                    queue: normalQueue,
-                    startTime: nil,
-                    endTime: nil
-                )
-
-                let normalCount = normalHistory.history.count
-                totalFetched += normalCount
-                allMatchIds.append(contentsOf: normalHistory.history)
-
-                ClaimbLogger.info(
-                    "Fetched from normal draft", service: "DataManager",
-                    metadata: [
-                        "queueId": String(normalQueue),
-                        "queueName": MatchFilteringUtils.queueDisplayName(normalQueue),
-                        "requestedCount": String(normalMatchesToFetch),
-                        "receivedCount": String(normalCount),
-                        "totalSoFar": String(allMatchIds.count),
-                    ]
-                )
-            } catch {
-                ClaimbLogger.warning(
-                    "Failed to fetch from normal draft", service: "DataManager",
-                    metadata: [
-                        "queueId": String(normalQueue),
-                        "queueName": MatchFilteringUtils.queueDisplayName(normalQueue),
-                        "error": error.localizedDescription,
-                    ]
-                )
-            }
-        }
-
-        // Remove duplicates and limit to target count
-        let uniqueMatchIds = Array(Set(allMatchIds))  // Remove duplicates
-        let finalMatchIds = Array(uniqueMatchIds.prefix(targetCount))
-
-        ClaimbLogger.info(
-            "Smart fetch completed", service: "DataManager",
-            metadata: [
-                "totalFetched": String(totalFetched),
-                "uniqueCount": String(uniqueMatchIds.count),
-                "finalCount": String(finalMatchIds.count),
-                "targetCount": String(targetCount),
-                "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
-                "strategy": allMatchIds.count >= targetCount ? "ranked-only" : "ranked-plus-normal",
-            ]
-        )
-
-        return SmartFetchResult(
-            matchIds: finalMatchIds,
-            strategy: .rankedFirst,
-            totalFetched: totalFetched,
-            relevantCount: finalMatchIds.count
-        )
-    }
-
-    /// Processes a single match and stores it in the database
-    private func processMatch(matchId: String, region: String, summoner: Summoner) async throws {
-        // Check if match already exists
-        let existingMatch = try await getMatch(by: matchId)
-        if existingMatch != nil {
-            ClaimbLogger.cache(
-                "Match already exists, skipping", key: matchId, service: "DataManager")
-            return
-        }
-
-        ClaimbLogger.apiRequest("match/\(matchId)", service: "DataManager")
-
-        do {
-            let matchData = try await riotClient.getMatch(matchId: matchId, region: region)
-            ClaimbLogger.debug(
-                "Received match data", service: "DataManager",
-                metadata: [
-                    "matchId": matchId,
-                    "bytes": String(matchData.count),
-                ])
-
-            do {
-                let match = try await matchParser.parseMatchData(
-                    matchData, matchId: matchId, summoner: summoner)
-
-                modelContext.insert(match)
-                ClaimbLogger.debug(
-                    "Inserted match \(matchId) with \(match.participants.count) participants",
-                    service: "DataManager",
-                    metadata: [
-                        "matchId": matchId,
-                        "participantCount": String(match.participants.count),
-                    ]
-                )
-            } catch MatchFilterError.irrelevantMatch {
-                // Skip irrelevant matches silently - this is expected behavior
-                ClaimbLogger.debug(
-                    "Skipped irrelevant match", service: "DataManager",
-                    metadata: ["matchId": matchId])
-                throw MatchFilterError.irrelevantMatch
-            }
-        } catch RiotAPIError.serverError(let statusCode) where statusCode == 400 {
-            // Handle 400 errors gracefully - match might be invalid or unavailable
+            // Fall back to cached data
             ClaimbLogger.warning(
-                "Match unavailable (400 error), skipping", service: "DataManager",
-                metadata: [
-                    "matchId": matchId,
-                    "statusCode": String(statusCode),
-                ])
-            throw MatchFilterError.irrelevantMatch
-        } catch RiotAPIError.notFound {
-            // Handle 404 errors gracefully - match not found
-            ClaimbLogger.warning(
-                "Match not found (404 error), skipping", service: "DataManager",
-                metadata: ["matchId": matchId])
-            throw MatchFilterError.irrelevantMatch
-        } catch {
-            // Log other errors but continue processing
-            ClaimbLogger.error(
-                "Failed to fetch match details, skipping", service: "DataManager",
-                error: error,
-                metadata: ["matchId": matchId])
-            throw MatchFilterError.irrelevantMatch
-        }
-    }
-
-    /// Gets a match by ID
-    public func getMatch(by matchId: String) async throws -> Match? {
-        let descriptor = FetchDescriptor<Match>(
-            predicate: #Predicate { $0.matchId == matchId }
-        )
-        return try modelContext.fetch(descriptor).first
-    }
-
-    /// Gets matches for a summoner
-    public func getMatches(for summoner: Summoner, limit: Int = 50) async throws -> [Match] {
-        // For now, get all matches and filter manually to avoid SwiftData predicate issues
-        let descriptor = FetchDescriptor<Match>(
-            sortBy: [SortDescriptor(\.gameCreation, order: .reverse)]
-        )
-        let allMatches = try modelContext.fetch(descriptor)
-
-        // Filter matches for this summoner and apply role analysis filter
-        let filteredMatches = allMatches.filter { match in
-            match.summoner?.puuid == summoner.puuid && match.isIncludedInRoleAnalysis
-        }
-
-        return Array(filteredMatches.prefix(limit))
-    }
-
-    /// Cleans up old matches to maintain the cache limit
-    private func cleanupOldMatches(for summoner: Summoner) async throws {
-        let allMatches = try await getMatches(for: summoner, limit: maxMatchesPerSummoner + 10)
-
-        if allMatches.count > maxMatchesPerSummoner {
-            let matchesToDelete = Array(allMatches.dropFirst(maxMatchesPerSummoner))
-            for match in matchesToDelete {
-                modelContext.delete(match)
-            }
-            ClaimbLogger.debug(
-                "Cleaned up \(matchesToDelete.count) old matches",
+                "Force refresh failed, falling back to cached data",
                 service: "DataManager",
                 metadata: [
-                    "deletedCount": String(matchesToDelete.count)
-                ]
-            )
-        }
-    }
-
-    // MARK: - Champion Management (Delegated to ChampionDataLoader)
-    // Note: Direct champion access methods removed - use championDataLoader directly if needed
-
-    // MARK: - Cache Management
-
-    /// Clears all cached data (for debugging/testing) - internal
-    public func clearAllCacheInternal() async throws {
-        ClaimbLogger.info("Starting cache clear...", service: "DataManager")
-
-        // Clear matches and participants
-        let matchDescriptor = FetchDescriptor<Match>()
-        let allMatches = try modelContext.fetch(matchDescriptor)
-        for match in allMatches {
-            modelContext.delete(match)
-        }
-
-        let participantDescriptor = FetchDescriptor<Participant>()
-        let allParticipants = try modelContext.fetch(participantDescriptor)
-        for participant in allParticipants {
-            modelContext.delete(participant)
-        }
-
-        // Reset summoner lastUpdated timestamps
-        let summonerDescriptor = FetchDescriptor<Summoner>()
-        let allSummoners = try modelContext.fetch(summonerDescriptor)
-        for summoner in allSummoners {
-            summoner.lastUpdated = Date.distantPast
-        }
-
-        // Clear baselines using BaselineDataLoader
-        try await baselineDataLoader.clearBaselineData()
-
-        // Champion class mappings are now loaded directly from JSON in Champion model
-
-        try modelContext.save()
-
-        // Clear URL cache
-        URLCache.shared.removeAllCachedResponses()
-
-        // Reset last refresh time
-        lastRefreshTime = nil
-        errorMessage = nil
-
-        ClaimbLogger.info("Cache clear completed", service: "DataManager")
-    }
-
-    // MARK: - Coaching Response Cache Management
-
-    /// Caches a PostGameAnalysis response
-    public func cachePostGameAnalysis(
-        _ analysis: PostGameAnalysis,
-        for summoner: Summoner,
-        matchId: String,
-        expirationHours: Int = 24
-    ) async throws {
-        let jsonData = try JSONEncoder().encode(analysis)
-        let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-
-        // Remove any existing cache for this match
-        await removeExistingPostGameCache(for: summoner, matchId: matchId)
-
-        let cache = CoachingResponseCache(
-            summonerPuuid: summoner.puuid,
-            responseType: "postGame",
-            matchId: matchId,
-            responseJSON: jsonString,
-            expirationHours: expirationHours
-        )
-
-        modelContext.insert(cache)
-        try modelContext.save()
-
-        ClaimbLogger.debug(
-            "Cached post-game analysis", service: "DataManager",
-            metadata: [
-                "summoner": summoner.gameName,
-                "matchId": matchId,
-            ]
-        )
-    }
-
-    /// Caches a PerformanceSummary response
-    public func cachePerformanceSummary(
-        _ summary: PerformanceSummary,
-        for summoner: Summoner,
-        matchCount: Int,
-        expirationHours: Int = 24
-    ) async throws {
-        let jsonData = try JSONEncoder().encode(summary)
-        let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-
-        // Remove any existing cache for this match count
-        await removeExistingPerformanceCache(for: summoner, matchCount: matchCount)
-
-        let cache = CoachingResponseCache(
-            summonerPuuid: summoner.puuid,
-            responseType: "performance",
-            matchId: String(matchCount),  // Use match count as matchId for performance summaries
-            responseJSON: jsonString,
-            expirationHours: expirationHours
-        )
-
-        modelContext.insert(cache)
-        try modelContext.save()
-
-        ClaimbLogger.debug(
-            "Cached performance summary", service: "DataManager",
-            metadata: [
-                "summoner": summoner.gameName,
-                "matchCount": String(matchCount),
-            ]
-        )
-    }
-
-    /// Retrieves cached PostGameAnalysis for a specific match
-    public func getCachedPostGameAnalysis(
-        for summoner: Summoner,
-        matchId: String
-    ) async throws -> PostGameAnalysis? {
-        let cacheId = "\(summoner.puuid)_postGame_\(matchId)"
-        let now = Date()
-        let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId && cache.expiresAt > now
-        }
-        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-        let cached = try modelContext.fetch(descriptor).first
-
-        if let cached = cached {
-            ClaimbLogger.debug(
-                "Cache hit for post-game analysis", service: "DataManager",
-                metadata: [
+                    "error": error.localizedDescription,
                     "summoner": summoner.gameName,
-                    "matchId": matchId,
-                    "expiresAt": cached.expiresAt.description,
-                ]
-            )
-            return try cached.getPostGameAnalysis()
-        } else {
-            ClaimbLogger.debug(
-                "Cache miss for post-game analysis", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "matchId": matchId,
-                ]
-            )
-            return nil
-        }
-    }
-
-    /// Retrieves cached PerformanceSummary
-    public func getCachedPerformanceSummary(
-        for summoner: Summoner,
-        matchCount: Int? = nil
-    ) async throws -> PerformanceSummary? {
-        let cacheId = "\(summoner.puuid)_performance_\(matchCount ?? 0)"
-        let now = Date()
-        let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId && cache.expiresAt > now
-        }
-        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-        let cached = try modelContext.fetch(descriptor).first
-
-        if let cached = cached {
-            ClaimbLogger.debug(
-                "Cache hit for performance summary", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "matchCount": String(matchCount ?? 0),
-                    "expiresAt": cached.expiresAt.description,
-                ]
-            )
-            return try cached.getPerformanceSummary()
-        } else {
-            ClaimbLogger.debug(
-                "Cache miss for performance summary", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "matchCount": String(matchCount ?? 0),
-                ]
-            )
-            return nil
-        }
-    }
-
-    /// Removes existing post-game cache for a specific match
-    private func removeExistingPostGameCache(for summoner: Summoner, matchId: String) async {
-        let cacheId = "\(summoner.puuid)_postGame_\(matchId)"
-        let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId
-        }
-        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-
-        do {
-            let existingCaches = try modelContext.fetch(descriptor)
-            for cache in existingCaches {
-                modelContext.delete(cache)
-            }
-            if !existingCaches.isEmpty {
-                try modelContext.save()
-                ClaimbLogger.debug(
-                    "Removed existing post-game cache", service: "DataManager",
-                    metadata: [
-                        "summoner": summoner.gameName,
-                        "matchId": matchId,
-                        "removedCount": String(existingCaches.count),
-                    ]
-                )
-            }
-        } catch {
-            ClaimbLogger.warning(
-                "Failed to remove existing post-game cache", service: "DataManager",
-                metadata: ["error": error.localizedDescription]
-            )
-        }
-    }
-
-    /// Removes existing performance cache for a specific match count
-    private func removeExistingPerformanceCache(for summoner: Summoner, matchCount: Int) async {
-        let cacheId = "\(summoner.puuid)_performance_\(matchCount)"
-        let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.id == cacheId
-        }
-        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-
-        do {
-            let existingCaches = try modelContext.fetch(descriptor)
-            for cache in existingCaches {
-                modelContext.delete(cache)
-            }
-            if !existingCaches.isEmpty {
-                try modelContext.save()
-                ClaimbLogger.debug(
-                    "Removed existing performance cache", service: "DataManager",
-                    metadata: [
-                        "summoner": summoner.gameName,
-                        "matchCount": String(matchCount),
-                        "removedCount": String(existingCaches.count),
-                    ]
-                )
-            }
-        } catch {
-            ClaimbLogger.warning(
-                "Failed to remove existing performance cache", service: "DataManager",
-                metadata: ["error": error.localizedDescription]
-            )
-        }
-    }
-
-    /// Cleans up expired coaching responses
-    public func cleanupExpiredCoachingResponses() async throws {
-        let now = Date()
-        let predicate = #Predicate<CoachingResponseCache> { cache in
-            cache.expiresAt < now
-        }
-        let descriptor = FetchDescriptor<CoachingResponseCache>(predicate: predicate)
-        let expired = try modelContext.fetch(descriptor)
-
-        for cache in expired {
-            modelContext.delete(cache)
-        }
-
-        if !expired.isEmpty {
-            try modelContext.save()
-            ClaimbLogger.debug(
-                "Cleaned up expired coaching responses", service: "DataManager",
-                metadata: [
-                    "expiredCount": String(expired.count)
-                ]
-            )
-        }
-    }
-
-    /// Clears only match data while preserving summoner and champion data
-    public func clearMatchData() async throws {
-        ClaimbLogger.info("Clearing match data...", service: "DataManager")
-
-        // Clear matches and participants
-        let matchDescriptor = FetchDescriptor<Match>()
-        let allMatches = try modelContext.fetch(matchDescriptor)
-        for match in allMatches {
-            modelContext.delete(match)
-        }
-
-        let participantDescriptor = FetchDescriptor<Participant>()
-        let allParticipants = try modelContext.fetch(participantDescriptor)
-        for participant in allParticipants {
-            modelContext.delete(participant)
-        }
-
-        // Reset summoner lastUpdated timestamps
-        let summonerDescriptor = FetchDescriptor<Summoner>()
-        let allSummoners = try modelContext.fetch(summonerDescriptor)
-        for summoner in allSummoners {
-            summoner.lastUpdated = Date.distantPast
-        }
-
-        try modelContext.save()
-
-        // Reset last refresh time
-        lastRefreshTime = nil
-        errorMessage = nil
-
-        ClaimbLogger.info("Match data cleared", service: "DataManager")
-    }
-
-    /// Clears URL cache only
-    public func clearURLCache() {
-        ClaimbLogger.info("Clearing URL cache...", service: "DataManager")
-        URLCache.shared.removeAllCachedResponses()
-        ClaimbLogger.info("URL cache cleared", service: "DataManager")
-    }
-
-    // MARK: - Statistics
-
-    /// Gets match statistics for a summoner
-    public func getMatchStatistics(for summoner: Summoner) async throws -> MatchStatistics {
-        let matches = try await getMatches(for: summoner)
-
-        let totalMatches = matches.count
-        let wins = matches.filter { match in
-            match.participants.contains { $0.puuid == summoner.puuid && $0.win }
-        }.count
-
-        let winRate = totalMatches > 0 ? Double(wins) / Double(totalMatches) : 0.0
-
-        return MatchStatistics(
-            totalMatches: totalMatches,
-            wins: wins,
-            losses: totalMatches - wins,
-            winRate: winRate
-        )
-    }
-
-    /// Gets match statistics with age filtering for a summoner
-    public func getMatchStatisticsWithAgeFilter(for summoner: Summoner) async throws
-        -> MatchStatisticsWithAge
-    {
-        let allMatches = try await getMatches(for: summoner, limit: 1000)  // Get more to analyze age distribution
-
-        // Filter matches by age
-        let oneYearAgo =
-            Calendar.current.date(byAdding: .day, value: -maxGameAgeInDays, to: Date()) ?? Date()
-        let recentMatches = allMatches.filter { match in
-            let gameDate = Date(timeIntervalSince1970: TimeInterval(match.gameCreation) / 1000.0)
-            return gameDate >= oneYearAgo
-        }
-
-        let totalMatches = recentMatches.count
-        let wins = recentMatches.filter { match in
-            match.participants.contains { $0.puuid == summoner.puuid && $0.win }
-        }.count
-
-        let winRate = totalMatches > 0 ? Double(wins) / Double(totalMatches) : 0.0
-
-        // Calculate age distribution
-        let oldMatchesCount = allMatches.count - recentMatches.count
-        let oldestMatch = allMatches.last
-        let newestMatch = allMatches.first
-
-        return MatchStatisticsWithAge(
-            totalMatches: totalMatches,
-            wins: wins,
-            losses: totalMatches - wins,
-            winRate: winRate,
-            oldMatchesFiltered: oldMatchesCount,
-            oldestMatchDate: oldestMatch?.gameCreation,
-            newestMatchDate: newestMatch?.gameCreation
-        )
-    }
-
-    // MARK: - Baseline Management (Delegated to BaselineDataLoader)
-
-    /// Saves a baseline to the database
-    public func saveBaseline(_ baseline: Baseline) async throws {
-        try await baselineDataLoader.saveBaseline(baseline)
-    }
-
-    /// Gets a baseline by role, class tag, and metric
-    public func getBaseline(role: String, classTag: String, metric: String) async throws
-        -> Baseline?
-    {
-        return try await baselineDataLoader.getBaseline(
-            role: role, classTag: classTag, metric: metric)
-    }
-
-    /// Clears all baselines (for debugging/testing)
-    public func clearBaselines() async throws {
-        try await baselineDataLoader.clearBaselines()
-    }
-
-    // MARK: - Cache Management
-
-    /// Determines if matches should be refreshed based on smart caching strategy
-    private func shouldRefreshMatches(for summoner: Summoner) -> Bool {
-        let timeSinceLastUpdate = Date().timeIntervalSince(summoner.lastUpdated)
-
-        // Smart caching strategy:
-        // - First time: always refresh
-        // - Recent data (< 5 minutes): use cache
-        // - Stale data (> 5 minutes): incremental refresh
-        // - Very old data (> 1 hour): full refresh
-
-        if timeSinceLastUpdate < 5 * 60 {  // Less than 5 minutes
-            ClaimbLogger.debug(
-                "Matches are fresh, using cache", service: "DataManager",
-                metadata: [
-                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
-                    "strategy": "cache",
-                ])
-            return false
-        } else if timeSinceLastUpdate < 60 * 60 {  // Less than 1 hour
-            ClaimbLogger.debug(
-                "Matches are stale, incremental refresh", service: "DataManager",
-                metadata: [
-                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
-                    "strategy": "incremental",
-                ])
-            return true
-        } else {  // More than 1 hour
-            ClaimbLogger.debug(
-                "Matches are very old, full refresh", service: "DataManager",
-                metadata: [
-                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
-                    "strategy": "full",
-                ])
-            return true
-        }
-    }
-
-    // MARK: - Request Deduplication
-
-    /// Loads matches with deduplication
-    public func loadMatches(for summoner: Summoner, limit: Int = 50) async -> UIState<[Match]> {
-        let requestKey = "matches_\(summoner.puuid)_\(limit)"
-
-        return await deduplicateRequest(key: requestKey) {
-            ClaimbLogger.info(
-                "Loading matches", service: "DataManager",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "limit": String(limit),
                 ])
 
             do {
-                // CACHE-FIRST STRATEGY: Check if we have existing matches
-                let existingMatches = try await self.getMatches(for: summoner)
-
-                if !existingMatches.isEmpty {
-                    // We have cached data - return immediately
-                    ClaimbLogger.info(
-                        "Returning cached matches immediately", service: "DataManager",
-                        metadata: [
-                            "count": String(existingMatches.count),
-                            "lastUpdated": summoner.lastUpdated.description,
-                        ])
-
-                    // Try to refresh in background if needed
-                    let shouldRefresh = self.shouldRefreshMatches(for: summoner)
-                    if shouldRefresh {
-                        Task {
-                            ClaimbLogger.info(
-                                "Refreshing matches in background", service: "DataManager")
-                            do {
-                                try await self.refreshMatchesInternal(for: summoner)
-                                ClaimbLogger.info(
-                                    "Background refresh completed", service: "DataManager")
-                            } catch {
-                                ClaimbLogger.warning(
-                                    "Background refresh failed (cached data still available)",
-                                    service: "DataManager",
-                                    metadata: ["error": error.localizedDescription])
-                            }
-                        }
-                    }
-
-                    return .loaded(existingMatches)
-                }
-
-                // No cached data - need to load from network
-                ClaimbLogger.info(
-                    "No cached matches, loading from network", service: "DataManager")
-
-                do {
-                    try await self.loadInitialMatches(for: summoner)
-                    let loadedMatches = try await self.getMatches(for: summoner, limit: limit)
-                    return .loaded(loadedMatches)
-                } catch {
-                    // Network failed and no cache - return error
-                    ClaimbLogger.error(
-                        "Failed to load initial matches (no cache available)",
-                        service: "DataManager",
-                        error: error)
+                let cachedMatches = try await matchRepository.getMatches(for: summoner)
+                if !cachedMatches.isEmpty {
+                    return .loaded(cachedMatches)
+                } else {
                     return .error(error)
                 }
-
             } catch {
-                // This catch block should only handle critical errors (database issues, etc.)
-                // Network failures are now handled above
                 ClaimbLogger.error(
-                    "Failed to load matches", service: "DataManager", error: error)
+                    "Failed to load cached matches", service: "DataManager", error: error)
                 return .error(error)
             }
         }
     }
+
+    /// Gets match statistics
+    public func getMatchStatistics(for summoner: Summoner) async throws -> MatchStatistics {
+        return try await matchRepository.getMatchStatistics(for: summoner)
+    }
+
+    /// Gets match statistics with age filtering
+    public func getMatchStatisticsWithAgeFilter(for summoner: Summoner) async throws
+        -> MatchStatisticsWithAge
+    {
+        return try await matchRepository.getMatchStatisticsWithAgeFilter(
+            for: summoner,
+            maxGameAgeInDays: maxGameAgeInDays
+        )
+    }
+
+    // MARK: - Champion Operations (Delegated to ChampionDataLoader)
 
     /// Loads champions with deduplication
     public func loadChampions() async -> UIState<[Champion]> {
@@ -1343,40 +453,7 @@ public class DataManager {
         }
     }
 
-    /// Creates or updates summoner with deduplication
-    public func createOrUpdateSummoner(gameName: String, tagLine: String, region: String) async
-        -> UIState<Summoner>
-    {
-        let requestKey = "summoner_\(gameName)_\(tagLine)_\(region)"
-
-        return await deduplicateRequest(key: requestKey) {
-
-            ClaimbLogger.info(
-                "Creating/updating summoner", service: "DataManager",
-                metadata: [
-                    "gameName": gameName,
-                    "tagLine": tagLine,
-                    "region": region,
-                ])
-
-            do {
-                let summoner = try await self.createOrUpdateSummonerInternal(
-                    gameName: gameName,
-                    tagLine: tagLine,
-                    region: region
-                )
-
-                try await self.championDataLoader.loadChampionData()
-                _ = await self.refreshMatches(for: summoner)
-
-                return .loaded(summoner)
-            } catch {
-                ClaimbLogger.error(
-                    "Failed to create/update summoner", service: "DataManager", error: error)
-                return .error(error)
-            }
-        }
-    }
+    // MARK: - Baseline Operations (Delegated to BaselineDataLoader)
 
     /// Loads baseline data with deduplication
     public func loadBaselineData() async -> UIState<Void> {
@@ -1396,54 +473,128 @@ public class DataManager {
         }
     }
 
-    /// Refreshes matches with deduplication
-    public func refreshMatches(for summoner: Summoner) async -> UIState<[Match]> {
-        ClaimbLogger.info(
-            "Refreshing matches", service: "DataManager",
-            metadata: [
-                "summoner": summoner.gameName
-            ])
+    /// Saves a baseline
+    public func saveBaseline(_ baseline: Baseline) async throws {
+        try await baselineDataLoader.saveBaseline(baseline)
+    }
 
-        do {
-            try await self.refreshMatchesInternal(for: summoner)
-            let refreshedMatches = try await getMatches(for: summoner)
-            return .loaded(refreshedMatches)
-        } catch {
-            // If refresh fails due to network, fall back to cached data
-            ClaimbLogger.warning(
-                "Refresh failed, falling back to cached data", service: "DataManager",
+    /// Gets a baseline
+    public func getBaseline(role: String, classTag: String, metric: String) async throws
+        -> Baseline?
+    {
+        return try await baselineDataLoader.getBaseline(
+            role: role,
+            classTag: classTag,
+            metric: metric
+        )
+    }
+
+    /// Clears all baselines
+    public func clearBaselines() async throws {
+        try await baselineDataLoader.clearBaselines()
+    }
+
+    // MARK: - Coaching Cache Operations (Delegated to CoachingCacheRepository)
+
+    /// Caches a PostGameAnalysis response
+    public func cachePostGameAnalysis(
+        _ analysis: PostGameAnalysis,
+        for summoner: Summoner,
+        matchId: String,
+        expirationHours: Int = 24
+    ) async throws {
+        try await coachingCacheRepository.cachePostGameAnalysis(
+            analysis,
+            for: summoner,
+            matchId: matchId,
+            expirationHours: expirationHours
+        )
+    }
+
+    /// Caches a PerformanceSummary response
+    public func cachePerformanceSummary(
+        _ summary: PerformanceSummary,
+        for summoner: Summoner,
+        matchCount: Int,
+        expirationHours: Int = 24
+    ) async throws {
+        try await coachingCacheRepository.cachePerformanceSummary(
+            summary,
+            for: summoner,
+            matchCount: matchCount,
+            expirationHours: expirationHours
+        )
+    }
+
+    /// Retrieves cached PostGameAnalysis
+    public func getCachedPostGameAnalysis(
+        for summoner: Summoner,
+        matchId: String
+    ) async throws -> PostGameAnalysis? {
+        return try await coachingCacheRepository.getCachedPostGameAnalysis(
+            for: summoner,
+            matchId: matchId
+        )
+    }
+
+    /// Retrieves cached PerformanceSummary
+    public func getCachedPerformanceSummary(
+        for summoner: Summoner,
+        matchCount: Int
+    ) async throws -> PerformanceSummary? {
+        return try await coachingCacheRepository.getCachedPerformanceSummary(
+            for: summoner,
+            matchCount: matchCount
+        )
+    }
+
+    /// Cleans up expired coaching responses
+    public func cleanupExpiredCoachingResponses() async throws {
+        try await coachingCacheRepository.cleanupExpiredResponses()
+    }
+
+    // MARK: - Cache Management
+
+    /// Determines if matches should be refreshed based on smart caching strategy
+    private func shouldRefreshMatches(for summoner: Summoner) -> Bool {
+        let timeSinceLastUpdate = Date().timeIntervalSince(summoner.lastUpdated)
+
+        if timeSinceLastUpdate < 5 * 60 {  // Less than 5 minutes
+            ClaimbLogger.debug(
+                "Matches are fresh, using cache",
+                service: "DataManager",
                 metadata: [
-                    "error": error.localizedDescription,
-                    "summoner": summoner.gameName,
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "strategy": "cache",
                 ])
-
-            do {
-                let cachedMatches = try await getMatches(for: summoner)
-                if !cachedMatches.isEmpty {
-                    ClaimbLogger.info(
-                        "Using cached matches as fallback", service: "DataManager",
-                        metadata: ["cachedCount": String(cachedMatches.count)])
-                    return .loaded(cachedMatches)
-                } else {
-                    ClaimbLogger.error(
-                        "No cached data available and network failed", service: "DataManager",
-                        error: error)
-                    return .error(error)
-                }
-            } catch {
-                ClaimbLogger.error(
-                    "Failed to load cached matches", service: "DataManager", error: error)
-                return .error(error)
-            }
+            return false
+        } else if timeSinceLastUpdate < 60 * 60 {  // Less than 1 hour
+            ClaimbLogger.debug(
+                "Matches are stale, incremental refresh",
+                service: "DataManager",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "strategy": "incremental",
+                ])
+            return true
+        } else {  // More than 1 hour
+            ClaimbLogger.debug(
+                "Matches are very old, full refresh",
+                service: "DataManager",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "strategy": "full",
+                ])
+            return true
         }
     }
 
-    /// Clears all cached data with deduplication
+    /// Clears all cached data
     public func clearAllCache() async -> UIState<Void> {
         ClaimbLogger.info("Clearing all cache", service: "DataManager")
 
         do {
-            try await clearAllCacheInternal()
+            try await matchRepository.clearMatchData()
             return .loaded(())
         } catch {
             ClaimbLogger.error("Failed to clear cache", service: "DataManager", error: error)
@@ -1451,9 +602,15 @@ public class DataManager {
         }
     }
 
-    /// Cancels all pending requests (useful for cleanup)
+    /// Clears URL cache only
+    public func clearURLCache() {
+        ClaimbLogger.info("Clearing URL cache...", service: "DataManager")
+        URLCache.shared.removeAllCachedResponses()
+        ClaimbLogger.info("URL cache cleared", service: "DataManager")
+    }
+
+    /// Cancels all pending requests
     public func cancelAllRequests() {
-        // Cancel all requests using the unified system
         for task in requestTasks.values {
             if let cancellableTask = task as? Task<Any, Never> {
                 cancellableTask.cancel()
@@ -1496,13 +653,13 @@ public enum DataManagerError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notAvailable:
-            return "DataManager is not available"
+            return "Data manager not available"
         case .missingResource(let resource):
-            return "Missing resource: \(resource)"
-        case .invalidData(let message):
-            return "Invalid data: \(message)"
-        case .databaseError(let message):
-            return "Database error: \(message)"
+            return "Missing required resource: \(resource)"
+        case .invalidData(let details):
+            return "Invalid data: \(details)"
+        case .databaseError(let details):
+            return "Database error: \(details)"
         }
     }
 }
