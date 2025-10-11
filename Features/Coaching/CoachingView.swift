@@ -123,14 +123,14 @@ class CoachingViewModel {
             // Use new methods instead of deprecated generateCoachingInsights
             // Generate both post-game analysis and performance summary
             let mostRecentMatch = recentMatches[0]
-            
+
             // Generate post-game analysis for the most recent match
             let postGameAnalysis = try await openAIService.generatePostGameAnalysis(
                 match: mostRecentMatch,
                 summoner: summoner,
                 kpiService: kpiService
             )
-            
+
             // Generate performance summary for recent matches
             let performanceSummary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
@@ -138,7 +138,7 @@ class CoachingViewModel {
                 primaryRole: primaryRole,
                 kpiService: kpiService
             )
-            
+
             // Update the new coaching state
             self.postGameAnalysis = postGameAnalysis
             self.performanceSummary = performanceSummary
@@ -268,8 +268,10 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Post-game analysis completed", service: "CoachingViewModel",
                 metadata: [
-                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?.champion?.name ?? "Unknown",
-                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?.win == true ? "Victory" : "Defeat",
+                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                        .champion?.name ?? "Unknown",
+                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                        .win == true ? "Victory" : "Defeat",
                 ])
 
         } catch {
@@ -311,8 +313,10 @@ class CoachingViewModel {
             ClaimbLogger.info(
                 "Background refresh completed", service: "CoachingViewModel",
                 metadata: [
-                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?.champion?.name ?? "Unknown",
-                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?.win == true ? "Victory" : "Defeat",
+                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                        .champion?.name ?? "Unknown",
+                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                        .win == true ? "Victory" : "Defeat",
                 ])
 
         } catch {
