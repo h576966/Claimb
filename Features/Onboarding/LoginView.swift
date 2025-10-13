@@ -115,7 +115,7 @@ struct LoginView: View {
                         .font(DesignSystem.Typography.largeTitle)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
 
-                    Text("League of Legends Coaching")
+                    Text("Ranked Performance & AI Coaching")
                         .font(DesignSystem.Typography.subheadline)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
