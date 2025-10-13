@@ -68,6 +68,8 @@ public struct CoachingPromptBuilder {
 
             CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
             Focus on actionable advice, avoid technical stats and parentheses.
+
+            IMPORTANT: If this was a strong performance (Victory with good KDA or impressive stats), START your keyTakeaways with positive recognition and praise. Examples: "Excellent performance - you dominated your lane", "Great job securing the win with strong map awareness", "Well played - your champion mastery really showed".
             """
 
         return prompt
@@ -208,8 +210,7 @@ public struct CoachingPromptBuilder {
 
         // Track role and champion distribution
         var roleDistribution: [String: Int] = [:]
-        var championPerformance:
-            [String: (wins: Int, losses: Int, games: Int)] = [:]
+        var championPerformance: [String: (wins: Int, losses: Int, games: Int)] = [:]
 
         for match in recentMatches {
             guard

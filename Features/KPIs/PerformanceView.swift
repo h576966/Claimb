@@ -157,6 +157,7 @@ struct PerformanceView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showRoleSelection = false
+    @State private var refreshTrigger = 0
 
     var body: some View {
         ZStack {
@@ -209,7 +210,9 @@ struct PerformanceView: View {
                         state: viewModel.matchState,
                         loadingMessage: "Loading performance data...",
                         emptyMessage: "No matches found for analysis",
-                        retryAction: { Task { await viewModel.loadAllData() } }
+                        retryAction: {
+                            refreshTrigger += 1
+                        }
                     ) { matches in
                         kpiListView(matches: matches)
                     }
@@ -219,11 +222,13 @@ struct PerformanceView: View {
             }
         }
         .onAppear {
-            initializeViewModel()
-            Task {
-                await matchDataViewModel?.loadAllData()
-                await refreshSummonerRanks()
+            if matchDataViewModel == nil {
+                initializeViewModel()
             }
+        }
+        .task(id: refreshTrigger) {
+            await matchDataViewModel?.loadAllData()
+            await refreshSummonerRanks()
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
@@ -254,7 +259,9 @@ struct PerformanceView: View {
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",
-                action: { Task { await matchDataViewModel?.refreshMatches() } },
+                action: {
+                    refreshTrigger += 1
+                },
                 isLoading: matchDataViewModel?.isRefreshing ?? false,
                 isDisabled: matchDataViewModel?.isRefreshing ?? false
             ),

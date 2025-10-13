@@ -458,6 +458,7 @@ struct CoachingView: View {
     let userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CoachingViewModel?
+    @State private var refreshTrigger = 0
 
     var body: some View {
         ZStack {
@@ -476,7 +477,9 @@ struct CoachingView: View {
                         state: viewModel.matchState,
                         loadingMessage: "Loading coaching data...",
                         emptyMessage: "No matches found for analysis",
-                        retryAction: { Task { await viewModel.loadMatches() } }
+                        retryAction: {
+                            refreshTrigger += 1
+                        }
                     ) { matches in
                         coachingContentView(matches: matches)
                     }
@@ -486,10 +489,13 @@ struct CoachingView: View {
             }
         }
         .onAppear {
-            initializeViewModel()
-            Task {
-                await viewModel?.loadMatches()
+            if viewModel == nil {
+                initializeViewModel()
             }
+        }
+        .task(id: refreshTrigger) {
+            // This runs on first appear AND whenever refreshTrigger changes
+            await viewModel?.loadMatches()
         }
     }
 
@@ -500,7 +506,9 @@ struct CoachingView: View {
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",
-                action: { Task { await viewModel?.loadMatches() } },
+                action: {
+                    refreshTrigger += 1
+                },
                 isLoading: (viewModel?.isAnalyzing ?? false)
                     || (viewModel?.isRefreshingInBackground ?? false),
                 isDisabled: (viewModel?.isAnalyzing ?? false)
@@ -858,7 +866,7 @@ struct CoachingView: View {
     private func summaryCard() -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             HStack {
-                Text("Recent Trends (Last 10 Games)")
+                Text("Performance Summary")
                     .font(DesignSystem.Typography.title3)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 

@@ -1,9 +1,9 @@
-# Claimb - League of Legends Companion App
+# Claimb - Ranked Performance & AI Coaching
 
 <div align="center">
   <img src="Claimb/Claimb/Assets.xcassets/AppIcon.appiconset/1024.png" alt="Claimb Logo" width="120" height="120">
   
-  **Your personal League of Legends coach in your pocket**
+  **Your personal LoL coach in your pocket**
   
   [![iOS](https://img.shields.io/badge/iOS-18.0+-blue.svg)](https://developer.apple.com/ios/)
   [![Swift](https://img.shields.io/badge/Swift-6.1+-orange.svg)](https://swift.org/)
@@ -13,7 +13,7 @@
 
 ## 🎯 **What is Claimb?**
 
-Claimb is a **local-first** League of Legends companion app designed for iPhone users who want to improve their gameplay through data-driven insights and personalized coaching. Unlike other apps that require constant internet connectivity, Claimb works offline and respects your privacy by keeping all data on your device.
+Claimb is a **local-first** companion app for League designed for iPhone users who want to improve their gameplay through data-driven insights and personalized AI coaching. Unlike other apps that require constant internet connectivity, Claimb works offline and respects your privacy by keeping all data on your device.
 
 ### **Core Features**
 - 📊 **Performance Analytics**: Track your performance with role-specific KPIs and baseline comparisons
@@ -117,7 +117,6 @@ We recently completed a comprehensive production-readiness initiative to ensure 
 - **Zero production bloat**: Debug code excluded from Release builds
 
 ### **✅ App Store Compliance**
-- **Privacy descriptions**: Added required `NSUserTrackingUsageDescription` for iOS 14+
 - **Export compliance**: Added `ITSAppUsesNonExemptEncryption=false` declaration
 - **App Transport Security**: Verified secure HTTPS configuration for all APIs
 - **Network permissions**: User-friendly network usage description
