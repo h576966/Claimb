@@ -71,9 +71,9 @@ struct LoginView: View {
         ("eun1", "Europe Nordic & East"),
     ]
 
-    // Common tagline suggestions
+    // Common tagline suggestions (only supported regions)
     private let taglineSuggestions = [
-        "EUW", "NA1", "EUNE", "KR", "BR1", "LAN", "LAS", "OCE", "TR1", "RU", "JP1",
+        "EUW", "NA1", "EUNE",
     ]
 
     var body: some View {
@@ -106,8 +106,8 @@ struct LoginView: View {
                 Image("AppIconImage")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 80, height: 80)
-                    .background(DesignSystem.Colors.cardBackground)
+                    .frame(width: 120, height: 120)
+                    .background(DesignSystem.Colors.background)
                     .cornerRadius(DesignSystem.CornerRadius.medium)
 
                 VStack(spacing: DesignSystem.Spacing.sm) {
@@ -157,18 +157,9 @@ struct LoginView: View {
 
                 // Tag Line Input with Suggestions
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                    HStack {
-                        Text("Tag Line")
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                            .font(DesignSystem.Typography.title3)
-
-                        Spacer()
-
-                        // Help text
-                        Text("e.g., EUW, NA1")
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                            .font(DesignSystem.Typography.caption)
-                    }
+                    Text("Tag Line")
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .font(DesignSystem.Typography.title3)
 
                     ZStack(alignment: .leading) {
                         if tagLine.isEmpty {
@@ -235,7 +226,8 @@ struct LoginView: View {
                     .pickerStyle(MenuPickerStyle())
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .accentColor(DesignSystem.Colors.primary)
-                    .padding(DesignSystem.Spacing.md)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
                     .background(DesignSystem.Colors.cardBackground)
                     .cornerRadius(DesignSystem.CornerRadius.small)
                     .overlay(
@@ -253,9 +245,14 @@ struct LoginView: View {
                     Text("Login")
                         .font(DesignSystem.Typography.bodyBold)
                         .frame(maxWidth: .infinity)
+                        .frame(height: 56)
                 }
-                .claimbButton(variant: .primary, size: .large)
+                .buttonStyle(PlainButtonStyle())
+                .background(isValidInput ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground)
+                .foregroundColor(DesignSystem.Colors.white)
+                .cornerRadius(DesignSystem.CornerRadius.small)
                 .disabled(!isValidInput)
+                .opacity(isValidInput ? 1.0 : 0.5)
                 .accessibilityLabel("Login")
                 .accessibilityHint(
                     "Authenticate with Riot Games to view your match history and stats")
