@@ -97,14 +97,17 @@ public class Match {
     }
 
     // Helper method to calculate team objectives
+    // Returns the count of unique objectives taken by the team (not summing all player takedowns)
     public func getTeamObjectives(teamId: Int) -> Int {
         let teamParticipants = participants.filter { $0.teamId == teamId }
-
-        let dragonKills = teamParticipants.reduce(0) { $0 + $1.dragonTakedowns }
-        let riftHeraldKills = teamParticipants.reduce(0) { $0 + $1.riftHeraldTakedowns }
-        let baronKills = teamParticipants.reduce(0) { $0 + $1.baronTakedowns }
-        let hordeKills = teamParticipants.reduce(0) { $0 + $1.hordeTakedowns }
-        let atakhanKills = teamParticipants.reduce(0) { $0 + $1.atakhanTakedowns }
+        
+        // For each objective type, check if ANY player on the team participated
+        // If yes, count it as 1 objective (not sum of all players' takedowns)
+        let dragonKills = teamParticipants.contains(where: { $0.dragonTakedowns > 0 }) ? teamParticipants.map { $0.dragonTakedowns }.max() ?? 0 : 0
+        let riftHeraldKills = teamParticipants.contains(where: { $0.riftHeraldTakedowns > 0 }) ? teamParticipants.map { $0.riftHeraldTakedowns }.max() ?? 0 : 0
+        let baronKills = teamParticipants.contains(where: { $0.baronTakedowns > 0 }) ? teamParticipants.map { $0.baronTakedowns }.max() ?? 0 : 0
+        let hordeKills = teamParticipants.contains(where: { $0.hordeTakedowns > 0 }) ? teamParticipants.map { $0.hordeTakedowns }.max() ?? 0 : 0
+        let atakhanKills = teamParticipants.contains(where: { $0.atakhanTakedowns > 0 }) ? teamParticipants.map { $0.atakhanTakedowns }.max() ?? 0 : 0
 
         return dragonKills + riftHeraldKills + baronKills + hordeKills + atakhanKills
     }

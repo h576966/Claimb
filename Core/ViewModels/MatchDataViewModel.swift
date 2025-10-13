@@ -360,8 +360,12 @@ public class MatchDataViewModel {
             )
 
             let key = kpiCacheKey(matches: matches, role: role)
-            kpiCache[key] = roleKPIs
-            kpiMetrics = roleKPIs
+            
+            // Sort KPIs by priority (worst performing first)
+            let sortedKPIs = roleKPIs.sorted { $0.sortPriority < $1.sortPriority }
+            
+            kpiCache[key] = sortedKPIs
+            kpiMetrics = sortedKPIs
 
             // Persist lightweight cache
             let persistedKey = kpiPersistPrefix + key
@@ -381,7 +385,7 @@ public class MatchDataViewModel {
         let role = userSession.selectedPrimaryRole
         let key = kpiCacheKey(matches: matches, role: role)
         if let cached = kpiCache[key] {
-            kpiMetrics = cached
+            kpiMetrics = cached.sorted { $0.sortPriority < $1.sortPriority }
             ClaimbLogger.debug(
                 "Served KPIs from cache", service: "MatchDataViewModel",
                 metadata: [
@@ -395,8 +399,9 @@ public class MatchDataViewModel {
         if let array = UserDefaults.standard.array(forKey: persistedKey) as? [[String: String]] {
             let restored = array.compactMap { KPIMetric.fromPersisted($0) }
             if !restored.isEmpty {
-                kpiCache[key] = restored
-                kpiMetrics = restored
+                let sortedRestored = restored.sorted { $0.sortPriority < $1.sortPriority }
+                kpiCache[key] = sortedRestored
+                kpiMetrics = sortedRestored
                 ClaimbLogger.debug(
                     "Served KPIs from persisted cache", service: "MatchDataViewModel",
                     metadata: [
@@ -593,6 +598,32 @@ public struct KPIMetric {
 
     public var formattedValue: String {
         return value
+    }
+    
+    /// Priority for sorting KPIs (lower number = higher priority = shown first)
+    /// KPIs that need improvement are shown first, then good, then excellent
+    public var sortPriority: Int {
+        // Performance level priority (0 = needs improvement, 1 = good, 2 = excellent)
+        let performancePriority: Int
+        switch performanceLevel {
+        case .needsImprovement: performancePriority = 0
+        case .good: performancePriority = 1
+        case .excellent: performancePriority = 2
+        }
+        
+        // Metric type priority (within same performance level)
+        let metricPriority: Int
+        switch metric {
+        case "deaths_per_game": metricPriority = 0  // Deaths is most important
+        case "cs_per_min": metricPriority = 1  // CS is critical for laners
+        case "vision_score_per_min": metricPriority = 2  // Vision is important
+        case "kill_participation_pct": metricPriority = 3  // Kill participation
+        case "objective_participation_pct": metricPriority = 4  // Objectives
+        default: metricPriority = 5
+        }
+        
+        // Combine priorities: performance level is primary, metric type is secondary
+        return (performancePriority * 10) + metricPriority
     }
 
     // MARK: - Lightweight persistence helpers (no Color persistence)
