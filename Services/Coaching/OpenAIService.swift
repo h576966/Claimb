@@ -174,46 +174,6 @@ public class OpenAIService {
         return summary
     }
 
-    /// Legacy method for backward compatibility (deprecated)
-    @available(
-        *, deprecated, message: "Use generatePostGameAnalysis or generatePerformanceSummary instead"
-    )
-    public func generateCoachingInsights(
-        summoner: Summoner,
-        matches: [Match],
-        primaryRole: String,
-        kpiService: KPICalculationService? = nil
-    ) async throws -> CoachingResponse {
-        // This is kept only for backward compatibility
-        // New code should use generatePostGameAnalysis or generatePerformanceSummary
-
-        guard !AppConfig.appToken.isEmpty else {
-            throw OpenAIError.invalidAPIKey
-        }
-
-        // Prepare match data for analysis
-        let matchSummary = prepareMatchSummary(
-            matches: matches, summoner: summoner, primaryRole: primaryRole)
-
-        // Create basic coaching prompt
-        let prompt = createLegacyCoachingPrompt(
-            summoner: summoner,
-            matchSummary: matchSummary,
-            primaryRole: primaryRole
-        )
-
-        // Make API request through proxy service
-        let proxyService = ProxyService()
-        let responseText = try await proxyService.aiCoach(
-            prompt: prompt,
-            model: "gpt-4o-mini",
-            maxOutputTokens: 1000
-        )
-
-        // Parse structured JSON response
-        return try JSONResponseParser.parse(responseText)
-    }
-
     // MARK: - Private Helper Methods
 
     /// Fetches timeline data for a match (with graceful fallback)
@@ -280,76 +240,6 @@ public class OpenAIService {
             """
 
         return (laneOpponentInfo, teamContext)
-    }
-
-    // MARK: - Legacy Helper Methods (kept for backward compatibility)
-
-    private func prepareMatchSummary(
-        matches: [Match],
-        summoner: Summoner,
-        primaryRole: String
-    ) -> String {
-        let recentMatches = Array(matches.prefix(10))
-
-        var summary = "Recent Performance Summary:\n"
-        summary += "Role: \(primaryRole)\n"
-        summary += "Total Matches: \(recentMatches.count)\n"
-
-        // Calculate win rate
-        let wins = recentMatches.compactMap { match in
-            match.participants.first(where: { $0.puuid == summoner.puuid })?.win
-        }.filter { $0 }.count
-
-        let winRate = recentMatches.isEmpty ? 0.0 : Double(wins) / Double(recentMatches.count)
-        summary += "Win Rate: \(String(format: "%.1f", winRate * 100))%\n\n"
-
-        // Add match details
-        summary += "Match Details:\n"
-        for (index, match) in recentMatches.enumerated() {
-            if let participant = MatchStatsCalculator.findParticipant(summoner: summoner, in: match)
-            {
-                let result = participant.win ? "Victory" : "Defeat"
-                let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
-                let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
-
-                summary += "Match \(index + 1): \(result) - KDA: \(kda) - CS: \(cs)\n"
-            }
-        }
-
-        return summary
-    }
-
-    private func createLegacyCoachingPrompt(
-        summoner: Summoner,
-        matchSummary: String,
-        primaryRole: String
-    ) -> String {
-        let rankContext = CoachingPromptBuilder.createRankContext(summoner: summoner)
-
-        return """
-            You are a League of Legends coach. Analyze this player's performance and provide concise coaching insights.
-
-            **Player:** \(summoner.gameName)#\(summoner.tagLine) | **Role:** \(primaryRole)\(rankContext)
-
-            \(matchSummary)
-
-            **Response Format (JSON only):**
-            {
-              "analysis": {
-                "strengths": ["string", "string"],
-                "improvements": ["string", "string"],
-                "actionableTips": ["string", "string"],
-                "championAdvice": "string",
-                "nextSteps": ["string", "string"],
-                "overallScore": 7,
-                "priorityFocus": "string"
-              },
-              "summary": "Brief 2-sentence summary"
-            }
-
-            **Focus:** Role-specific advice for \(primaryRole). Keep tips actionable. Score 1-10.
-            Respond ONLY with valid JSON.
-            """
     }
 }
 
