@@ -30,13 +30,30 @@ public struct CoachingPromptBuilder {
 
         let rankContext = createRankContext(summoner: summoner)
 
+        // Add critical performance metrics
+        let csPerMin = String(format: "%.1f", participant.csPerMinute)
+        let visionPerMin = String(format: "%.1f", participant.visionScorePerMinute)
+        let killParticipation = String(format: "%.0f%%", participant.killParticipation * 100)
+        let teamDamage = String(format: "%.0f%%", participant.teamDamagePercentage * 100)
+        let goldPerMin = String(format: "%.0f", participant.goldPerMinute)
+        let objectiveParticipation = String(
+            format: "%.0f%%", participant.objectiveParticipationPercentage)
+
         var prompt = """
             You are a League of Legends coach analyzing a single game for immediate improvement.
 
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
-            Result: \(gameResult) | KDA: \(kda) | CS: \(cs) | Duration: \(gameDuration)min\(rankContext)
+            Result: \(gameResult) | KDA: \(kda) | Duration: \(gameDuration)min\(rankContext)
             \(teamContext)
+
+            **PERFORMANCE METRICS:**
+            - CS: \(cs) total (\(csPerMin)/min)
+            - Vision: \(visionPerMin)/min
+            - Kill Participation: \(killParticipation)
+            - Team Damage: \(teamDamage)
+            - Gold/min: \(goldPerMin)
+            - Objective Participation: \(objectiveParticipation)
             """
 
         // Add lane opponent information if available

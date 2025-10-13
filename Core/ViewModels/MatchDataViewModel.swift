@@ -360,10 +360,10 @@ public class MatchDataViewModel {
             )
 
             let key = kpiCacheKey(matches: matches, role: role)
-            
+
             // Sort KPIs by priority (worst performing first)
             let sortedKPIs = roleKPIs.sorted { $0.sortPriority < $1.sortPriority }
-            
+
             kpiCache[key] = sortedKPIs
             kpiMetrics = sortedKPIs
 
@@ -599,7 +599,7 @@ public struct KPIMetric {
     public var formattedValue: String {
         return value
     }
-    
+
     /// Priority for sorting KPIs (lower number = higher priority = shown first)
     /// KPIs that need improvement are shown first, then good, then excellent
     public var sortPriority: Int {
@@ -610,7 +610,7 @@ public struct KPIMetric {
         case .good: performancePriority = 1
         case .excellent: performancePriority = 2
         }
-        
+
         // Metric type priority (within same performance level)
         let metricPriority: Int
         switch metric {
@@ -621,7 +621,7 @@ public struct KPIMetric {
         case "objective_participation_pct": metricPriority = 4  // Objectives
         default: metricPriority = 5
         }
-        
+
         // Combine priorities: performance level is primary, metric type is secondary
         return (performancePriority * 10) + metricPriority
     }
