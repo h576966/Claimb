@@ -638,28 +638,30 @@ struct CoachingView: View {
                     )
             )
 
-            // Champion Info - Compact and information-dense
+            // Champion Info - Simplified
             VStack(alignment: .leading, spacing: 4) {
-                // Champion Name
-                Text(participant.champion?.name ?? "Unknown Champion")
-                    .font(DesignSystem.Typography.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .lineLimit(1)
-
-                // Role • Result • Duration
+                // Champion Name • Role
                 HStack(spacing: DesignSystem.Spacing.xs) {
+                    Text(participant.champion?.name ?? "Unknown Champion")
+                        .font(DesignSystem.Typography.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .lineLimit(1)
+
+                    Text("•")
+                        .font(DesignSystem.Typography.title2)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+
                     Text(
                         RoleUtils.displayName(
                             for: RoleUtils.normalizeRole(teamPosition: participant.teamPosition))
                     )
-                    .font(DesignSystem.Typography.caption)
+                    .font(DesignSystem.Typography.title3)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
 
-                    Text("•")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
+                // Result • Duration
+                HStack(spacing: DesignSystem.Spacing.xs) {
                     Text(participant.win ? "Victory" : "Defeat")
                         .font(DesignSystem.Typography.caption)
                         .fontWeight(.semibold)
@@ -677,71 +679,15 @@ struct CoachingView: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
 
-                // KDA and CS in a compact row
-                HStack(spacing: DesignSystem.Spacing.sm) {
-                    // KDA
-                    HStack(spacing: 2) {
-                        Text("KDA:")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                        Text("\(participant.kills)/\(participant.deaths)/\(participant.assists)")
-                            .font(DesignSystem.Typography.callout)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                    }
-
-                    Text("•")
+                // KDA only
+                HStack(spacing: 2) {
+                    Text("KDA:")
                         .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    // CS
-                    HStack(spacing: 2) {
-                        Text("CS:")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                        Text(String(format: "%.1f", participant.csPerMinute))
-                            .font(DesignSystem.Typography.callout)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        Text("/min")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                    }
-                }
-
-                // Vision Score and KDA ratio
-                HStack(spacing: DesignSystem.Spacing.sm) {
-                    // Vision Score
-                    HStack(spacing: 2) {
-                        Image(systemName: "eye.fill")
-                            .font(.caption2)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                        Text(String(format: "%.1f", participant.visionScorePerMinute))
-                            .font(DesignSystem.Typography.callout)
-                            .fontWeight(.semibold)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                    }
-
-                    Text("•")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-
-                    // KDA Ratio
-                    HStack(spacing: 2) {
-                        Text("Ratio:")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                        Text(String(format: "%.1f", participant.kda))
-                            .font(DesignSystem.Typography.callout)
-                            .fontWeight(.semibold)
-                            .foregroundColor(
-                                participant.kda >= 3.0
-                                    ? DesignSystem.Colors.accent
-                                    : participant.kda >= 2.0
-                                        ? DesignSystem.Colors.white
-                                        : DesignSystem.Colors.textSecondary
-                            )
-                    }
+                        .foregroundColor(DesignSystem.Colors.textTertiary)
+                    Text("\(participant.kills)/\(participant.deaths)/\(participant.assists)")
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
                 }
             }
 
