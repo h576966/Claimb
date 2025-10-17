@@ -399,56 +399,6 @@ struct ExpandableChampionStatsCard: View {
     }
 }
 
-struct StatItemView: View {
-    let title: String
-    let value: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.xs) {
-            Text(value)
-                .font(DesignSystem.Typography.bodyBold)
-                .foregroundColor(color)
-
-            Text(title)
-                .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, DesignSystem.Spacing.sm)
-        .background(DesignSystem.Colors.cardBackground.opacity(0.5))
-        .cornerRadius(DesignSystem.CornerRadius.small)
-    }
-}
-
-struct ChampionCard: View {
-    let champion: Champion
-
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.sm) {
-            // Champion Image Placeholder
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .fill(DesignSystem.Colors.cardBackground)
-                .frame(width: 60, height: 60)
-                .overlay(
-                    Image(systemName: "person.circle")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                )
-
-            // Champion Name
-            Text(champion.name)
-                .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-                .lineLimit(1)
-                .multilineTextAlignment(.center)
-        }
-        .padding(DesignSystem.Spacing.sm)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.medium)
-    }
-}
-
 #Preview {
     let modelContainer = try! ModelContainer(
         for: Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self)
