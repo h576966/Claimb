@@ -107,8 +107,7 @@ struct LoginView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 120, height: 120)
-                    .background(DesignSystem.Colors.background)
-                    .cornerRadius(DesignSystem.CornerRadius.medium)
+                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
 
                 VStack(spacing: DesignSystem.Spacing.sm) {
                     Text("Claimb")
@@ -248,7 +247,9 @@ struct LoginView: View {
                         .frame(height: 56)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .background(isValidInput ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground)
+                .background(
+                    isValidInput ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground
+                )
                 .foregroundColor(DesignSystem.Colors.white)
                 .cornerRadius(DesignSystem.CornerRadius.small)
                 .disabled(!isValidInput)

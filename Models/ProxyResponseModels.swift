@@ -10,45 +10,6 @@
 
 import Foundation
 
-// MARK: - Timeline Response Models
-
-/// Response from timeline-lite endpoint
-struct TimelineLiteResponse: Codable {
-    let matchId: String
-    let region: String
-    let puuid: String
-    let participantId: Int
-    let checkpoints: Checkpoints
-    let timings: Timings
-    let platesPre14: Int
-}
-
-/// Timeline checkpoints at specific time intervals
-struct Checkpoints: Codable {
-    let tenMin: Checkpoint
-    let fifteenMin: Checkpoint
-
-    enum CodingKeys: String, CodingKey {
-        case tenMin = "10min"
-        case fifteenMin = "15min"
-    }
-}
-
-/// Individual checkpoint with player stats
-struct Checkpoint: Codable {
-    let cs: Int
-    let gold: Int
-    let xp: Int
-    let kda: String
-}
-
-/// Early game timing events
-struct Timings: Codable {
-    let firstBackMin: Int?
-    let firstKillMin: Int?
-    let firstDeathMin: Int?
-}
-
 // MARK: - League Response Models
 
 /// Response from league-entries endpoint

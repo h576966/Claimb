@@ -52,17 +52,15 @@ public class OpenAIService {
             userParticipant: participant
         )
 
-        // Try to get timeline data for enhanced analysis
-        let timelineData = await fetchTimelineData(matchId: match.matchId, puuid: summoner.puuid)
-
         // Create prompt using PromptBuilder
+        // Note: Timeline data feature removed to simplify codebase
         let prompt = CoachingPromptBuilder.createPostGamePrompt(
             match: match,
             participant: participant,
             summoner: summoner,
             championName: championName,
             role: role,
-            timelineData: timelineData,
+            timelineData: nil,  // Timeline feature removed
             laneOpponent: laneOpponent,
             teamContext: teamContext
         )
@@ -175,34 +173,6 @@ public class OpenAIService {
     }
 
     // MARK: - Private Helper Methods
-
-    /// Fetches timeline data for a match (with graceful fallback)
-    private func fetchTimelineData(matchId: String, puuid: String) async -> String? {
-        do {
-            let proxyService = ProxyService()
-            let timelineData = try await proxyService.riotTimelineLite(
-                matchId: matchId,
-                puuid: puuid,
-                region: "europe"
-            )
-            ClaimbLogger.info(
-                "Retrieved timeline data for post-game analysis",
-                service: "OpenAIService",
-                metadata: [
-                    "matchId": matchId,
-                    "timelineLength": String(timelineData.count),
-                ]
-            )
-            return timelineData
-        } catch {
-            ClaimbLogger.warning(
-                "Failed to retrieve timeline data, proceeding without it",
-                service: "OpenAIService",
-                metadata: ["matchId": matchId, "error": error.localizedDescription]
-            )
-            return nil
-        }
-    }
 
     /// Extracts lane opponent and team context information
     private func extractLaneContext(
