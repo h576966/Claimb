@@ -46,18 +46,14 @@ struct MainTabView: View {
         .accentColor(DesignSystem.Colors.primary)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    showLogoutConfirmation = true
-                }) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(summoner.gameName)
-                            .font(DesignSystem.Typography.title3)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(summoner.gameName)
+                        .font(DesignSystem.Typography.title3)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
 
-                        Text("#\(summoner.tagLine)")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                    }
+                    Text("#\(summoner.tagLine)")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
 

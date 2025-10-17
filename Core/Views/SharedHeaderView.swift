@@ -9,7 +9,6 @@ import SwiftUI
 
 struct SharedHeaderView: View {
     let summoner: Summoner
-    let title: String
     let actionButton: ActionButton?
     let onLogout: (() -> Void)?
 
@@ -25,12 +24,10 @@ struct SharedHeaderView: View {
 
     init(
         summoner: Summoner,
-        title: String,
         actionButton: ActionButton? = nil,
         onLogout: (() -> Void)? = nil
     ) {
         self.summoner = summoner
-        self.title = title
         self.actionButton = actionButton
         self.onLogout = onLogout
     }
@@ -140,7 +137,6 @@ struct SharedHeaderView: View {
     return VStack(spacing: 0) {
         SharedHeaderView(
             summoner: summoner,
-            title: "Champion Pool",
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",

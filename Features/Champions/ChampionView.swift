@@ -109,7 +109,6 @@ struct ChampionView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            title: "Champion Pool",
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",

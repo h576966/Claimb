@@ -255,7 +255,6 @@ struct PerformanceView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            title: "Performance",
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",

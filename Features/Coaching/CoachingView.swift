@@ -502,7 +502,6 @@ struct CoachingView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            title: "Coaching",
             actionButton: SharedHeaderView.ActionButton(
                 title: "Refresh",
                 icon: "arrow.clockwise",
