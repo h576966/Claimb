@@ -75,6 +75,7 @@ Claimb is a **local-first** companion app for League designed for iPhone users w
 - **Performance Optimizations**: Static JSON loading over database queries
 - **Secure API Management**: Server-side API key management with JWT authentication
 - **Rank System Integration**: Solo/Duo and Flex rank tracking with League-V4 API integration
+- **Baseline-Aware Coaching**: Post-game analysis now includes CS/deaths/vision baseline context (October 2025)
 
 ## 🏗️ **Current Implementation Status**
 
