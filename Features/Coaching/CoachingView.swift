@@ -38,11 +38,9 @@ class CoachingViewModel {
 
     // MARK: - State
     var isAnalyzing = false
-    var coachingResponse: CoachingResponse?
-    var coachingError: String = ""
     var matchState: UIState<[Match]> = .idle
 
-    // MARK: - New Dual-Focused Coaching State
+    // MARK: - Dual-Focused Coaching State
     var postGameAnalysis: PostGameAnalysis?
     var performanceSummary: PerformanceSummary?
     var postGameError: String = ""
@@ -97,67 +95,6 @@ class CoachingViewModel {
                 "Failed to load matches for coaching", service: "CoachingViewModel",
                 error: error)
         }
-    }
-
-    func analyzePerformance(primaryRole: String) async {
-        guard case .loaded(let matches) = matchState, !matches.isEmpty else {
-            coachingError = "No matches available for analysis"
-            return
-        }
-
-        isAnalyzing = true
-        coachingResponse = nil
-        coachingError = ""
-
-        do {
-            let recentMatches = Array(matches.prefix(20))
-
-            ClaimbLogger.info(
-                "Starting legacy coaching analysis", service: "CoachingViewModel",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "role": primaryRole,
-                    "matchCount": String(recentMatches.count),
-                ])
-
-            // Use new methods instead of deprecated generateCoachingInsights
-            // Generate both post-game analysis and performance summary
-            let mostRecentMatch = recentMatches[0]
-
-            // Generate post-game analysis for the most recent match
-            let postGameAnalysis = try await openAIService.generatePostGameAnalysis(
-                match: mostRecentMatch,
-                summoner: summoner,
-                kpiService: kpiService
-            )
-
-            // Generate performance summary for recent matches
-            let performanceSummary = try await openAIService.generatePerformanceSummary(
-                matches: recentMatches,
-                summoner: summoner,
-                primaryRole: primaryRole,
-                kpiService: kpiService
-            )
-
-            // Update the new coaching state
-            self.postGameAnalysis = postGameAnalysis
-            self.performanceSummary = performanceSummary
-
-            ClaimbLogger.info(
-                "Legacy coaching analysis completed", service: "CoachingViewModel",
-                metadata: [
-                    "summoner": summoner.gameName,
-                    "role": primaryRole,
-                ])
-
-        } catch {
-            coachingError = ErrorHandler.userFriendlyMessage(for: error)
-            ClaimbLogger.error(
-                "Legacy coaching analysis failed", service: "CoachingViewModel",
-                error: error)
-        }
-
-        isAnalyzing = false
     }
 
     var hasMatches: Bool {
@@ -568,13 +505,6 @@ struct CoachingView: View {
                     } else {
                         summaryCard()
                     }
-
-                    // Legacy coaching insights (for backward compatibility)
-                    if let response = viewModel?.coachingResponse {
-                        legacyCoachingInsightsCard(response: response)
-                    } else if let error = viewModel?.coachingError, !error.isEmpty {
-                        coachingErrorCard
-                    }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.bottom, DesignSystem.Spacing.xl)
@@ -694,69 +624,7 @@ struct CoachingView: View {
         }
     }
 
-    private func legacyCoachingInsightsCard(response: CoachingResponse) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-            // Header with Overall Score
-            HStack {
-                Text("AI Coaching Analysis")
-                    .font(DesignSystem.Typography.title3)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-
-                Spacer()
-
-                // Overall Score (legacy)
-                HStack(spacing: DesignSystem.Spacing.sm) {
-                    Text("\(response.analysis.overallScore)/10")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.primary)
-                    Text("Score")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-            }
-
-            // Summary
-            Text(response.summary)
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            // Strengths & Improvements
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                if !response.analysis.strengths.isEmpty {
-                    strengthsSection(strengths: response.analysis.strengths)
-                }
-
-                if !response.analysis.improvements.isEmpty {
-                    improvementsSection(improvements: response.analysis.improvements)
-                }
-            }
-
-            // Actionable Tips
-            if !response.analysis.actionableTips.isEmpty {
-                actionableTipsSection(tips: response.analysis.actionableTips)
-            }
-
-            // Priority Focus
-            if !response.analysis.priorityFocus.isEmpty {
-                priorityFocusSection(focus: response.analysis.priorityFocus)
-            }
-
-            // Champion Advice
-            if !response.analysis.championAdvice.isEmpty {
-                championAdviceSection(advice: response.analysis.championAdvice)
-            }
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.medium)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-        )
-    }
-
-    // MARK: - New Dual-Focused Coaching Cards
+    // MARK: - Dual-Focused Coaching Cards
 
     private func postGameAnalysisCard() -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
@@ -1080,42 +948,6 @@ struct CoachingView: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
                 .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
         )
-    }
-
-    private var coachingErrorCard: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(DesignSystem.Typography.title)
-                .foregroundColor(DesignSystem.Colors.error)
-
-            Text("Analysis Failed")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-
-            Text(viewModel?.coachingError ?? "Unknown error")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Try Again") {
-                Task { await analyzePerformance() }
-            }
-            .buttonStyle(ClaimbButtonStyle())
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .background(DesignSystem.Colors.cardBackground)
-        .cornerRadius(DesignSystem.CornerRadius.medium)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-        )
-    }
-
-    private func analyzePerformance() async {
-        guard let viewModel = viewModel else { return }
-
-        let primaryRole = userSession.selectedPrimaryRole
-        await viewModel.analyzePerformance(primaryRole: primaryRole)
     }
 
     private func initializeViewModel() {
