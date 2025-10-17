@@ -51,6 +51,13 @@ public class OpenAIService {
             match: match,
             userParticipant: participant
         )
+        
+        // Get baseline context for key metrics (simple approach - no complex formatting)
+        let baselineContext = await fetchBaselineContext(
+            for: participant,
+            role: role,
+            dataManager: kpiService.dataManager
+        )
 
         // Create prompt using PromptBuilder
         // Note: Timeline data feature removed to simplify codebase
@@ -62,7 +69,8 @@ public class OpenAIService {
             role: role,
             timelineData: nil,  // Timeline feature removed
             laneOpponent: laneOpponent,
-            teamContext: teamContext
+            teamContext: teamContext,
+            baselineContext: baselineContext
         )
 
         // Make API request through proxy
@@ -210,6 +218,64 @@ public class OpenAIService {
             """
 
         return (laneOpponentInfo, teamContext)
+    }
+    
+    /// Fetches baseline context for key performance metrics
+    /// Keeps it simple - only CS, Deaths, Vision for post-game focus
+    private func fetchBaselineContext(
+        for participant: Participant,
+        role: String,
+        dataManager: DataManager
+    ) async -> String? {
+        // Map role to baseline format
+        let baselineRole: String
+        switch role.uppercased() {
+        case "MID": baselineRole = "MIDDLE"
+        case "ADC": baselineRole = "BOTTOM"
+        case "SUPPORT": baselineRole = "UTILITY"
+        default: baselineRole = role.uppercased()
+        }
+        
+        var context = ""
+        var hasAnyBaseline = false
+        
+        // Only fetch baselines for CS-eligible roles
+        let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
+        if csEligibleRoles.contains(baselineRole) {
+            if let csBaseline = try? await dataManager.getBaseline(
+                role: baselineRole, classTag: "ALL", metric: "cs_per_min"
+            ) {
+                hasAnyBaseline = true
+                let playerCS = participant.csPerMinute
+                let target = csBaseline.p60
+                let status = playerCS >= target ? "above target" : "below target"
+                context += "CS/min: \(String(format: "%.1f", playerCS)) (\(status), target: \(String(format: "%.1f", target))) | "
+            }
+        }
+        
+        // Deaths baseline (lower is better)
+        if let deathsBaseline = try? await dataManager.getBaseline(
+            role: baselineRole, classTag: "ALL", metric: "deaths_per_game"
+        ) {
+            hasAnyBaseline = true
+            let playerDeaths = Double(participant.deaths)
+            let target = deathsBaseline.p40  // Lower is better, so p40 is the good target
+            let status = playerDeaths <= target ? "good" : "high"
+            context += "Deaths: \(Int(playerDeaths)) (\(status), target: ≤\(String(format: "%.1f", target))) | "
+        }
+        
+        // Vision baseline
+        if let visionBaseline = try? await dataManager.getBaseline(
+            role: baselineRole, classTag: "ALL", metric: "vision_score_per_min"
+        ) {
+            hasAnyBaseline = true
+            let playerVision = participant.visionScorePerMinute
+            let target = visionBaseline.p60
+            let status = playerVision >= target ? "above target" : "below target"
+            context += "Vision/min: \(String(format: "%.1f", playerVision)) (\(status), target: \(String(format: "%.1f", target)))"
+        }
+        
+        return hasAnyBaseline ? context : nil
     }
 }
 

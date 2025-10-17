@@ -12,7 +12,7 @@ import SwiftUI
 /// Service responsible for calculating KPI metrics and performance levels
 @MainActor
 public class KPICalculationService {
-    private let dataManager: DataManager
+    internal let dataManager: DataManager
 
     public init(dataManager: DataManager) {
         self.dataManager = dataManager

@@ -21,7 +21,8 @@ public struct CoachingPromptBuilder {
         role: String,
         timelineData: String?,
         laneOpponent: String?,
-        teamContext: String
+        teamContext: String,
+        baselineContext: String? = nil
     ) -> String {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
@@ -55,6 +56,16 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
+        
+        // Add baseline context if available (simple, focused comparison)
+        if let baseline = baselineContext {
+            prompt += """
+
+            **BASELINE COMPARISON:**
+            \(baseline)
+            Note: Use these targets as context for improvement areas, not as strict goals to mention.
+            """
+        }
 
         // Add lane opponent information if available
         if let opponent = laneOpponent {
