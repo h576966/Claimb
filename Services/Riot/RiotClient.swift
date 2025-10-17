@@ -13,12 +13,6 @@ public struct RiotAccountResponse: Codable {
     public let puuid: String
     public let gameName: String
     public let tagLine: String
-
-    public init(puuid: String, gameName: String, tagLine: String) {
-        self.puuid = puuid
-        self.gameName = gameName
-        self.tagLine = tagLine
-    }
 }
 
 public struct RiotSummonerResponse: Codable {
@@ -29,19 +23,6 @@ public struct RiotSummonerResponse: Codable {
     public let profileIconId: Int
     public let revisionDate: Int
     public let summonerLevel: Int
-
-    public init(
-        id: String, accountId: String, puuid: String, name: String,
-        profileIconId: Int, revisionDate: Int, summonerLevel: Int
-    ) {
-        self.id = id
-        self.accountId = accountId
-        self.puuid = puuid
-        self.name = name
-        self.profileIconId = profileIconId
-        self.revisionDate = revisionDate
-        self.summonerLevel = summonerLevel
-    }
 
     // Custom decoder to handle missing fields
     public init(from decoder: Decoder) throws {
@@ -141,10 +122,6 @@ public protocol RiotClient {
 
     /// Get detailed match information
     func getMatch(matchId: String, region: String) async throws -> Data
-
-    /// Get league entries (rank data) by summoner ID
-    func getLeagueEntries(summonerId: String, region: String) async throws
-        -> RiotLeagueEntriesResponse
 
     /// Get league entries (rank data) by PUUID
     func getLeagueEntriesByPUUID(puuid: String, region: String) async throws

@@ -28,6 +28,7 @@
 		F31B71FB2E7DEFEF003C0FF7 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3285CA22E8BB18F00651B0E /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3288AD42E84739B0073DB01 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F35022E72EA2036E003C4354 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F353A01C2E897C4C0073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F353B8972E87FA5300046F0B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -123,6 +124,11 @@
 			sourceTree = "<group>";
 		};
 		F3288AD82E84739B0073DB01 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F35022EC2EA2036E003C4354 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -358,8 +364,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
-					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
+					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
+					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F3E629842E7AAA6700DF2F2D /* Products */;
@@ -410,6 +416,10 @@
 					ProjectRef = F35F16462E95BF1500E1DD47 /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F35022EC2EA2036E003C4354 /* Products */;
+					ProjectRef = F35022E72EA2036E003C4354 /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F36F09B92E7AADC000B06E02 /* Products */;
 					ProjectRef = F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */;
 				},
@@ -450,12 +460,12 @@
 					ProjectRef = F3B89FC82E8DD0E6007AAF06 /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
-					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
+					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
+					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
-					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
+					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
+					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";

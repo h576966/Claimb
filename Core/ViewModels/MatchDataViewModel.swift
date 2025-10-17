@@ -125,11 +125,6 @@ public class MatchDataViewModel {
         await currentTask?.value
     }
 
-    /// Loads matches and calculates role statistics (legacy method for compatibility)
-    public func loadMatches(limit: Int = 100) async {
-        await loadAllData(limit: limit)
-    }
-
     /// Refreshes matches from the API and recalculates role statistics
     public func refreshMatches() async {
         // Cancel any existing task
@@ -171,7 +166,7 @@ public class MatchDataViewModel {
 
             if case .loaded = result {
                 // Reload matches after clearing cache
-                await loadMatches()
+                await loadAllData()
             }
         }
 

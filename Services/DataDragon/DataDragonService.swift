@@ -107,17 +107,6 @@ public struct DataDragonChampion: Codable {
     public let title: String
     public let image: DataDragonImage
     public let tags: [String]
-
-    public init(
-        id: String, key: String, name: String, title: String, image: DataDragonImage, tags: [String]
-    ) {
-        self.id = id
-        self.key = key
-        self.name = name
-        self.title = title
-        self.image = image
-        self.tags = tags
-    }
 }
 
 public struct DataDragonImage: Codable {
@@ -128,16 +117,6 @@ public struct DataDragonImage: Codable {
     public let y: Int
     public let w: Int
     public let h: Int
-
-    public init(full: String, sprite: String, group: String, x: Int, y: Int, w: Int, h: Int) {
-        self.full = full
-        self.sprite = sprite
-        self.group = group
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-    }
 }
 
 // MARK: - Errors

@@ -75,29 +75,15 @@ struct MainTabView: View {
             Text("Are you sure you want to logout?")
         }
         .onAppear {
-            // Refresh rank data for existing summoner
+            // Refresh rank data if stale (uses smart caching)
             Task {
-                await refreshSummonerRanks()
+                await userSession.refreshRanksIfNeeded()
             }
         }
     }
 
     private func logout() {
         userSession.logout()
-    }
-
-    private func refreshSummonerRanks() async {
-        let dataManager = DataManager.shared(with: userSession.modelContext)
-        let result = await dataManager.refreshSummonerRanks(for: summoner)
-
-        switch result {
-        case .loaded:
-            ClaimbLogger.info("Successfully refreshed rank data", service: "MainTabView")
-        case .error(let error):
-            ClaimbLogger.error("Failed to refresh rank data", service: "MainTabView", error: error)
-        default:
-            break
-        }
     }
 }
 

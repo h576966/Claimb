@@ -226,6 +226,63 @@ public class UserSession {
         NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
     }
 
+    /// Refreshes rank data if it's stale (older than 5 minutes)
+    /// This consolidates rank refresh logic and prevents unnecessary API calls
+    public func refreshRanksIfNeeded() async {
+        guard let summoner = currentSummoner else {
+            ClaimbLogger.debug("No summoner to refresh ranks for", service: "UserSession")
+            return
+        }
+
+        // Only refresh if ranks are stale (> 5 minutes)
+        let timeSinceLastUpdate = Date().timeIntervalSince(summoner.lastUpdated)
+        let refreshThreshold: TimeInterval = 5 * 60  // 5 minutes
+
+        guard timeSinceLastUpdate > refreshThreshold else {
+            ClaimbLogger.debug(
+                "Ranks are fresh, skipping refresh",
+                service: "UserSession",
+                metadata: [
+                    "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+                    "threshold": String(Int(refreshThreshold)),
+                ])
+            return
+        }
+
+        ClaimbLogger.info(
+            "Refreshing rank data",
+            service: "UserSession",
+            metadata: [
+                "summoner": summoner.gameName,
+                "timeSinceLastUpdate": String(Int(timeSinceLastUpdate)),
+            ])
+
+        let dataManager = DataManager.shared(with: modelContext)
+        let result = await dataManager.refreshSummonerRanks(for: summoner)
+
+        switch result {
+        case .loaded:
+            ClaimbLogger.info(
+                "Rank refresh completed successfully",
+                service: "UserSession",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "soloDuoRank": summoner.soloDuoRank ?? "Unranked",
+                    "flexRank": summoner.flexRank ?? "Unranked",
+                ])
+        case .error(let error):
+            ClaimbLogger.warning(
+                "Rank refresh failed, using cached data",
+                service: "UserSession",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "error": error.localizedDescription,
+                ])
+        case .loading, .idle, .empty:
+            break
+        }
+    }
+
     /// Logs out the user and clears all stored data
     public func logout() {
         ClaimbLogger.info("Logging out user", service: "UserSession")

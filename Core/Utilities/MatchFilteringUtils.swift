@@ -46,42 +46,6 @@ public struct MatchFilteringUtils {
         return Int(date.timeIntervalSince1970)  // Keep as seconds for edge function
     }
 
-    // MARK: - Smart Fetching Strategy
-
-    /// Determines the optimal fetching strategy based on available data
-    public static func determineFetchStrategy(
-        existingMatchCount: Int,
-        hasRecentRankedGames: Bool
-    ) -> FetchStrategy {
-        // If we have enough matches, use incremental refresh
-        if existingMatchCount >= 50 {
-            return .incrementalRefresh
-        }
-
-        // If we have some matches but not enough, try ranked first
-        if existingMatchCount > 0 {
-            return .rankedFirst
-        }
-
-        // For new users, try ranked first, fallback to normal if needed
-        return .rankedFirst
-    }
-
-    // MARK: - Match ID Filtering
-
-    /// Pre-filters match IDs based on basic criteria (before fetching full match data)
-    /// This is a lightweight check that can be done on match IDs alone
-    public static func isRelevantMatchId(_ matchId: String) -> Bool {
-        // Basic validation - match IDs should be numeric strings
-        guard matchId.allSatisfy({ $0.isNumber }) else {
-            return false
-        }
-
-        // Additional lightweight checks could go here
-        // For now, we rely on API-level filtering and post-processing
-        return true
-    }
-
     // MARK: - Queue Type Helpers
 
     /// Gets the display name for a queue ID
@@ -109,9 +73,6 @@ public struct MatchFilteringUtils {
 /// Fetching strategies for match data
 public enum FetchStrategy {
     case rankedFirst  // Try ranked games first, fallback to normal if needed
-    case normalOnly  // Fetch only normal draft games
-    case incrementalRefresh  // Fetch only new matches since last update
-    case fullRefresh  // Fetch all matches (for new users or major updates)
 }
 
 /// Result of a smart fetch operation

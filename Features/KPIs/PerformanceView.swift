@@ -228,7 +228,7 @@ struct PerformanceView: View {
         }
         .task(id: refreshTrigger) {
             await matchDataViewModel?.loadAllData()
-            await refreshSummonerRanks()
+            await userSession.refreshRanksIfNeeded()
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
@@ -406,28 +406,6 @@ struct PerformanceView: View {
         }
     }
 
-    private func refreshSummonerRanks() async {
-        ClaimbLogger.info("Starting rank refresh from PerformanceView", service: "PerformanceView")
-
-        let dataManager = DataManager.shared(with: modelContext)
-        let result = await dataManager.refreshSummonerRanks(for: summoner)
-
-        switch result {
-        case .loaded:
-            ClaimbLogger.info(
-                "Successfully refreshed rank data", service: "PerformanceView",
-                metadata: [
-                    "soloDuoRank": summoner.soloDuoRank ?? "nil",
-                    "flexRank": summoner.flexRank ?? "nil",
-                ])
-        case .error(let error):
-            ClaimbLogger.error(
-                "Failed to refresh rank data", service: "PerformanceView", error: error)
-        default:
-            ClaimbLogger.debug("Rank refresh returned unexpected state", service: "PerformanceView")
-            break
-        }
-    }
 }
 
 #Preview {

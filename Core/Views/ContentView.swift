@@ -11,7 +11,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var userSession: UserSession?
-    @State private var refreshTrigger = false
+    @State private var refreshTrigger = 0
 
     var body: some View {
         Group {
@@ -60,7 +60,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("UserSessionDidChange"))) { _ in
             ClaimbLogger.debug("Received UserSessionDidChange notification", service: "ContentView")
-            refreshTrigger.toggle()
+            refreshTrigger += 1
         }
     }
 }
