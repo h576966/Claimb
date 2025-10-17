@@ -40,12 +40,15 @@ public struct CoachingPromptBuilder {
         let objectiveParticipation = String(
             format: "%.0f%%", participant.objectiveParticipationPercentage)
 
+        // Add queue context for coaching relevance
+        let queueContext = match.isRanked ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
+        
         var prompt = """
             You are a League of Legends coach analyzing a single game for immediate improvement.
 
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
-            Result: \(gameResult) | KDA: \(kda) | Duration: \(gameDuration)min\(rankContext)
+            Result: \(gameResult) | KDA: \(kda) | Duration: \(gameDuration)min\(queueContext)\(rankContext)
             \(teamContext)
 
             **PERFORMANCE METRICS:**

@@ -20,12 +20,15 @@ public class KPICalculationService {
 
     // MARK: - Public Methods
 
-    /// Calculates diversity metrics for coaching analysis (last 10 games)
+    /// Calculates diversity metrics for coaching analysis (last 10 ranked games only)
+    /// Only ranked matches are considered for accurate competitive consistency assessment
     func calculateDiversityMetrics(
         matches: [Match],
         summoner: Summoner
     ) -> (roleCount: Int, championCount: Int) {
-        let recentMatches = Array(matches.prefix(10))
+        // Filter for ranked matches only - normals shouldn't affect consistency metrics
+        let rankedMatches = matches.filter { $0.isRanked }
+        let recentMatches = Array(rankedMatches.prefix(10))
 
         guard !recentMatches.isEmpty else { return (0, 0) }
 
@@ -44,11 +47,12 @@ public class KPICalculationService {
         let uniqueChampions = Set(allParticipants.map { $0.championId }).count
 
         ClaimbLogger.debug(
-            "Diversity Metrics Calculated", service: "KPICalculationService",
+            "Diversity Metrics Calculated (Ranked Only)", service: "KPICalculationService",
             metadata: [
                 "roleCount": String(uniqueRoles),
                 "championCount": String(uniqueChampions),
-                "totalGames": String(recentMatches.count),
+                "rankedGames": String(recentMatches.count),
+                "totalGames": String(matches.prefix(10).count),
             ])
 
         return (uniqueRoles, uniqueChampions)
