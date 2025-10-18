@@ -82,6 +82,7 @@ public class OpenAIService {
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             temperature: 0.3,  // Lower temperature for more consistent coaching
+            responseFormat: ["type": "json_object"],  // Enforce valid JSON response
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
@@ -166,6 +167,7 @@ public class OpenAIService {
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             temperature: 0.3,  // Lower temperature for more consistent coaching
+            responseFormat: ["type": "json_object"],  // Enforce valid JSON response
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
