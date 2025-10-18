@@ -666,21 +666,21 @@ public class ProxyService {
             "Proxy: ai/coach", statusCode: httpResponse.statusCode, service: "ProxyService")
 
         guard httpResponse.statusCode == 200 else {
-            // Log the error response body for 400 errors
-            if httpResponse.statusCode == 400 {
-                if let errorBody = String(data: data, encoding: .utf8) {
-                    ClaimbLogger.error(
-                        "Proxy: AI coach returned 400 Bad Request",
-                        service: "ProxyService",
-                        metadata: [
-                            "statusCode": "400",
-                            "errorBody": errorBody,
-                            "requestModel": model,
-                            "requestTokens": String(maxOutputTokens),
-                            "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
-                        ]
-                    )
-                }
+            // Log the error response body for all error status codes
+            if let errorBody = String(data: data, encoding: .utf8) {
+                ClaimbLogger.error(
+                    "Proxy: AI coach returned error",
+                    service: "ProxyService",
+                    metadata: [
+                        "statusCode": String(httpResponse.statusCode),
+                        "errorBody": String(errorBody.prefix(500)),  // Limit to 500 chars
+                        "requestModel": model,
+                        "requestTokens": String(maxOutputTokens),
+                        "hasSystem": system != nil ? "true" : "false",
+                        "hasResponseFormat": responseFormat != nil ? "true" : "false",
+                        "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
+                    ]
+                )
             }
             throw ProxyError.httpError(httpResponse.statusCode)
         }
