@@ -231,14 +231,8 @@ public class OpenAIService {
         role: String,
         dataManager: DataManager
     ) async -> String? {
-        // Map role to baseline format
-        let baselineRole: String
-        switch role.uppercased() {
-        case "MID": baselineRole = "MIDDLE"
-        case "ADC": baselineRole = "BOTTOM"
-        case "SUPPORT": baselineRole = "UTILITY"
-        default: baselineRole = role.uppercased()
-        }
+        // Map role to baseline format using centralized utility
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
         
         var context = ""
         var hasAnyBaseline = false

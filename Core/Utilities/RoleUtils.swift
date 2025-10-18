@@ -80,14 +80,22 @@ struct RoleUtils {
         return validRoles.contains(role.uppercased())
     }
 
-    /// Converts normalized role names to baseline role names
+    /// Converts normalized role names (and common variants) to baseline role names used in database
+    /// Handles: normalized names (MID, BOTTOM, SUPPORT, TOP, JUNGLE)
+    ///         + Riot API names (MIDDLE, UTILITY)
+    ///         + alternate names (ADC, BOT)
     public static func normalizedRoleToBaselineRole(_ role: String) -> String {
         switch role.uppercased() {
-        case "MID": return "MIDDLE"
-        case "BOTTOM": return "BOTTOM"
+        // Mid lane
+        case "MID", "MIDDLE", "SOLO": return "MIDDLE"
+        // Bot lane (ADC)
+        case "BOTTOM", "BOT", "ADC": return "BOTTOM"
+        // Support
+        case "SUPPORT", "UTILITY": return "UTILITY"
+        // Top lane
         case "TOP": return "TOP"
+        // Jungle
         case "JUNGLE": return "JUNGLE"
-        case "SUPPORT": return "UTILITY"
         default: return role.uppercased()
         }
     }

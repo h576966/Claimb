@@ -20,44 +20,6 @@ public class KPICalculationService {
 
     // MARK: - Public Methods
 
-    /// Calculates diversity metrics for coaching analysis (last 10 ranked games only)
-    /// Only ranked matches are considered for accurate competitive consistency assessment
-    func calculateDiversityMetrics(
-        matches: [Match],
-        summoner: Summoner
-    ) -> (roleCount: Int, championCount: Int) {
-        // Filter for ranked matches only - normals shouldn't affect consistency metrics
-        let rankedMatches = matches.filter { $0.isRanked }
-        let recentMatches = Array(rankedMatches.prefix(10))
-
-        guard !recentMatches.isEmpty else { return (0, 0) }
-
-        // Count unique roles
-        let uniqueRoles = Set(
-            recentMatches.compactMap { match in
-                match.participants.first(where: { $0.puuid == summoner.puuid })
-                    .map { RoleUtils.normalizeRole(teamPosition: $0.teamPosition) }
-            }
-        ).count
-
-        // Count unique champions
-        let allParticipants = recentMatches.compactMap { match in
-            match.participants.first(where: { $0.puuid == summoner.puuid })
-        }
-        let uniqueChampions = Set(allParticipants.map { $0.championId }).count
-
-        ClaimbLogger.debug(
-            "Diversity Metrics Calculated (Ranked Only)", service: "KPICalculationService",
-            metadata: [
-                "roleCount": String(uniqueRoles),
-                "championCount": String(uniqueChampions),
-                "rankedGames": String(recentMatches.count),
-                "totalGames": String(matches.prefix(10).count),
-            ])
-
-        return (uniqueRoles, uniqueChampions)
-    }
-
     /// Calculates all KPIs for a specific role and matches
     func calculateRoleKPIs(
         matches: [Match],
@@ -278,9 +240,9 @@ public class KPICalculationService {
     // MARK: - Helper Methods
 
     private func shouldIncludeCSPerMinute(for role: String) -> Bool {
-        let csEligibleRoles = ["MID", "MIDDLE", "ADC", "BOTTOM", "JUNGLE", "TOP"]
-        return csEligibleRoles.contains(role)
-            || csEligibleRoles.contains(mapRoleToBaselineFormat(role))
+        let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        return csEligibleRoles.contains(baselineRole)
     }
 
     private func createKPIMetric(
@@ -346,7 +308,7 @@ public class KPICalculationService {
     private func getBaselineForMetric(metric: String, role: String) async -> Baseline? {
         do {
             // Map role names to match baseline data format
-            let baselineRole = mapRoleToBaselineFormat(role)
+            let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
 
             // Try to get baseline for "ALL" class tag
             if let baseline = try await dataManager.getBaseline(
@@ -372,23 +334,6 @@ public class KPICalculationService {
                 "Failed to get baseline for \(metric) in \(role)", service: "KPICalculationService",
                 error: error)
             return nil
-        }
-    }
-
-    private func mapRoleToBaselineFormat(_ role: String) -> String {
-        switch role.uppercased() {
-        case "MID":
-            return "MIDDLE"
-        case "ADC":
-            return "BOTTOM"
-        case "SUPPORT":
-            return "UTILITY"
-        case "JUNGLE":
-            return "JUNGLE"
-        case "TOP":
-            return "TOP"
-        default:
-            return role.uppercased()
         }
     }
 

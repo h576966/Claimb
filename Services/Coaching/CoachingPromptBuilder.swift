@@ -49,22 +49,22 @@ public struct CoachingPromptBuilder {
         // SYSTEM PROMPT: Role, instructions, output format
         let systemPrompt = """
             You are Claimb's League of Legends coach. Analyze a single game for immediate, actionable improvement.
-            
+
             **Style:** Concise, concrete, and actionable. Avoid stats in parentheses.
-            
+
             **Output Format (JSON only, max 100 words):**
             {
               "keyTakeaways": ["3 actionable insights"],
               "championSpecificAdvice": "2 sentences: what worked, what didn't",
               "nextGameFocus": ["1 specific goal", "1 measurable target"]
             }
-            
+
             **CRITICAL:**
             - Respond with ONLY valid JSON. No markdown, no explanation, no text before/after.
             - If strong performance (Victory with good KDA/stats), START keyTakeaways with praise.
             - Use baseline comparisons to identify improvement areas, don't mention targets explicitly.
             """
-        
+
         // USER PROMPT: Game-specific data and context
         var userPrompt = """
             **GAME CONTEXT:**
@@ -85,27 +85,27 @@ public struct CoachingPromptBuilder {
         if let baseline = baselineContext {
             userPrompt += """
 
-            **BASELINE COMPARISON:**
-            \(baseline)
-            """
+                **BASELINE COMPARISON:**
+                \(baseline)
+                """
         }
 
         // Add lane opponent information if available
         if let opponent = laneOpponent {
             userPrompt += """
 
-            **LANE MATCHUP:**
-            \(championName) (\(role)) vs \(opponent)
-            """
+                **LANE MATCHUP:**
+                \(championName) (\(role)) vs \(opponent)
+                """
         }
 
         // Add timeline data if available
         if let timeline = timelineData {
             userPrompt += """
 
-            **TIMELINE:** \(timeline)
-            Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
-            """
+                **TIMELINE:** \(timeline)
+                Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
+                """
         }
 
         return (system: systemPrompt, user: userPrompt)
@@ -160,9 +160,9 @@ public struct CoachingPromptBuilder {
         // SYSTEM PROMPT: Role, instructions, output format
         let systemPrompt = """
             You are Claimb's League of Legends coach. Analyze performance trends to help the player climb in ranked.
-            
+
             **Style:** Concise, concrete, and actionable. Focus on patterns and consistency.
-            
+
             **Output Format (JSON only, max 120 words):**
             {
               "keyTrends": ["2 trends"],
@@ -172,19 +172,19 @@ public struct CoachingPromptBuilder {
               "strengthsToMaintain": ["2 strengths, concise"],
               "climbingAdvice": "2 sentences - consistency with proven champions"
             }
-            
+
             **CRITICAL:**
             - Respond with ONLY valid JSON. No markdown, no explanation, no text before/after.
             - Avoid stats in parentheses.
             """
-        
+
         // USER PROMPT: Player-specific data and trends
         let userPrompt = """
             **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
 
             \(detailedContext)\(championPoolContext)
             """
-        
+
         return (system: systemPrompt, user: userPrompt)
     }
 
