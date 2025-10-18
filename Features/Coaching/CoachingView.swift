@@ -728,6 +728,7 @@ struct CoachingView: View {
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func postGameEmptyContent() -> some View {
@@ -909,6 +910,7 @@ struct CoachingView: View {
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func summaryEmptyContent() -> some View {
