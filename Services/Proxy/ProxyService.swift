@@ -573,15 +573,16 @@ public class ProxyService {
 
     // MARK: - OpenAI API Methods
 
-    /// Generates AI coaching insights with enhanced parameters
+    /// Generates AI coaching insights using OpenAI Responses API
+    /// Note: Only gpt-5-mini is supported - uses Responses API format
     public func aiCoach(
         prompt: String,
         system: String? = nil,  // System prompt / instructions for better instruction following
-        model: String = "gpt-4o-mini",
+        model: String = "gpt-5-mini",  // Only gpt-5-mini supported (Responses API)
         maxOutputTokens: Int = 1000,
         temperature: Double? = nil,
-        textFormat: String? = nil,  // "json" for Responses API (gpt-5 models)
-        reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
+        textFormat: String? = nil,  // "json" for Responses API JSON enforcement
+        reasoningEffort: String? = nil  // "low", "medium", or "high" for gpt-5 reasoning
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
@@ -686,8 +687,8 @@ public class ProxyService {
             throw ProxyError.httpError(httpResponse.statusCode)
         }
 
-        // Support both legacy format and Responses API format
-        struct LegacyResponse: Decodable {
+        // Edge function response formats
+        struct SimpleWrapperResponse: Decodable {
             let text: String
             let model: String
         }
@@ -710,7 +711,7 @@ public class ProxyService {
         }
 
         do {
-            // First try Responses API format (for gpt-5-mini)
+            // First try Responses API format (gpt-5-mini only)
             if let responsesAPI = try? JSONDecoder().decode(ResponsesAPIFormat.self, from: data) {
                 // Try direct output_text field first
                 if let outputText = responsesAPI.output_text, !outputText.isEmpty {
@@ -753,10 +754,10 @@ public class ProxyService {
                     metadata: ["model": responsesAPI.model])
             }
 
-            // Fall back to legacy format (for gpt-4o-mini)
-            let response = try JSONDecoder().decode(LegacyResponse.self, from: data)
+            // Fall back to simple wrapper format
+            let response = try JSONDecoder().decode(SimpleWrapperResponse.self, from: data)
             ClaimbLogger.info(
-                "Proxy: Retrieved AI coaching response (Legacy format)", service: "ProxyService",
+                "Proxy: Retrieved AI coaching response (wrapper format)", service: "ProxyService",
                 metadata: ["responseLength": String(response.text.count), "model": response.model])
             return response.text
         } catch {
