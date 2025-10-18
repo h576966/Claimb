@@ -580,7 +580,7 @@ public class ProxyService {
         model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000,
         temperature: Double? = nil,
-        responseFormat: [String: Any]? = nil,  // Response format (e.g., {"type": "json_object"})
+        textFormat: String? = nil,  // "json" for Responses API (gpt-5 models)
         reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
@@ -604,9 +604,10 @@ public class ProxyService {
             requestBody["temperature"] = temperature
         }
         
-        // Add response format if provided (for JSON mode)
-        if let responseFormat = responseFormat {
-            requestBody["response_format"] = responseFormat
+        // Add text format for Responses API (gpt-5 models)
+        // Uses text.format instead of response_format for new API
+        if let textFormat = textFormat {
+            requestBody["text_format"] = textFormat  // Edge function maps to text: {format: "json"}
         }
 
         // Add reasoning effort for gpt-5 models (edge function accepts both formats)
@@ -626,7 +627,7 @@ public class ProxyService {
             {
                 let promptText = bodyDict["prompt"] as? String ?? ""
                 let systemText = bodyDict["system"] as? String ?? ""
-                let hasResponseFormat = bodyDict["response_format"] != nil
+                let textFormatValue = bodyDict["text_format"] as? String
                 ClaimbLogger.debug(
                     "AI Coach request body", service: "ProxyService",
                     metadata: [
@@ -638,7 +639,7 @@ public class ProxyService {
                         "max_output_tokens": String(
                             describing: bodyDict["max_output_tokens"] ?? "missing"),
                         "temperature": bodyDict["temperature"] as? String ?? "not set",
-                        "response_format": hasResponseFormat ? "json_object" : "not set",
+                        "text_format": textFormatValue ?? "not set",
                         "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "not set",
                         "bodyKeys": bodyDict.keys.sorted().joined(separator: ", "),
                     ]
@@ -677,7 +678,7 @@ public class ProxyService {
                         "requestModel": model,
                         "requestTokens": String(maxOutputTokens),
                         "hasSystem": system != nil ? "true" : "false",
-                        "hasResponseFormat": responseFormat != nil ? "true" : "false",
+                        "hasTextFormat": textFormat != nil ? "true" : "false",
                         "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
                     ]
                 )
