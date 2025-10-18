@@ -64,13 +64,25 @@ const payload = {
 
 **After:**
 ```typescript
+// Handle text_format from iOS app
+const text_format = typeof body?.text_format === "string" ? body.text_format : undefined;
+
+// Map text_format to proper response_format
+// iOS sends: text_format="json"
+// OpenAI expects: response_format = { type: "json_object" }
+const response_format = text_format === "json"
+  ? { type: "json_object" }  // ✅ Free-form JSON mode
+  : text_format === "text" 
+    ? { type: "text" }
+    : undefined;
+
 const payload = {
   model,
   input: prompt,
   instructions: system,
   max_output_tokens,
   temperature,
-  ...(text_format ? { text: { format: text_format } } : {}),  // ✅ Correct format
+  ...(response_format ? { response_format } : {}),
   ...(reasoning_effort ? { reasoning: { effort: reasoning_effort } } : {})
 };
 ```
@@ -110,9 +122,11 @@ serve(async (req) => {
       payload.temperature = temperature;
     }
 
-    // Add text format for JSON enforcement (Responses API)
-    if (text_format) {
-      payload.text = { format: text_format };  // "json" → {format: "json"}
+    // Map text_format to response_format (Responses API)
+    if (text_format === "json") {
+      payload.response_format = { type: "json_object" };  // Free-form JSON mode
+    } else if (text_format === "text") {
+      payload.response_format = { type: "text" };  // Plain text mode
     }
 
     // Add reasoning effort for gpt-5 models

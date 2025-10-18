@@ -581,7 +581,7 @@ public class ProxyService {
         model: String = "gpt-5-mini",  // Only gpt-5-mini supported (Responses API)
         maxOutputTokens: Int = 1000,
         temperature: Double? = nil,
-        textFormat: String? = nil,  // "json" for Responses API JSON enforcement
+        textFormat: String? = nil,  // "json" → {type: "json_object"}, "text" → {type: "text"}
         reasoningEffort: String? = nil  // "low", "medium", or "high" for gpt-5 reasoning
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
@@ -606,9 +606,9 @@ public class ProxyService {
         }
         
         // Add text format for Responses API (gpt-5 models)
-        // Uses text.format instead of response_format for new API
+        // Edge function maps text_format="json" to response_format: {type: "json_object"}
         if let textFormat = textFormat {
-            requestBody["text_format"] = textFormat  // Edge function maps to text: {format: "json"}
+            requestBody["text_format"] = textFormat
         }
 
         // Add reasoning effort for gpt-5 models (edge function accepts both formats)
