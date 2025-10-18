@@ -81,7 +81,7 @@ public class OpenAIService {
             system: systemPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
-            temperature: 0.3,  // Lower temperature for more consistent coaching
+            temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
             textFormat: "json",  // Enforce JSON format using Responses API text.format
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
@@ -166,7 +166,7 @@ public class OpenAIService {
             system: systemPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
-            temperature: 0.3,  // Lower temperature for more consistent coaching
+            temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
             textFormat: "json",  // Enforce JSON format using Responses API text.format
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )

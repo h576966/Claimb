@@ -611,10 +611,9 @@ public class ProxyService {
             requestBody["text_format"] = textFormat
         }
 
-        // Add reasoning effort for gpt-5 models (edge function accepts both formats)
+        // Add reasoning effort for gpt-5 models (use nested format)
         if let effort = reasoningEffort, model.contains("gpt-5") {
-            requestBody["reasoning_effort"] = effort  // Flat field for edge function
-            requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
+            requestBody["reasoning"] = ["effort": effort]  // Nested format for edge function
         }
 
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
