@@ -53,6 +53,7 @@
 		F3CD951D2E8DE51D002B709A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3DE54442EA3F11C0093E5BA /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -250,6 +251,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F3DE544B2EA3F11C0093E5BA /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F3E629182E7AAA2000DF2F2D /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -370,8 +376,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
-					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
+					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
+					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F3E629842E7AAA6700DF2F2D /* Products */;
@@ -430,6 +436,10 @@
 					ProjectRef = F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F3DE544B2EA3F11C0093E5BA /* Products */;
+					ProjectRef = F3DE54442EA3F11C0093E5BA /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F3539F832E895ED80073B155 /* Products */;
 					ProjectRef = F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */;
 				},
@@ -470,12 +480,12 @@
 					ProjectRef = F3279EBB2EA3518E00C3409C /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
-					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
+					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
+					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
-					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
+					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
+					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -684,7 +694,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -700,7 +710,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -721,7 +731,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ClaimbRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -737,7 +747,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

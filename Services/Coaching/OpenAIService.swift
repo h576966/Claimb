@@ -51,7 +51,7 @@ public class OpenAIService {
             match: match,
             userParticipant: participant
         )
-        
+
         // Get baseline context for key metrics (simple approach - no complex formatting)
         let baselineContext = await fetchBaselineContext(
             for: participant,
@@ -59,8 +59,7 @@ public class OpenAIService {
             dataManager: kpiService.dataManager
         )
 
-        // Create split prompts using PromptBuilder
-        // Note: Timeline data feature removed to simplify codebase
+        // Create split prompts using PromptBuilder (for better organization)
         let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPostGamePrompt(
             match: match,
             participant: participant,
@@ -73,16 +72,54 @@ public class OpenAIService {
             baselineContext: baselineContext
         )
 
-        // Make API request through proxy with split prompts
+        // Combine system and user prompts into single request (like working version)
+        // This maintains the dual prompt architecture but uses single request approach
+        let combinedPrompt = """
+            <SYSTEM>
+            \(systemPrompt)
+            </SYSTEM>
+
+            <USER>
+            \(userPrompt)
+            </USER>
+            """
+
+        // Create strict JSON schema for Post-Game Analysis
+        // Edge function expects top-level json_schema with name, strict, and schema
+        let postGameSchema: [String: Any] = [
+            "name": "claimb_post_game",
+            "strict": true,
+            "schema": [
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["keyTakeaways", "championSpecificAdvice", "nextGameFocus"],
+                "properties": [
+                    "keyTakeaways": [
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": ["type": "string", "maxLength": 120],
+                    ],
+                    "championSpecificAdvice": ["type": "string", "maxLength": 220],
+                    "nextGameFocus": [
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": ["type": "string", "maxLength": 120],
+                    ],
+                ],
+            ],
+        ]
+
+        // Make API request through proxy with combined prompt
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: userPrompt,
-            system: systemPrompt,
+            prompt: combinedPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
-            textFormat: "json",  // Enforce JSON format using Responses API text.format
+            textFormatSchema: postGameSchema,  // Strict JSON schema for Responses API
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
@@ -149,7 +186,7 @@ public class OpenAIService {
             ]
         )
 
-        // Create split prompts using PromptBuilder
+        // Create split prompts using PromptBuilder (for better organization)
         let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPerformanceSummaryPrompt(
             matches: matches,
             summoner: summoner,
@@ -158,16 +195,65 @@ public class OpenAIService {
             streakData: streakData
         )
 
-        // Make API request through proxy with split prompts
+        // Combine system and user prompts into single request (like working version)
+        // This maintains the dual prompt architecture but uses single request approach
+        let combinedPrompt = """
+            <SYSTEM>
+            \(systemPrompt)
+            </SYSTEM>
+
+            <USER>
+            \(userPrompt)
+            </USER>
+            """
+
+        // Create strict JSON schema for Performance Summary
+        // Edge function expects top-level json_schema with name, strict, and schema
+        let performanceSummarySchema: [String: Any] = [
+            "name": "claimb_perf_summary",
+            "strict": true,
+            "schema": [
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "keyTrends", "roleConsistency", "championPoolAnalysis",
+                    "areasOfImprovement", "strengthsToMaintain", "climbingAdvice",
+                ],
+                "properties": [
+                    "keyTrends": [
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": ["type": "string", "maxLength": 140],
+                    ],
+                    "roleConsistency": ["type": "string", "maxLength": 140],
+                    "championPoolAnalysis": ["type": "string", "maxLength": 240],
+                    "areasOfImprovement": [
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": ["type": "string", "maxLength": 140],
+                    ],
+                    "strengthsToMaintain": [
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": ["type": "string", "maxLength": 140],
+                    ],
+                    "climbingAdvice": ["type": "string", "maxLength": 220],
+                ],
+            ],
+        ]
+
+        // Make API request through proxy with combined prompt
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: userPrompt,
-            system: systemPrompt,
+            prompt: combinedPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
-            textFormat: "json",  // Enforce JSON format using Responses API text.format
+            textFormatSchema: performanceSummarySchema,  // Strict JSON schema for Responses API
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
@@ -225,7 +311,7 @@ public class OpenAIService {
 
         return (laneOpponentInfo, teamContext)
     }
-    
+
     /// Fetches baseline context for key performance metrics
     /// Keeps it simple - only CS, Deaths, Vision for post-game focus
     private func fetchBaselineContext(
@@ -235,10 +321,10 @@ public class OpenAIService {
     ) async -> String? {
         // Map role to baseline format using centralized utility
         let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
-        
+
         var context = ""
         var hasAnyBaseline = false
-        
+
         // Only fetch baselines for CS-eligible roles
         let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
         if csEligibleRoles.contains(baselineRole) {
@@ -249,10 +335,11 @@ public class OpenAIService {
                 let playerCS = participant.csPerMinute
                 let target = csBaseline.p60
                 let status = playerCS >= target ? "above target" : "below target"
-                context += "CS/min: \(String(format: "%.1f", playerCS)) (\(status), target: \(String(format: "%.1f", target))) | "
+                context +=
+                    "CS/min: \(String(format: "%.1f", playerCS)) (\(status), target: \(String(format: "%.1f", target))) | "
             }
         }
-        
+
         // Deaths baseline (lower is better)
         if let deathsBaseline = try? await dataManager.getBaseline(
             role: baselineRole, classTag: "ALL", metric: "deaths_per_game"
@@ -261,9 +348,10 @@ public class OpenAIService {
             let playerDeaths = Double(participant.deaths)
             let target = deathsBaseline.p40  // Lower is better, so p40 is the good target
             let status = playerDeaths <= target ? "good" : "high"
-            context += "Deaths: \(Int(playerDeaths)) (\(status), target: ≤\(String(format: "%.1f", target))) | "
+            context +=
+                "Deaths: \(Int(playerDeaths)) (\(status), target: ≤\(String(format: "%.1f", target))) | "
         }
-        
+
         // Vision baseline
         if let visionBaseline = try? await dataManager.getBaseline(
             role: baselineRole, classTag: "ALL", metric: "vision_score_per_min"
@@ -272,11 +360,13 @@ public class OpenAIService {
             let playerVision = participant.visionScorePerMinute
             let target = visionBaseline.p60
             let status = playerVision >= target ? "above target" : "below target"
-            context += "Vision/min: \(String(format: "%.1f", playerVision)) (\(status), target: \(String(format: "%.1f", target)))"
+            context +=
+                "Vision/min: \(String(format: "%.1f", playerVision)) (\(status), target: \(String(format: "%.1f", target)))"
         }
-        
+
         return hasAnyBaseline ? context : nil
     }
+
 }
 
 // MARK: - Error Types

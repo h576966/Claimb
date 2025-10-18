@@ -582,6 +582,8 @@ public class ProxyService {
         maxOutputTokens: Int = 1000,
         temperature: Double? = nil,
         textFormat: String? = nil,  // "json" → {type: "json_object"}, "text" → {type: "text"}
+        responseFormat: [String: Any]? = nil,  // Direct response_format object for Responses API
+        textFormatSchema: [String: Any]? = nil,  // Strict JSON schema for Responses API text.format
         reasoningEffort: String? = nil  // "low", "medium", or "high" for gpt-5 reasoning
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
@@ -594,21 +596,34 @@ public class ProxyService {
             "model": model,
             "max_output_tokens": maxOutputTokens,
         ]
-        
+
         // Add system prompt if provided (edge function maps to "instructions")
         if let system = system {
             requestBody["system"] = system
         }
-        
+
         // Add temperature if provided
         if let temperature = temperature {
             requestBody["temperature"] = temperature
         }
-        
+
         // Add text format for Responses API (gpt-5 models)
         // Edge function maps text_format="json" to response_format: {type: "json_object"}
         if let textFormat = textFormat {
             requestBody["text_format"] = textFormat
+        }
+
+        // Add direct response format for Responses API (gpt-5 models)
+        // This takes precedence over textFormat for more control
+        if let responseFormat = responseFormat {
+            requestBody["response_format"] = responseFormat
+        }
+
+        // Add strict JSON schema for Responses API (highest priority)
+        // This provides the strongest JSON enforcement with schema validation
+        if let textFormatSchema = textFormatSchema {
+            // Edge function expects top-level json_schema field
+            requestBody["json_schema"] = textFormatSchema
         }
 
         // Add reasoning effort for gpt-5 models (use nested format)
