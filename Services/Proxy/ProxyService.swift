@@ -576,8 +576,10 @@ public class ProxyService {
     /// Generates AI coaching insights with enhanced parameters
     public func aiCoach(
         prompt: String,
+        system: String? = nil,  // System prompt / instructions for better instruction following
         model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000,
+        temperature: Double? = nil,
         reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
@@ -586,11 +588,20 @@ public class ProxyService {
         AppConfig.addAuthHeaders(&req)
 
         var requestBody: [String: Any] = [
-            "prompt": prompt,  // Edge function expects "prompt" and converts to "input" for OpenAI
+            "prompt": prompt,  // User prompt - specific data and context
             "model": model,
             "max_output_tokens": maxOutputTokens,
-                // Note: modalities is added by edge function, don't send it from client
         ]
+        
+        // Add system prompt if provided (edge function maps to "instructions")
+        if let system = system {
+            requestBody["system"] = system
+        }
+        
+        // Add temperature if provided
+        if let temperature = temperature {
+            requestBody["temperature"] = temperature
+        }
 
         // Add reasoning effort for gpt-5 models (edge function accepts both formats)
         if let effort = reasoningEffort, model.contains("gpt-5") {
@@ -608,17 +619,19 @@ public class ProxyService {
                 let bodyDict = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
             {
                 let promptText = bodyDict["prompt"] as? String ?? ""
+                let systemText = bodyDict["system"] as? String ?? ""
                 ClaimbLogger.debug(
-                    "AI Coach request body (parsed back)", service: "ProxyService",
+                    "AI Coach request body", service: "ProxyService",
                     metadata: [
                         "model": bodyDict["model"] as? String ?? "missing",
-                        "max_output_tokens": String(
-                            describing: bodyDict["max_output_tokens"] ?? "missing"),
-                        "modalities": String(describing: bodyDict["modalities"] ?? "missing"),
-                        "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "missing",
-                        "reasoning": String(describing: bodyDict["reasoning"] ?? "missing"),
+                        "hasSystem": String(!systemText.isEmpty),
+                        "systemLength": String(systemText.count),
                         "hasPrompt": String(!promptText.isEmpty),
                         "promptLength": String(promptText.count),
+                        "max_output_tokens": String(
+                            describing: bodyDict["max_output_tokens"] ?? "missing"),
+                        "temperature": bodyDict["temperature"] as? String ?? "not set",
+                        "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "not set",
                         "bodyKeys": bodyDict.keys.sorted().joined(separator: ", "),
                     ]
                 )

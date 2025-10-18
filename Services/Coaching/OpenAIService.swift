@@ -59,9 +59,9 @@ public class OpenAIService {
             dataManager: kpiService.dataManager
         )
 
-        // Create prompt using PromptBuilder
+        // Create split prompts using PromptBuilder
         // Note: Timeline data feature removed to simplify codebase
-        let prompt = CoachingPromptBuilder.createPostGamePrompt(
+        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPostGamePrompt(
             match: match,
             participant: participant,
             summoner: summoner,
@@ -73,13 +73,15 @@ public class OpenAIService {
             baselineContext: baselineContext
         )
 
-        // Make API request through proxy
+        // Make API request through proxy with split prompts
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: prompt,
+            prompt: userPrompt,
+            system: systemPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
+            temperature: 0.3,  // Lower temperature for more consistent coaching
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
@@ -146,8 +148,8 @@ public class OpenAIService {
             ]
         )
 
-        // Create prompt using PromptBuilder
-        let prompt = CoachingPromptBuilder.createPerformanceSummaryPrompt(
+        // Create split prompts using PromptBuilder
+        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPerformanceSummaryPrompt(
             matches: matches,
             summoner: summoner,
             primaryRole: primaryRole,
@@ -155,13 +157,15 @@ public class OpenAIService {
             streakData: streakData
         )
 
-        // Make API request through proxy
+        // Make API request through proxy with split prompts
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: prompt,
+            prompt: userPrompt,
+            system: systemPrompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
+            temperature: 0.3,  // Lower temperature for more consistent coaching
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 

@@ -12,7 +12,8 @@ public struct CoachingPromptBuilder {
 
     // MARK: - Post-Game Analysis Prompts
 
-    /// Creates a comprehensive post-game analysis prompt with timeline data
+    /// Creates a comprehensive post-game analysis prompt split into system and user prompts
+    /// Returns (systemPrompt, userPrompt) for better instruction following
     public static func createPostGamePrompt(
         match: Match,
         participant: Participant,
@@ -23,7 +24,7 @@ public struct CoachingPromptBuilder {
         laneOpponent: String?,
         teamContext: String,
         baselineContext: String? = nil
-    ) -> String {
+    ) -> (system: String, user: String) {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
         let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
@@ -41,11 +42,31 @@ public struct CoachingPromptBuilder {
             format: "%.0f%%", participant.objectiveParticipationPercentage)
 
         // Add queue context for coaching relevance
-        let queueContext = match.isRanked ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
-        
-        var prompt = """
-            You are a League of Legends coach analyzing a single game for immediate improvement.
+        let queueContext =
+            match.isRanked
+            ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
 
+        // SYSTEM PROMPT: Role, instructions, output format
+        let systemPrompt = """
+            You are Claimb's League of Legends coach. Analyze a single game for immediate, actionable improvement.
+            
+            **Style:** Concise, concrete, and actionable. Avoid stats in parentheses.
+            
+            **Output Format (JSON only, max 100 words):**
+            {
+              "keyTakeaways": ["3 actionable insights"],
+              "championSpecificAdvice": "2 sentences: what worked, what didn't",
+              "nextGameFocus": ["1 specific goal", "1 measurable target"]
+            }
+            
+            **CRITICAL:**
+            - Respond with ONLY valid JSON. No markdown, no explanation, no text before/after.
+            - If strong performance (Victory with good KDA/stats), START keyTakeaways with praise.
+            - Use baseline comparisons to identify improvement areas, don't mention targets explicitly.
+            """
+        
+        // USER PROMPT: Game-specific data and context
+        var userPrompt = """
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
             Result: \(gameResult) | KDA: \(kda) | Duration: \(gameDuration)min\(queueContext)\(rankContext)
@@ -59,51 +80,35 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
-        
+
         // Add baseline context if available (simple, focused comparison)
         if let baseline = baselineContext {
-            prompt += """
+            userPrompt += """
 
             **BASELINE COMPARISON:**
             \(baseline)
-            Note: Use these targets as context for improvement areas, not as strict goals to mention.
             """
         }
 
         // Add lane opponent information if available
         if let opponent = laneOpponent {
-            prompt += """
+            userPrompt += """
 
-                **LANE MATCHUP:**
-                \(championName) (\(role)) vs \(opponent)
-                """
+            **LANE MATCHUP:**
+            \(championName) (\(role)) vs \(opponent)
+            """
         }
 
         // Add timeline data if available
         if let timeline = timelineData {
-            prompt += """
+            userPrompt += """
 
-                **TIMELINE:** \(timeline)
-                Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
-                """
+            **TIMELINE:** \(timeline)
+            Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
+            """
         }
 
-        prompt += """
-
-            **OUTPUT (JSON, max 100 words):**
-            {
-              "keyTakeaways": ["3 actionable insights, avoid stats and parentheses"],
-              "championSpecificAdvice": "2 sentences: what worked, what didn't",
-              "nextGameFocus": ["1 specific goal", "1 measurable target"]
-            }
-
-            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
-            Focus on actionable advice, avoid technical stats and parentheses.
-
-            IMPORTANT: If this was a strong performance (Victory with good KDA or impressive stats), START your keyTakeaways with positive recognition and praise. Examples: "Excellent performance - you dominated your lane", "Great job securing the win with strong map awareness", "Well played - your champion mastery really showed".
-            """
-
-        return prompt
+        return (system: systemPrompt, user: userPrompt)
     }
 
     // MARK: - Performance Summary Prompts
@@ -128,14 +133,15 @@ public struct CoachingPromptBuilder {
         }
     }
 
-    /// Creates a performance summary prompt for trend analysis
+    /// Creates a performance summary prompt split into system and user prompts
+    /// Returns (systemPrompt, userPrompt) for better instruction following
     public static func createPerformanceSummaryPrompt(
         matches: [Match],
         summoner: Summoner,
         primaryRole: String,
         bestPerformingChampions: [MatchStatsCalculator.ChampionStats],
         streakData: StreakData?
-    ) -> String {
+    ) -> (system: String, user: String) {
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })?.win
@@ -151,27 +157,35 @@ public struct CoachingPromptBuilder {
         let championPoolContext = createChampionPoolContext(
             bestPerformingChampions: bestPerformingChampions)
 
-        return """
-            You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
-
-            **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
-
-            \(detailedContext)\(championPoolContext)
-
-
-            **OUTPUT (JSON, max 120 words):**
+        // SYSTEM PROMPT: Role, instructions, output format
+        let systemPrompt = """
+            You are Claimb's League of Legends coach. Analyze performance trends to help the player climb in ranked.
+            
+            **Style:** Concise, concrete, and actionable. Focus on patterns and consistency.
+            
+            **Output Format (JSON only, max 120 words):**
             {
-              "keyTrends": ["2 trends, avoid stats and parentheses"],
+              "keyTrends": ["2 trends"],
               "roleConsistency": "1 sentence about role focus",
               "championPoolAnalysis": "Focus on top 3 from BEST PERFORMING list. 2 sentences.",
               "areasOfImprovement": ["2 areas, concise and actionable"],
               "strengthsToMaintain": ["2 strengths, concise"],
               "climbingAdvice": "2 sentences - consistency with proven champions"
             }
-
-            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
-            Focus on actionable advice, avoid technical stats and parentheses.
+            
+            **CRITICAL:**
+            - Respond with ONLY valid JSON. No markdown, no explanation, no text before/after.
+            - Avoid stats in parentheses.
             """
+        
+        // USER PROMPT: Player-specific data and trends
+        let userPrompt = """
+            **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
+
+            \(detailedContext)\(championPoolContext)
+            """
+        
+        return (system: systemPrompt, user: userPrompt)
     }
 
     // MARK: - Context Builders
