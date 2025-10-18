@@ -101,7 +101,7 @@ Claimb is a **local-first** companion app for League designed for iPhone users w
 ### **✅ Technical Implementation (Fully Implemented)**
 - **RiotProxyClient**: Secure API communication through Supabase edge functions
 - **DataDragonService**: Static game data with caching and version management
-- **OpenAIService**: AI coaching with GPT-4 Turbo optimization and response caching
+- **OpenAIService**: AI coaching with gpt-5-mini (Responses API) and response caching
 - **KPICalculationService**: Performance analysis with role-specific metrics including Objective Participation
 - **UserSession**: Session management with persistent login and role selection
 - **Rank Integration**: League-V4 API integration for Solo/Duo and Flex rank tracking
@@ -384,38 +384,7 @@ We recently completed a comprehensive architecture cleanup that reduced codebase
 
 Result: faster warm starts, less redundant work and noise, and safer logs with minimal added complexity.
 
-### **🧠 Coaching System Redesign (Planned)**
-
-We're implementing a comprehensive redesign of the coaching system to provide more focused, actionable insights:
-
-#### **🎯 Post-Game Analysis (Champion-Focused)**
-- **Auto-Trigger**: Automatically generates analysis for most recent game when new matches are loaded
-- **Champion-Specific**: Focuses on the actual champion played in that game
-- **Champion Pool Integration**: Leverages existing "Best Performing Champions" logic from Champion section
-- **Actionable Advice**: 2-3 specific things to improve for next game
-- **Champion Pool Nudging**: Suggests avoiding low win-rate champions in ranked
-
-#### **📊 Performance Summary (Role-Focused)**
-- **Scope**: Exactly 10 games, auto-updates every 5 games
-- **Role Analysis**: Focuses on roles actually played in last 10 games (regardless of primary role)
-- **Diversity Context**: Includes role/champion diversity metrics in analysis
-- **Trend Focus**: Improvements made and areas of concern over time
-- **Complementary**: Avoids overlap with existing Performance section
-
-#### **🔧 Technical Implementation**
-- **Data Reuse**: Leverages existing KPICalculationService and champion pool logic
-- **Smart Updates**: Only analyzes when there's new data, avoids redundant analysis
-- **Simplified UI**: Two focused cards instead of complex multi-section layout
-- **Performance Section Cleanup**: Removes role/champion diversity from display (moved to coaching)
-
-#### **📈 Benefits**
-- **More Actionable**: Focused advice instead of overwhelming statistics
-- **Champion-Aware**: Integrates champion pool insights for better recommendations
-- **Efficient**: Reuses existing data and calculations
-- **User-Friendly**: Simplified interface with clear, focused insights
-
 ### **🔄 In Development**
-- **Coaching Redesign Implementation**: Dual-focused coaching system
 - **Testing Infrastructure**: Unit tests for critical components
 - **Advanced Performance Metrics**: Trend analysis and improvement suggestions
 - **Champion Pool Optimization**: Meta-based recommendations
@@ -509,7 +478,7 @@ Claimb/
 - **RiotProxyClient**: Riot API communication via proxy service (replaces RiotHTTPClient)
 - **DataDragonService**: Manages static game data and champion information
 - **KPICalculationService**: Performance analysis and coaching insights
-- **OpenAIService**: AI coaching insights via proxy service (GPT-4 Turbo optimized)
+- **OpenAIService**: AI coaching insights via proxy service (gpt-5-mini with Responses API)
 - **UserSession**: Session management and persistent login with role persistence
 
 ### **Architecture Principles**
@@ -563,7 +532,7 @@ The app includes comprehensive test views for development (DEBUG builds only):
 - **Riot League-V4 API**: Rank data for Solo/Duo and Flex queues
 - **Riot Timeline API**: Early game timeline data for detailed analysis (via `riotTimelineLite` endpoint)
 - **Data Dragon API**: Champion data, icons, and version management
-- **OpenAI API**: AI coaching insights and analysis via GPT-4 Turbo (optimized)
+- **OpenAI API**: AI coaching insights via gpt-5-mini (Responses API with reasoning)
 
 ### **Rate Limiting & Caching**
 - **Server-Side Rate Limiting**: Handled by Supabase edge functions
@@ -672,9 +641,16 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📊 **Recent Improvements (October 17-18, 2025)**
+## 📊 **Recent Improvements (October 2025)**
 
 ### **AI Coaching Enhancements**
+**Responses API Integration** ⭐
+- Updated to OpenAI's new Responses API format with `text.format` parameter
+- Proper JSON enforcement using `text: {format: "json"}` structure
+- Support for gpt-5-mini with reasoning capabilities
+- Enhanced error logging for better diagnostics
+- **Impact**: Full compatibility with latest OpenAI models
+
 **System/User Prompt Split** ⭐
 - Separated instructions (system) from game data (user) for better AI instruction following
 - OpenAI models weight system prompts more heavily → more consistent coaching
@@ -691,11 +667,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Added game type (Ranked vs Normal/practice) to prompts
 - AI provides context-appropriate coaching (serious vs experimental)
 - **Impact**: Better coaching relevance
-
-**JSON Response Enforcement** ⭐
-- Added `response_format: {"type": "json_object"}` to all coaching API calls
-- Eliminates markdown formatting and explanation text
-- **Impact**: ~95% reduction in JSON parsing errors
 
 ### **Code Quality Improvements**
 **Dead Code Cleanup** (600+ lines removed)
@@ -722,8 +693,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Impact**: Cleaner, more predictable code
 
 ### **Performance Impact**
+- **API Compatibility**: Full support for OpenAI Responses API
 - **API Calls**: 67-100% reduction on app launch
-- **Parsing Errors**: ~95% reduction with JSON enforcement
+- **JSON Reliability**: Proper format enforcement with Responses API
 - **Code Size**: 600+ lines removed
 - **Duplication**: ~80 lines eliminated
 - **Build Time**: Faster (less code to compile)
@@ -734,7 +706,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ No active TODOs/FIXMEs
 - ✅ No debug print statements
 - ✅ Comprehensive error handling
-- ✅ 7 well-documented commits
+- ✅ Responses API compliant
+- ✅ Production-ready
 
 ---
 
