@@ -58,10 +58,9 @@ enum AppConfig {
             UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
             forHTTPHeaderField: "X-Claimb-Device")
 
-        // Add headers for better connection handling
+        // Only set essential headers - let URLSession handle HTTP/2+ negotiation
         req.addValue("application/json", forHTTPHeaderField: "Accept")
-        req.addValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
-        req.addValue("keep-alive", forHTTPHeaderField: "Connection")
-        req.addValue("Claimb/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Note: Removed Connection, Accept-Encoding, and User-Agent headers
+        // These cause HTTP/2+ compatibility issues with Cloudflare/Supabase
     }
 }
