@@ -129,6 +129,7 @@ struct KPICard: View {
         case .excellent: return "Excellent"
         case .good: return "Good"
         case .needsImprovement: return "Needs Improvement"
+        case .poor: return "Poor"
         }
     }
 

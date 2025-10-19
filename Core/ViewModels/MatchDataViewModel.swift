@@ -601,9 +601,10 @@ public struct KPIMetric {
         // Performance level priority (0 = needs improvement, 1 = good, 2 = excellent)
         let performancePriority: Int
         switch performanceLevel {
-        case .needsImprovement: performancePriority = 0
-        case .good: performancePriority = 1
-        case .excellent: performancePriority = 2
+        case .poor: performancePriority = 0
+        case .needsImprovement: performancePriority = 1
+        case .good: performancePriority = 2
+        case .excellent: performancePriority = 3
         }
 
         // Metric type priority (within same performance level)

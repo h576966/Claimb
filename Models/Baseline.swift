@@ -71,12 +71,14 @@ public class Baseline {
         case excellent = "Excellent"
         case good = "Good"
         case needsImprovement = "Needs Improvement"
+        case poor = "Poor"
 
         public var color: String {
             switch self {
             case .excellent: return "green"
             case .good: return "blue"
-            case .needsImprovement: return "red"
+            case .needsImprovement: return "orange"
+            case .poor: return "red"
             }
         }
     }

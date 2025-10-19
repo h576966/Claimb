@@ -231,7 +231,7 @@ public struct KPIDisplayService {
                 } else if value <= baseline.p60 * 1.2 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
-                    return (.needsImprovement, DesignSystem.Colors.secondary)
+                    return (.poor, DesignSystem.Colors.secondary)
                 }
             } else {
                 // Standard logic for other metrics - higher is better
@@ -242,7 +242,7 @@ public struct KPIDisplayService {
                 } else if value >= baseline.p40 {
                     return (.needsImprovement, DesignSystem.Colors.warning)
                 } else {
-                    return (.needsImprovement, DesignSystem.Colors.secondary)
+                    return (.poor, DesignSystem.Colors.secondary)
                 }
             }
         } else {
