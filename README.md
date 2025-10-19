@@ -64,19 +64,12 @@ Claimb is a **local-first** companion app for League designed for iPhone users w
 - **UIState Pattern**: Consistent loading, error, and empty states across all views
 - **Design System**: Complete Apple Watch-like interface with dark card-based layouts
 
-### **✅ Recently Completed (Architecture Modernization)**
+### **✅ Recently Completed**
 - **Supabase Edge Function Integration**: Secure API calls through server-side proxy
 - **Simplified Architecture**: Eliminated over-abstraction and reduced complexity by 36%
-- **Generic Request Deduplication**: Unified system replacing 4 specialized queues
-- **Factory Pattern**: DataManager factory method eliminating 44+ lines of boilerplate
-- **Direct Model Integration**: Champion class mapping moved to model layer for better cohesion
-- **UIState Pattern**: Standardized loading, error, and empty states across all views
-- **Structured Logging**: Comprehensive logging with ClaimbLogger
-- **Performance Optimizations**: Static JSON loading over database queries
-- **Secure API Management**: Server-side API key management with JWT authentication
-- **Rank System Integration**: Solo/Duo and Flex rank tracking with League-V4 API integration
-- **AI Coaching Improvements (October 2025)**: System/User prompt split, baseline context, queue awareness, JSON enforcement
-- **Code Quality Sprint (October 2025)**: Removed 600+ lines dead code, consolidated refresh logic, eliminated duplication
+- **AI Coaching Enhancements**: OpenAI Responses API integration with gpt-5-mini
+- **Code Quality Improvements**: Removed 600+ lines of dead code, better error handling
+- **Performance Optimizations**: 67-100% reduction in API calls, faster app startup
 
 ## 🏗️ **Current Implementation Status**
 
@@ -164,225 +157,25 @@ We recently completed a comprehensive production-readiness initiative to ensure 
 
 ---
 
-## 🧹 **Models Cleanup (October 2025)**
 
-We recently completed a comprehensive cleanup of the Models directory, removing **327 lines of dead code** while verifying that all remaining code follows optimal patterns:
+## 🏗️ **Architecture Overview**
 
-### **🗑️ Dead Code Removed**
-1. **CoachingModels.swift** (74 lines deleted)
-   - ❌ `CoachingAnalysis` - Replaced by `PostGameAnalysis` and `PerformanceSummary`
-   - ❌ `PerformanceComparison` - UI component defined but never called
-   - ❌ `ComparisonResult` - Only used by deleted `PerformanceComparison`
-   - ❌ `CoachingResponse` - Never instantiated anywhere in codebase
-
-2. **ProxyResponseModels.swift** (38 lines deleted)
-   - ❌ `TimelineLiteResponse` - Planned feature that was never integrated
-   - ❌ `Checkpoints`, `Checkpoint`, `Timings` - Supporting models for unused timeline feature
-
-3. **ProxyService.swift** (101 lines deleted)
-   - ❌ `riotTimelineLite()` method - Implemented but never called
-   - ❌ `formatTimelineForLLM()` helper - Orphaned helper method
-
-4. **CoachingView.swift** (84 lines deleted)
-   - ❌ `performanceComparisonCard()` - UI component with zero call sites
-   - ❌ `performanceMetricRow()`, `trendIcon()`, `trendColor()` - Orphaned helpers
-
-5. **OpenAIService.swift** (30 lines deleted)
-   - ❌ `fetchTimelineData()` - Broken reference to deleted timeline feature
-   - ✅ Updated to gracefully pass `nil` for timeline data (backward compatible)
-
-### **✅ Optimization Analysis**
-After thorough investigation, we verified that the remaining code follows optimal patterns:
-- **Participant optional properties**: Intentionally optional for flexibility (challenge data not currently stored)
-- **Match objective calculations**: Complex but correct implementation
-- **Champion class mapping**: Already using optimal static lazy loading
-
-### **📊 Cleanup Process**
-Our phased approach ensured zero regressions:
-1. **Phase 1**: Comprehensive verification - searched entire codebase for usage
-2. **Phase 2**: Analyzed alternatives - evaluated optimization opportunities
-3. **Phase 3**: Safe deletion - removed verified dead code
-4. **Phase 4**: Optimization review - confirmed remaining code is optimal
-5. **Phase 5**: Testing - build succeeded with zero errors
-
-### **📈 Impact**
-- **327 lines removed**: Leaner, more maintainable Models layer
-- **Zero compilation errors**: All changes verified with clean build
-- **Zero runtime regressions**: Graceful fallbacks for removed features
-- **Clearer intent**: Removed planned-but-unintegrated features
-- **Better maintainability**: Less code to understand and maintain
-
----
-
-## 🏗️ **Recent Architecture Improvements**
-
-### **Latest Supabase Integration (September 2025)**
-We recently completed a major architecture modernization by integrating Supabase edge functions for secure API management:
-
-#### **🔐 Secure API Architecture**
-- **Supabase Edge Functions**: All external API calls now routed through secure server-side proxy
+### **🔐 Secure API Architecture**
+- **Supabase Edge Functions**: All external API calls routed through secure server-side proxy
 - **Server-Side API Keys**: Riot Games API, Data Dragon API, and OpenAI API keys managed server-side
-- **JWT Authentication**: Secure authentication using Supabase anon key
-- **App Token Security**: Additional security layer with custom app token
 - **Zero Client Exposure**: No API keys ever exposed to the client application
 
-#### **🚀 New Services Architecture**
-- **ProxyService**: Centralized service for all API calls through Supabase edge functions
-- **RiotProxyClient**: Riot API communication via secure proxy (replaces RiotHTTPClient)
-- **OpenAIService**: AI coaching insights via secure proxy
-- **AppConfig**: Centralized configuration management for Supabase credentials
+### **🤖 AI Coaching System**
+- **Dual-Focused Coaching**: Post-game analysis and performance summary
+- **OpenAI Responses API**: Full integration with gpt-5-mini and proper JSON enforcement
+- **Optimistic Caching**: Instant cached responses with transparent background refresh
+- **Baseline-Aware**: AI considers performance baselines for targeted advice
 
-#### **🤖 AI Coaching Redesign (Latest - October 2025)**
-- **Dual-Focused Coaching**: Separate post-game analysis and performance summary
-- **Timeline Data Integration**: Post-game analysis now includes detailed early game timeline data with specific timing insights
-- **Post-Game Analysis**: Champion-focused insights for most recent game with lane matchup context and timing markers
-- **Performance Summary**: Role-focused trends over last 10 games with diversity metrics
-- **Champion Pool Integration**: Leverages existing "Best Performing Champions" logic
-- **Smart Auto-Triggers**: Post-game analysis auto-generates on new matches
-- **Optimistic Caching**: Shows cached responses immediately while refreshing in background
-- **Simplified UI**: Two focused cards instead of complex multi-section layout
-- **Performance Section Cleanup**: Removed role/champion diversity from display (moved to coaching)
-
-#### **📊 Benefits Achieved**
-- **Enhanced Security**: API keys never exposed to client
-- **Simplified Configuration**: Single set of Supabase credentials needed
-- **Centralized Management**: All API keys managed in one place
-- **Rate Limiting**: Server-side rate limiting and caching
-- **Cost Control**: Better monitoring and control of API usage
-- **Focused Coaching**: Actionable insights instead of overwhelming stats
-- **Smart Data Usage**: Leverages existing champion pool and KPI calculations
-- **Timeline Insights**: Specific timing-based advice with minute marks (e.g., "At 6:30, you should have...")
-- **Optimistic UX**: Instant cached responses with transparent background refresh
-
-### **Latest Streak Analysis & Performance Indicators (October 2025)**
-We recently implemented comprehensive streak analysis and performance indicators to help players understand their current form and make better decisions:
-
-#### **🔥 Streak Analysis Features**
-- **Losing Streak Detection**: Identifies consecutive losses with visual warnings (3+ losses)
-- **Winning Streak Tracking**: Highlights positive momentum with streak indicators (3+ wins)
-- **Recent Performance**: Shows last 10 games win/loss record with win rate percentage
-- **Role-Specific Analysis**: Streak calculations based on player's primary role
-- **Visual Indicators**: SF Symbols-based UI with DesignSystem color coding
-- **Performance View Integration**: Streak indicators displayed below rank badges
-
-#### **🎯 AI Coaching Integration**
-- **Streak Context in Prompts**: Current streaks and recent performance included in AI coaching
-- **Personalized Advice**: AI considers losing streaks to suggest breaks or normal games
-- **Momentum Recognition**: AI encourages maintaining positive streaks
-- **Role-Specific Guidance**: Streak analysis tailored to player's primary role
-- **Enhanced Prompts**: 350 token limit with comprehensive streak and performance data
-
-#### **🔧 Technical Implementation**
-- **KPICalculationService Methods**: 
-  - `calculateLosingStreak()` - Counts consecutive losses for specific role
-  - `calculateWinningStreak()` - Counts consecutive wins for specific role
-  - `calculateRecentWinRate()` - Recent performance over last 10 games
-- **Performance View UI**: Streak indicators with SF Symbols and DesignSystem styling
-- **OpenAIService Integration**: Enhanced prompts with streak context and performance data
-- **Data-Driven Insights**: Uses existing match data for accurate streak calculations
-
-#### **📈 Benefits**
-- **Better Decision Making**: Visual warnings help players recognize when to take breaks
-- **Momentum Awareness**: Players can capitalize on winning streaks
-- **Personalized Coaching**: AI advice considers current form and recent performance
-- **Visual Feedback**: Clear indicators help players understand their current state
-- **Role-Specific Analysis**: Streak calculations tailored to player's main role
-
-### **Latest Timeline Data Integration (October 2025)**
-We recently enhanced the AI coaching system with detailed early game timeline data for more specific and actionable insights:
-
-#### **⏱️ Timeline Data Features**
-- **Early Game Focus**: Detailed timeline data for first 15 minutes of gameplay
-- **Specific Timing**: AI provides advice with exact minute marks (e.g., "At 3:15, strong first blood showed good aggression")
-- **Lane Matchup Context**: Analysis includes opponent champion and matchup-specific insights
-- **Team Composition**: Full team context included in analysis for better strategic advice
-- **Trading Patterns**: Identifies lane trading opportunities and mistakes with timing data
-- **Wave Management**: Analyzes recall timings and wave state decisions
-- **Objective Participation**: Early game objective involvement with timing context
-
-#### **🔧 Technical Implementation**
-- **RiotTimelineLite Endpoint**: Secure timeline data fetching through Supabase edge functions
-- **Graceful Fallback**: Analysis proceeds without timeline if data unavailable (backward compatibility)
-- **Enhanced Prompts**: AI prompts include comprehensive timeline data when available
-- **Lane Opponent Detection**: Automatic identification of lane opponent for matchup analysis
-- **Team Context Extraction**: Structured team composition data for strategic insights
-- **Background Refresh**: Optimistic caching shows cached analysis while refreshing in background
-- **Cache Management**: Timeline-enhanced analyses cached with proper expiration
-
-#### **📈 Benefits**
-- **Specific Feedback**: Instead of "Farm better", get "At 7:40, died overextended without vision"
-- **Timing-Based Learning**: Understand exactly when mistakes happened for better recall and learning
-- **Matchup Insights**: Champion-specific advice considering actual lane opponent
-- **Power Spike Awareness**: AI can reference specific levels and timing windows
-- **Actionable Improvement**: Concrete examples from actual gameplay to learn from
-- **Faster Coaching**: Instant cached responses with transparent background refresh indicator
-
-### **Latest Rank System Integration (October 2025)**
-We recently completed the integration of League of Legends rank tracking to provide players with comprehensive rank information:
-
-#### **🏅 Rank System Features**
-- **Dual Rank Display**: Solo/Duo and Flex rank badges with LP tracking
-- **League-V4 API Integration**: Secure rank data fetching through Supabase edge functions
-- **Performance View Integration**: Rank badges displayed below role selector
-- **Win/Loss Tracking**: Complete match history for both ranked queues
-- **Unranked Handling**: Graceful display of "Unranked" status when no rank data available
-- **Real-time Updates**: Rank data refreshed on summoner login/update
-
-#### **🔧 Technical Implementation**
-- **New API Endpoint**: `/riot/league-entries` for fetching rank data
-- **Enhanced Summoner Model**: Added rank properties (soloDuoRank, flexRank, LP, wins/losses)
-- **DataManager Integration**: Automatic rank fetching during summoner creation/update
-- **UI Components**: RankBadge component with tier-based color coding
-- **Debug Logging**: Comprehensive logging for rank data fetching and display
-- **Model Updates**: Fixed LeagueEntry models to match actual edge function response format
-
-#### **📈 Benefits**
-- **Complete Player Profile**: Full rank information alongside performance metrics
-- **Coaching Context**: Rank information included in AI coaching prompts for better insights
-- **Visual Feedback**: Clear rank display helps players understand their current standing
-- **Data Completeness**: Comprehensive player data for better analysis and recommendations
-
-### **Latest Simplification Achievements (September 2025)**
-We recently completed a comprehensive architecture cleanup that reduced codebase complexity by **36%** while maintaining all functionality:
-
-#### **🔥 DataManager Simplification**
-- **Split DataManager** from 1,371 → 879 lines (36% reduction)
-- **Extracted focused components**: MatchParser (292 lines), ChampionDataLoader (~90 lines), BaselineDataLoader (~110 lines)
-- **Removed 51 lines of unused methods**: clearChampionData, clearBaselineData, unused delegation methods
-- **Eliminated dead code** while preserving valuable patterns
-
-#### **🎯 Role Persistence Fix**
-- **Fixed role selector persistence issue** - selections now persist across app restarts
-- **Updated 4 binding locations** to use proper persistence method
-- **Replaced direct assignment** with `userSession.updatePrimaryRole()`
-- **Zero functional impact** - seamless user experience improvement
-
-#### **🚀 Preserved Valuable Patterns**
-- **Kept DataManager.create() factory** - eliminates boilerplate, centralizes dependencies
-- **Maintained request deduplication** - prevents race conditions, used in 4 critical places
-- **Preserved UIState pattern** - consistent state management across all views
-- **Retained extracted components** - good separation of concerns
-
-#### **📊 Current Impact Summary**
-- **~500+ lines of code eliminated** across all improvements
-- **DataManager reduced** from 1,371 → 879 lines (36% reduction)
-- **Zero breaking changes** - all existing functionality preserved
-- **Improved maintainability** through focused, single-responsibility components
-- **Enhanced user experience** with persistent role selection
-- **Complete rank system** with Solo/Duo and Flex rank tracking
-- **Enhanced coaching context** with rank information in AI prompts
-
-### **Performance Optimizations (September 2025)**
-- **Removed unnecessary Team DMG fix**: eliminated wasteful cache clearing that provided no benefit
-- **SwiftData safety**: all `ModelContext` operations are MainActor‑isolated (loaders/parsers/dedup tasks)
-- **Secure logging**: Riot API key masked (only last 4 characters retained)
-- **KPI caching**: 
-  - In‑memory cache keyed by `summonerPUUID|role|matchCount|latestMatchId`
-  - Persisted lightweight cache in `UserDefaults` for instant warm starts
-  - Cached‑first rendering with background refresh on view entry or role change
-- **Role mapping logs throttled**: duplicate `NONE` role mappings logged once per unique `(role,lane,result)`
-
-Result: faster warm starts, less redundant work and noise, and safer logs with minimal added complexity.
+### **📊 Performance Features**
+- **Streak Analysis**: Losing/winning streak detection with visual indicators
+- **Rank Tracking**: Solo/Duo and Flex rank display with LP tracking
+- **KPI Dashboard**: Role-specific metrics with baseline comparisons
+- **Champion Pool**: Performance tracking and optimization insights
 
 ### **🔄 In Development**
 - **Testing Infrastructure**: Unit tests for critical components
@@ -618,7 +411,7 @@ The app includes comprehensive test views for development (DEBUG builds only):
 
 ## 🤝 **Contributing**
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Please follow these guidelines:
 
 ### **Development Setup**
 1. Fork the repository
@@ -639,75 +432,16 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📄 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 📊 **Recent Improvements (October 2025)**
 
-### **AI Coaching Enhancements**
-**Responses API Integration** ⭐
-- Updated to OpenAI's new Responses API format with `text.format` parameter
-- Proper JSON enforcement using `text: {format: "json"}` structure
-- Support for gpt-5-mini with reasoning capabilities
-- Enhanced error logging for better diagnostics
-- **Impact**: Full compatibility with latest OpenAI models
-
-**System/User Prompt Split** ⭐
-- Separated instructions (system) from game data (user) for better AI instruction following
-- OpenAI models weight system prompts more heavily → more consistent coaching
-- Added temperature control (0.3) for predictable outputs
-- **Impact**: ~25% improvement in instruction following quality
-
-**Baseline-Aware Coaching** ⭐
-- Added CS/min, deaths, and vision score baseline comparisons to prompts
-- AI now knows if player is above/below p40/p60 targets
-- More targeted advice based on actual performance gaps
-- **Impact**: Significantly more actionable coaching feedback
-
-**Queue Context**
-- Added game type (Ranked vs Normal/practice) to prompts
-- AI provides context-appropriate coaching (serious vs experimental)
-- **Impact**: Better coaching relevance
-
-### **Code Quality Improvements**
-**Dead Code Cleanup** (600+ lines removed)
-- Removed 327 lines from Models layer (unused timeline/coaching models)
-- Deleted 170 lines from Services (unused methods, duplicate logic)
-- Removed 50+ lines of unused UI components
-- **Impact**: Cleaner codebase, faster builds, easier maintenance
-
-**Refresh Logic Consolidation** ⭐
-- Consolidated duplicate rank refresh code from 3 locations to single source of truth
-- Smart 5-minute staleness check prevents unnecessary API calls
-- Reduced API calls on app launch by 67-100%
-- **Impact**: Faster app startup, reduced battery usage, better UX
-
-**Role Mapping Consolidation**
-- Enhanced `RoleUtils.normalizedRoleToBaselineRole()` to handle all variants
-- Deleted duplicate role mapping logic from 2 locations
-- Now handles: MID/MIDDLE/SOLO, ADC/BOT/BOTTOM, SUPPORT/UTILITY, TOP, JUNGLE
-- **Impact**: Single source of truth, more robust
-
-**Refresh Trigger Standardization**
-- Standardized all refresh triggers from `Bool` to `Int` for consistency
-- Removed legacy wrapper methods
-- **Impact**: Cleaner, more predictable code
-
-### **Performance Impact**
-- **API Compatibility**: Full support for OpenAI Responses API
-- **API Calls**: 67-100% reduction on app launch
-- **JSON Reliability**: Proper format enforcement with Responses API
-- **Code Size**: 600+ lines removed
-- **Duplication**: ~80 lines eliminated
-- **Build Time**: Faster (less code to compile)
-
-### **Quality Metrics**
-- ✅ Zero breaking changes
-- ✅ All builds successful
-- ✅ No active TODOs/FIXMEs
-- ✅ No debug print statements
-- ✅ Comprehensive error handling
-- ✅ Responses API compliant
-- ✅ Production-ready
+### **Key Updates**
+- **OpenAI Responses API**: Full integration with gpt-5-mini and proper JSON enforcement
+- **Code Cleanup**: Removed 600+ lines of dead code for cleaner, faster builds
+- **Performance**: 67-100% reduction in API calls on app launch
+- **AI Coaching**: Enhanced with baseline comparisons and queue context
+- **Smooth UX**: Improved login progress animation and better error handling
 
 ---
 
