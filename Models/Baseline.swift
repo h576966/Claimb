@@ -55,14 +55,16 @@ public class Baseline {
         return value < p40
     }
 
-    // Get performance level for a value
+    // Get performance level for a value using 4-level system
     public func getPerformanceLevel(_ value: Double) -> PerformanceLevel {
         if isExcellentPerformance(value) {
             return .excellent
         } else if isGoodPerformance(value) {
             return .good
-        } else {
+        } else if value >= p40 * 0.8 {
             return .needsImprovement
+        } else {
+            return .poor
         }
     }
 

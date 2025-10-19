@@ -175,33 +175,8 @@ struct ClaimbButtonStyle: ButtonStyle {
 }
 
 // MARK: - Rating System
-struct ClaimbRating {
-    enum Level: String, CaseIterable {
-        case excellent = "Excellent"
-        case good = "Good"
-        case fair = "Fair"
-        case poor = "Poor"
-
-        var color: Color {
-            switch self {
-            case .excellent: return DesignSystem.Colors.success  // Teal
-            case .good: return DesignSystem.Colors.accent  // Teal (same as success)
-            case .fair: return DesignSystem.Colors.warning  // Orange
-            case .poor: return DesignSystem.Colors.error  // Red-orange
-            }
-        }
-    }
-
-    static func level(for score: Double, maxScore: Double = 100) -> Level {
-        let percentage = score / maxScore
-        switch percentage {
-        case 0.8...: return .excellent
-        case 0.6..<0.8: return .good
-        case 0.4..<0.6: return .fair
-        default: return .poor
-        }
-    }
-}
+// Note: Performance rating is now handled by Baseline.PerformanceLevel
+// This provides consistent 4-level rating across the app
 
 // MARK: - Data Visualization
 struct ClaimbProgressBar: View {
