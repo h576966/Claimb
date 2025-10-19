@@ -28,12 +28,12 @@ public class ProxyService {
         self.baseURL = AppConfig.baseURL
 
         // Create a custom URLSession with optimized configuration for network reliability
-        let config = URLSessionConfiguration.ephemeral
+        let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 45.0  // 45 seconds timeout (increased for edge function)
         config.timeoutIntervalForResource = 90.0  // 90 seconds total timeout
         config.waitsForConnectivity = true  // Wait for network connectivity
         config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = 1  // Single connection per host for stability
+        config.httpMaximumConnectionsPerHost = 4  // Reduced for better stability
         config.urlCache = nil  // Disable caching for API calls
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
 
@@ -45,36 +45,26 @@ public class ProxyService {
         config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
         config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
 
-        // Force HTTP/2 and disable QUIC/HTTP-3 to avoid connection issues
+        // Simulator-specific network configuration to avoid QUIC issues
         #if targetEnvironment(simulator)
-            // Simulator-specific configuration to force HTTP/2
+            // Disable HTTP/3 (QUIC) for simulator to avoid connection issues
+            // Note: We can't force HTTP/1.1 directly, but we can optimize for stability
             config.timeoutIntervalForRequest = 60.0  // Longer timeout for simulator
             config.timeoutIntervalForResource = 120.0
-            config.httpMaximumConnectionsPerHost = 1  // Single connection per host for simulator
+            config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
             config.multipathServiceType = .none  // Disable multipath TCP
-            
-            // Force HTTP/2 by disabling QUIC negotiation
-            config.httpAdditionalHeaders = [
-                "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
-            ]
 
             ClaimbLogger.info(
-                "Using simulator-optimized network configuration (HTTP/2 forced)", service: "ProxyService",
+                "Using simulator-optimized network configuration", service: "ProxyService",
                 metadata: [
                     "timeout": "60s",
                     "connections": "2",
-                    "protocol": "HTTP/2 (QUIC disabled)",
                 ])
         #else
             // Production configuration with HTTP/2 support
             config.timeoutIntervalForRequest = 45.0
             config.timeoutIntervalForResource = 90.0
-            config.httpMaximumConnectionsPerHost = 1
-            
-            // Force HTTP/2 in production too to avoid QUIC issues
-            config.httpAdditionalHeaders = [
-                "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
-            ]
+            config.httpMaximumConnectionsPerHost = 4
         #endif
 
         // Additional connection settings for better reliability
@@ -86,7 +76,7 @@ public class ProxyService {
         self.urlSession = URLSession(configuration: config)
 
         // Create fallback URLSession with minimal configuration for simulator issues
-        let fallbackConfig = URLSessionConfiguration.ephemeral
+        let fallbackConfig = URLSessionConfiguration.default
         fallbackConfig.timeoutIntervalForRequest = 20.0
         fallbackConfig.timeoutIntervalForResource = 40.0
         fallbackConfig.httpMaximumConnectionsPerHost = 1
@@ -95,11 +85,6 @@ public class ProxyService {
         fallbackConfig.httpShouldUsePipelining = false
         fallbackConfig.httpShouldSetCookies = false
         fallbackConfig.httpCookieAcceptPolicy = .never
-        
-        // Force HTTP/2 in fallback configuration too
-        fallbackConfig.httpAdditionalHeaders = [
-            "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
-        ]
 
         #if targetEnvironment(simulator)
             // Use minimal configuration for fallback in simulator
@@ -588,18 +573,12 @@ public class ProxyService {
 
     // MARK: - OpenAI API Methods
 
-    /// Generates AI coaching insights using OpenAI Responses API
-    /// Note: Only gpt-5-mini is supported - uses Responses API format
+    /// Generates AI coaching insights with enhanced parameters
     public func aiCoach(
         prompt: String,
-        system: String? = nil,  // System prompt / instructions for better instruction following
-        model: String = "gpt-5-mini",  // Only gpt-5-mini supported (Responses API)
+        model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000,
-        temperature: Double? = nil,
-        textFormat: String? = nil,  // "json" → {type: "json_object"}, "text" → {type: "text"}
-        responseFormat: [String: Any]? = nil,  // Direct response_format object for Responses API
-        textFormatSchema: [String: Any]? = nil,  // Strict JSON schema for Responses API text.format
-        reasoningEffort: String? = nil  // "low", "medium", or "high" for gpt-5 reasoning
+        reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
@@ -607,43 +586,18 @@ public class ProxyService {
         AppConfig.addAuthHeaders(&req)
 
         var requestBody: [String: Any] = [
-            "prompt": prompt,  // User prompt - specific data and context
+            "prompt": prompt,  // Edge function expects "prompt" and converts to "input" for OpenAI
             "model": model,
             "max_output_tokens": maxOutputTokens,
+            "text_format": "json",  // Request JSON format for structured responses
+                // Note: Using text_format: "json" for structured responses without complex schema
+                // Note: modalities is added by edge function, don't send it from client
         ]
 
-        // Add system prompt if provided (edge function maps to "instructions")
-        if let system = system {
-            requestBody["system"] = system
-        }
-
-        // Add temperature if provided
-        if let temperature = temperature {
-            requestBody["temperature"] = temperature
-        }
-
-        // Add text format for Responses API (gpt-5 models)
-        // Edge function maps text_format="json" to response_format: {type: "json_object"}
-        if let textFormat = textFormat {
-            requestBody["text_format"] = textFormat
-        }
-
-        // Add direct response format for Responses API (gpt-5 models)
-        // This takes precedence over textFormat for more control
-        if let responseFormat = responseFormat {
-            requestBody["response_format"] = responseFormat
-        }
-
-        // Add strict JSON schema for Responses API (highest priority)
-        // This provides the strongest JSON enforcement with schema validation
-        if let textFormatSchema = textFormatSchema {
-            // Edge function expects top-level json_schema field
-            requestBody["json_schema"] = textFormatSchema
-        }
-
-        // Add reasoning effort for gpt-5 models (use nested format)
+        // Add reasoning effort for gpt-5 models (edge function accepts both formats)
         if let effort = reasoningEffort, model.contains("gpt-5") {
-            requestBody["reasoning"] = ["effort": effort]  // Nested format for edge function
+            requestBody["reasoning_effort"] = effort  // Flat field for edge function
+            requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
         }
 
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -656,21 +610,17 @@ public class ProxyService {
                 let bodyDict = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
             {
                 let promptText = bodyDict["prompt"] as? String ?? ""
-                let systemText = bodyDict["system"] as? String ?? ""
-                let textFormatValue = bodyDict["text_format"] as? String
                 ClaimbLogger.debug(
-                    "AI Coach request body", service: "ProxyService",
+                    "AI Coach request body (parsed back)", service: "ProxyService",
                     metadata: [
                         "model": bodyDict["model"] as? String ?? "missing",
-                        "hasSystem": String(!systemText.isEmpty),
-                        "systemLength": String(systemText.count),
-                        "hasPrompt": String(!promptText.isEmpty),
-                        "promptLength": String(promptText.count),
                         "max_output_tokens": String(
                             describing: bodyDict["max_output_tokens"] ?? "missing"),
-                        "temperature": bodyDict["temperature"] as? String ?? "not set",
-                        "text_format": textFormatValue ?? "not set",
-                        "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "not set",
+                        "modalities": String(describing: bodyDict["modalities"] ?? "missing"),
+                        "reasoning_effort": bodyDict["reasoning_effort"] as? String ?? "missing",
+                        "reasoning": String(describing: bodyDict["reasoning"] ?? "missing"),
+                        "hasPrompt": String(!promptText.isEmpty),
+                        "promptLength": String(promptText.count),
                         "bodyKeys": bodyDict.keys.sorted().joined(separator: ", "),
                     ]
                 )
@@ -697,27 +647,27 @@ public class ProxyService {
             "Proxy: ai/coach", statusCode: httpResponse.statusCode, service: "ProxyService")
 
         guard httpResponse.statusCode == 200 else {
-            // Log the error response body for all error status codes
-            if let errorBody = String(data: data, encoding: .utf8) {
-                ClaimbLogger.error(
-                    "Proxy: AI coach returned error",
-                    service: "ProxyService",
-                    metadata: [
-                        "statusCode": String(httpResponse.statusCode),
-                        "errorBody": String(errorBody.prefix(500)),  // Limit to 500 chars
-                        "requestModel": model,
-                        "requestTokens": String(maxOutputTokens),
-                        "hasSystem": system != nil ? "true" : "false",
-                        "hasTextFormat": textFormat != nil ? "true" : "false",
-                        "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
-                    ]
-                )
+            // Log the error response body for 400 errors
+            if httpResponse.statusCode == 400 {
+                if let errorBody = String(data: data, encoding: .utf8) {
+                    ClaimbLogger.error(
+                        "Proxy: AI coach returned 400 Bad Request",
+                        service: "ProxyService",
+                        metadata: [
+                            "statusCode": "400",
+                            "errorBody": errorBody,
+                            "requestModel": model,
+                            "requestTokens": String(maxOutputTokens),
+                            "hasReasoningEffort": reasoningEffort != nil ? "true" : "false",
+                        ]
+                    )
+                }
             }
             throw ProxyError.httpError(httpResponse.statusCode)
         }
 
-        // Edge function response formats
-        struct SimpleWrapperResponse: Decodable {
+        // Support both legacy format and Responses API format
+        struct LegacyResponse: Decodable {
             let text: String
             let model: String
         }
@@ -740,7 +690,7 @@ public class ProxyService {
         }
 
         do {
-            // First try Responses API format (gpt-5-mini only)
+            // First try Responses API format (for gpt-5-mini)
             if let responsesAPI = try? JSONDecoder().decode(ResponsesAPIFormat.self, from: data) {
                 // Try direct output_text field first
                 if let outputText = responsesAPI.output_text, !outputText.isEmpty {
@@ -783,10 +733,10 @@ public class ProxyService {
                     metadata: ["model": responsesAPI.model])
             }
 
-            // Fall back to simple wrapper format
-            let response = try JSONDecoder().decode(SimpleWrapperResponse.self, from: data)
+            // Fall back to legacy format (for gpt-4o-mini)
+            let response = try JSONDecoder().decode(LegacyResponse.self, from: data)
             ClaimbLogger.info(
-                "Proxy: Retrieved AI coaching response (wrapper format)", service: "ProxyService",
+                "Proxy: Retrieved AI coaching response (Legacy format)", service: "ProxyService",
                 metadata: ["responseLength": String(response.text.count), "model": response.model])
             return response.text
         } catch {
@@ -881,7 +831,6 @@ public class ProxyService {
         -> (Data, URLResponse)
     {
         var lastError: Error?
-        var usedFreshEphemeralOnce = false
 
         // Check network connectivity before making requests
         let isReachable = await isNetworkReachable()
@@ -1002,28 +951,6 @@ public class ProxyService {
                 case .networkConnectionLost, .notConnectedToInternet, .timedOut,
                     .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
                     .resourceUnavailable, .secureConnectionFailed, .serverCertificateUntrusted:
-                    // One-shot attempt: recreate a fresh ephemeral session immediately for -1005/-1001
-                    if (error.code == .networkConnectionLost || error.code == .timedOut)
-                        && !usedFreshEphemeralOnce
-                    {
-                        let freshSession = createFreshEphemeralSession()
-                        do {
-                            ClaimbLogger.warning(
-                                "Network error, retrying immediately with fresh ephemeral session",
-                                service: "ProxyService",
-                                metadata: [
-                                    "error": error.localizedDescription,
-                                    "errorCode": String(error.code.rawValue),
-                                ]
-                            )
-                            let (data, response) = try await freshSession.data(for: request)
-                            return (data, response)
-                        } catch {
-                            // Fall through to normal backoff path
-                            usedFreshEphemeralOnce = true
-                            lastError = error
-                        }
-                    }
                     if attempt < maxRetries {
                         // More aggressive retry for connection lost errors
                         let backoffTime =
@@ -1072,26 +999,6 @@ public class ProxyService {
                 ?? NSError(
                     domain: "ProxyService", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Request failed after all retries"]))
-    }
-
-    /// Creates a brand-new ephemeral URLSession with strict, single-connection settings.
-    private func createFreshEphemeralSession() -> URLSession {
-        let cfg = URLSessionConfiguration.ephemeral
-        cfg.timeoutIntervalForRequest = 30.0
-        cfg.timeoutIntervalForResource = 60.0
-        cfg.waitsForConnectivity = true
-        cfg.allowsCellularAccess = true
-        cfg.httpMaximumConnectionsPerHost = 1
-        cfg.urlCache = nil
-        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
-        cfg.httpShouldUsePipelining = false
-        cfg.httpShouldSetCookies = false
-        cfg.httpCookieAcceptPolicy = .never
-        cfg.multipathServiceType = .none
-        cfg.httpAdditionalHeaders = [
-            "Alt-Svc": "clear"
-        ]
-        return URLSession(configuration: cfg)
     }
 
     /// Checks if network is reachable by attempting a simple connection
