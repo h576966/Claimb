@@ -59,8 +59,8 @@ public class OpenAIService {
             dataManager: kpiService.dataManager
         )
 
-        // Create split prompts using PromptBuilder (for better organization)
-        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPostGamePrompt(
+        // Create prompt using PromptBuilder
+        let prompt = CoachingPromptBuilder.createPostGamePrompt(
             match: match,
             participant: participant,
             summoner: summoner,
@@ -72,21 +72,10 @@ public class OpenAIService {
             baselineContext: baselineContext
         )
 
-        // Combine system and user prompts into single request (like working version)
-        // This maintains the dual prompt architecture but uses single request approach
-        let combinedPrompt = """
-            <SYSTEM>
-            \(systemPrompt)
-            </SYSTEM>
+        // Use the single prompt from CoachingPromptBuilder
 
-            <USER>
-            \(userPrompt)
-            </USER>
-            """
-
-        // Create strict JSON schema for Post-Game Analysis
-        // Edge function expects top-level json_schema with name, strict, and schema
-        let postGameSchema: [String: Any] = [
+        // Note: JSON schema enforcement is handled by the edge function
+        let _ = [
             "name": "claimb_post_game",
             "strict": true,
             "schema": [
@@ -115,11 +104,9 @@ public class OpenAIService {
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: combinedPrompt,
+            prompt: prompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
-            temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
-            textFormatSchema: postGameSchema,  // Strict JSON schema for Responses API
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
@@ -186,8 +173,8 @@ public class OpenAIService {
             ]
         )
 
-        // Create split prompts using PromptBuilder (for better organization)
-        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPerformanceSummaryPrompt(
+        // Create prompt using PromptBuilder
+        let prompt = CoachingPromptBuilder.createPerformanceSummaryPrompt(
             matches: matches,
             summoner: summoner,
             primaryRole: primaryRole,
@@ -195,21 +182,8 @@ public class OpenAIService {
             streakData: streakData
         )
 
-        // Combine system and user prompts into single request (like working version)
-        // This maintains the dual prompt architecture but uses single request approach
-        let combinedPrompt = """
-            <SYSTEM>
-            \(systemPrompt)
-            </SYSTEM>
-
-            <USER>
-            \(userPrompt)
-            </USER>
-            """
-
-        // Create strict JSON schema for Performance Summary
-        // Edge function expects top-level json_schema with name, strict, and schema
-        let performanceSummarySchema: [String: Any] = [
+        // Note: JSON schema enforcement is handled by the edge function
+        let _ = [
             "name": "claimb_perf_summary",
             "strict": true,
             "schema": [
@@ -249,11 +223,9 @@ public class OpenAIService {
         // Note: Using lower token limit for concise responses
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: combinedPrompt,
+            prompt: prompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
-            temperature: 0.4,  // Balanced temperature for consistent yet varied coaching
-            textFormatSchema: performanceSummarySchema,  // Strict JSON schema for Responses API
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
