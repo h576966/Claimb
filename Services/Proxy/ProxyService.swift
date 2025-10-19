@@ -28,12 +28,12 @@ public class ProxyService {
         self.baseURL = AppConfig.baseURL
 
         // Create a custom URLSession with optimized configuration for network reliability
-        let config = URLSessionConfiguration.default
+        let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 45.0  // 45 seconds timeout (increased for edge function)
         config.timeoutIntervalForResource = 90.0  // 90 seconds total timeout
         config.waitsForConnectivity = true  // Wait for network connectivity
         config.allowsCellularAccess = true
-        config.httpMaximumConnectionsPerHost = 4  // Reduced for better stability
+        config.httpMaximumConnectionsPerHost = 1  // Single connection per host for stability
         config.urlCache = nil  // Disable caching for API calls
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
 
@@ -50,7 +50,7 @@ public class ProxyService {
             // Simulator-specific configuration to force HTTP/2
             config.timeoutIntervalForRequest = 60.0  // Longer timeout for simulator
             config.timeoutIntervalForResource = 120.0
-            config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
+            config.httpMaximumConnectionsPerHost = 1  // Single connection per host for simulator
             config.multipathServiceType = .none  // Disable multipath TCP
             
             // Force HTTP/2 by disabling QUIC negotiation
@@ -69,7 +69,7 @@ public class ProxyService {
             // Production configuration with HTTP/2 support
             config.timeoutIntervalForRequest = 45.0
             config.timeoutIntervalForResource = 90.0
-            config.httpMaximumConnectionsPerHost = 4
+            config.httpMaximumConnectionsPerHost = 1
             
             // Force HTTP/2 in production too to avoid QUIC issues
             config.httpAdditionalHeaders = [
@@ -86,7 +86,7 @@ public class ProxyService {
         self.urlSession = URLSession(configuration: config)
 
         // Create fallback URLSession with minimal configuration for simulator issues
-        let fallbackConfig = URLSessionConfiguration.default
+        let fallbackConfig = URLSessionConfiguration.ephemeral
         fallbackConfig.timeoutIntervalForRequest = 20.0
         fallbackConfig.timeoutIntervalForResource = 40.0
         fallbackConfig.httpMaximumConnectionsPerHost = 1
@@ -881,6 +881,7 @@ public class ProxyService {
         -> (Data, URLResponse)
     {
         var lastError: Error?
+        var usedFreshEphemeralOnce = false
 
         // Check network connectivity before making requests
         let isReachable = await isNetworkReachable()
@@ -1001,6 +1002,28 @@ public class ProxyService {
                 case .networkConnectionLost, .notConnectedToInternet, .timedOut,
                     .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed,
                     .resourceUnavailable, .secureConnectionFailed, .serverCertificateUntrusted:
+                    // One-shot attempt: recreate a fresh ephemeral session immediately for -1005/-1001
+                    if (error.code == .networkConnectionLost || error.code == .timedOut)
+                        && !usedFreshEphemeralOnce
+                    {
+                        let freshSession = createFreshEphemeralSession()
+                        do {
+                            ClaimbLogger.warning(
+                                "Network error, retrying immediately with fresh ephemeral session",
+                                service: "ProxyService",
+                                metadata: [
+                                    "error": error.localizedDescription,
+                                    "errorCode": String(error.code.rawValue),
+                                ]
+                            )
+                            let (data, response) = try await freshSession.data(for: request)
+                            return (data, response)
+                        } catch {
+                            // Fall through to normal backoff path
+                            usedFreshEphemeralOnce = true
+                            lastError = error
+                        }
+                    }
                     if attempt < maxRetries {
                         // More aggressive retry for connection lost errors
                         let backoffTime =
@@ -1049,6 +1072,26 @@ public class ProxyService {
                 ?? NSError(
                     domain: "ProxyService", code: -1,
                     userInfo: [NSLocalizedDescriptionKey: "Request failed after all retries"]))
+    }
+
+    /// Creates a brand-new ephemeral URLSession with strict, single-connection settings.
+    private func createFreshEphemeralSession() -> URLSession {
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 30.0
+        cfg.timeoutIntervalForResource = 60.0
+        cfg.waitsForConnectivity = true
+        cfg.allowsCellularAccess = true
+        cfg.httpMaximumConnectionsPerHost = 1
+        cfg.urlCache = nil
+        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
+        cfg.httpShouldUsePipelining = false
+        cfg.httpShouldSetCookies = false
+        cfg.httpCookieAcceptPolicy = .never
+        cfg.multipathServiceType = .none
+        cfg.httpAdditionalHeaders = [
+            "Alt-Svc": "clear"
+        ]
+        return URLSession(configuration: cfg)
     }
 
     /// Checks if network is reachable by attempting a simple connection
