@@ -41,8 +41,10 @@ public struct CoachingPromptBuilder {
             format: "%.0f%%", participant.objectiveParticipationPercentage)
 
         // Add queue context for coaching relevance
-        let queueContext = match.isRanked ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
-        
+        let queueContext =
+            match.isRanked
+            ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
+
         var prompt = """
             You are a League of Legends coach analyzing a single game for immediate improvement.
 
@@ -59,15 +61,15 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
-        
+
         // Add baseline context if available (simple, focused comparison)
         if let baseline = baselineContext {
             prompt += """
 
-            **BASELINE COMPARISON:**
-            \(baseline)
-            Note: Use these targets as context for improvement areas, not as strict goals to mention.
-            """
+                **BASELINE COMPARISON:**
+                \(baseline)
+                Note: Use these targets as context for improvement areas, not as strict goals to mention.
+                """
         }
 
         // Add lane opponent information if available
@@ -99,6 +101,7 @@ public struct CoachingPromptBuilder {
 
             CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
             Focus on actionable advice, avoid technical stats and parentheses.
+            Ensure all required fields are present and properly formatted.
 
             IMPORTANT: If this was a strong performance (Victory with good KDA or impressive stats), START your keyTakeaways with positive recognition and praise. Examples: "Excellent performance - you dominated your lane", "Great job securing the win with strong map awareness", "Well played - your champion mastery really showed".
             """
@@ -171,6 +174,7 @@ public struct CoachingPromptBuilder {
 
             CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
             Focus on actionable advice, avoid technical stats and parentheses.
+            Ensure all required fields are present and properly formatted.
             """
     }
 

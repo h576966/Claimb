@@ -151,13 +151,15 @@ class CoachingViewModel {
                     "gameCount": String(newCounter),
                 ])
 
-            await generatePerformanceSummary(matches: recentMatches)
+            Task {
+                await generatePerformanceSummary(matches: recentMatches)
+            }
         }
     }
 
     /// Generates post-game analysis for a specific match
     func generatePostGameAnalysis(for match: Match) async {
-        let matchId = String(describing: match.id)
+        let matchId = match.matchId
 
         // Check cache first - show immediately if available
         if let cachedAnalysis = try? await dataManager.getCachedPostGameAnalysis(

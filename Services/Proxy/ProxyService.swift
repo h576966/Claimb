@@ -589,6 +589,8 @@ public class ProxyService {
             "prompt": prompt,  // Edge function expects "prompt" and converts to "input" for OpenAI
             "model": model,
             "max_output_tokens": maxOutputTokens,
+            "text_format": "json",  // Request JSON format for structured responses
+                // Note: Using text_format: "json" for structured responses without complex schema
                 // Note: modalities is added by edge function, don't send it from client
         ]
 
