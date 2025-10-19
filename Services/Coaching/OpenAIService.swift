@@ -75,7 +75,7 @@ public class OpenAIService {
         // Use the single prompt from CoachingPromptBuilder
 
         // Note: JSON schema enforcement is handled by the edge function
-        let _ = [
+        let _: [String: Any] = [
             "name": "claimb_post_game",
             "strict": true,
             "schema": [
@@ -183,7 +183,7 @@ public class OpenAIService {
         )
 
         // Note: JSON schema enforcement is handled by the edge function
-        let _ = [
+        let _: [String: Any] = [
             "name": "claimb_perf_summary",
             "strict": true,
             "schema": [
