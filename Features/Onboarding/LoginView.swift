@@ -41,13 +41,13 @@ enum LoginLoadingState: Equatable {
         case .idle:
             return 0.0
         case .fetchingSummoner:
-            return 0.25
+            return 0.2
         case .loadingChampions:
-            return 0.5
+            return 0.4
         case .loadingMatches(let current, let total):
             if total > 0 {
-                let matchProgress = Double(current) / Double(total) * 0.4
-                return 0.6 + matchProgress
+                let matchProgress = Double(current) / Double(total) * 0.5
+                return 0.5 + matchProgress
             }
             return 0.7
         case .complete:
@@ -64,12 +64,40 @@ struct LoginView: View {
     @State private var loadingState: LoginLoadingState = .idle
     @State private var errorMessage: String?
     @State private var showOnboarding = false
+    @State private var smoothProgress: Double = 0.0
+    @State private var progressTimer: Timer?
 
     private let regions = [
         ("euw1", "Europe West"),
         ("na1", "North America"),
         ("eun1", "Europe Nordic & East"),
     ]
+    
+    // MARK: - Smooth Progress Animation
+    
+    private func startSmoothProgress() {
+        progressTimer?.invalidate()
+        smoothProgress = 0.0
+        
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            let targetProgress = loadingState.progress
+            
+            // Increment by 1-2% each time for smooth animation
+            let increment = max(0.01, (targetProgress - smoothProgress) * 0.3)
+            smoothProgress = min(targetProgress, smoothProgress + increment)
+            
+            // Stop when we reach the target
+            if smoothProgress >= targetProgress {
+                timer.invalidate()
+                smoothProgress = targetProgress
+            }
+        }
+    }
+    
+    private func stopSmoothProgress() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
 
     // Common tagline suggestions (only supported regions)
     private let taglineSuggestions = [
@@ -312,15 +340,15 @@ struct LoginView: View {
                         // Progress
                         RoundedRectangle(cornerRadius: 4)
                             .fill(DesignSystem.Colors.primary)
-                            .frame(width: geometry.size.width * loadingState.progress, height: 8)
-                            .animation(.easeInOut(duration: 0.3), value: loadingState.progress)
+                            .frame(width: geometry.size.width * smoothProgress, height: 8)
+                            .animation(.easeInOut(duration: 0.2), value: smoothProgress)
                     }
                 }
                 .frame(height: 8)
                 .padding(.horizontal, DesignSystem.Spacing.xl)
 
                 // Progress percentage
-                Text("\(Int(loadingState.progress * 100))%")
+                Text("\(Int(smoothProgress * 100))%")
                     .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
@@ -349,6 +377,9 @@ struct LoginView: View {
                     showOnboarding = true
                 }
             }
+        }
+        .onDisappear {
+            stopSmoothProgress()
         }
     }
 
@@ -479,6 +510,7 @@ struct LoginView: View {
 
         errorMessage = nil
         loadingState = .fetchingSummoner
+        startSmoothProgress()
 
         // Create DataManager
         let dataManager = DataManager.shared(with: userSession.modelContext)
@@ -527,13 +559,7 @@ struct LoginView: View {
 
         let refreshState = await dataManager.refreshMatches(for: summoner)
 
-        // Simulate progress updates (DataManager doesn't expose progress yet)
-        await MainActor.run {
-            loadingState = .loadingMatches(progress: 50, total: 100)
-        }
-
-        try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5s
-
+        // Complete the loading
         await MainActor.run {
             loadingState = .loadingMatches(progress: 100, total: 100)
         }
