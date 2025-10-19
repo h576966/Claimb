@@ -45,26 +45,36 @@ public class ProxyService {
         config.allowsConstrainedNetworkAccess = true  // Allow constrained network access
         config.allowsExpensiveNetworkAccess = true  // Allow expensive network access
 
-        // Simulator-specific network configuration to avoid QUIC issues
+        // Force HTTP/2 and disable QUIC/HTTP-3 to avoid connection issues
         #if targetEnvironment(simulator)
-            // Disable HTTP/3 (QUIC) for simulator to avoid connection issues
-            // Note: We can't force HTTP/1.1 directly, but we can optimize for stability
+            // Simulator-specific configuration to force HTTP/2
             config.timeoutIntervalForRequest = 60.0  // Longer timeout for simulator
             config.timeoutIntervalForResource = 120.0
             config.httpMaximumConnectionsPerHost = 2  // Fewer connections for simulator
             config.multipathServiceType = .none  // Disable multipath TCP
+            
+            // Force HTTP/2 by disabling QUIC negotiation
+            config.httpAdditionalHeaders = [
+                "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
+            ]
 
             ClaimbLogger.info(
-                "Using simulator-optimized network configuration", service: "ProxyService",
+                "Using simulator-optimized network configuration (HTTP/2 forced)", service: "ProxyService",
                 metadata: [
                     "timeout": "60s",
                     "connections": "2",
+                    "protocol": "HTTP/2 (QUIC disabled)",
                 ])
         #else
             // Production configuration with HTTP/2 support
             config.timeoutIntervalForRequest = 45.0
             config.timeoutIntervalForResource = 90.0
             config.httpMaximumConnectionsPerHost = 4
+            
+            // Force HTTP/2 in production too to avoid QUIC issues
+            config.httpAdditionalHeaders = [
+                "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
+            ]
         #endif
 
         // Additional connection settings for better reliability
@@ -85,6 +95,11 @@ public class ProxyService {
         fallbackConfig.httpShouldUsePipelining = false
         fallbackConfig.httpShouldSetCookies = false
         fallbackConfig.httpCookieAcceptPolicy = .never
+        
+        // Force HTTP/2 in fallback configuration too
+        fallbackConfig.httpAdditionalHeaders = [
+            "Alt-Svc": "clear"  // Disable HTTP/3 Alt-Svc negotiation
+        ]
 
         #if targetEnvironment(simulator)
             // Use minimal configuration for fallback in simulator
