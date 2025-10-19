@@ -235,9 +235,10 @@ public struct CoachingPromptBuilder {
         summoner: Summoner,
         primaryRole: String
     ) -> String {
-        let recentMatches = Array(matches.prefix(10))
+        // Restrict diversity context to ranked only
+        let recentMatches = Array(matches.filter { $0.isRanked }.prefix(10))
 
-        var context = "**RECENT GAMES SUMMARY (Last 10 matches):**\n"
+        var context = "**RECENT GAMES SUMMARY (Last 10 ranked matches):**\n"
 
         // Track role and champion distribution
         var roleDistribution: [String: Int] = [:]

@@ -226,12 +226,12 @@ public class KPICalculationService {
     private func calculatePrimaryRoleConsistency(
         matches: [Match], primaryRole: String, summoner: Summoner
     ) -> Double {
-        // Get last 10 games for coaching analysis
-        let recentMatches = Array(matches.prefix(10))
+        // Get last 10 ranked games for coaching analysis
+        let recentMatches = Array(matches.filter { $0.isRanked }.prefix(10))
 
         guard !recentMatches.isEmpty else { return 0.0 }
 
-        // Count unique roles played in last 10 games
+        // Count unique roles played in last 10 ranked games
         let uniqueRoles = Set(
             recentMatches.compactMap { match in
                 match.participants.first(where: { $0.puuid == summoner.puuid })
@@ -252,10 +252,10 @@ public class KPICalculationService {
     }
 
     private func calculateChampionPoolSize(matches: [Match], summoner: Summoner) -> Double {
-        // Get last 10 games for coaching analysis
-        let recentMatches = Array(matches.prefix(10))
+        // Get last 10 ranked games for coaching analysis
+        let recentMatches = Array(matches.filter { $0.isRanked }.prefix(10))
 
-        // Get all participants for the summoner across all roles
+        // Get all participants for the summoner across all roles (ranked only)
         let allParticipants = recentMatches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })
         }
