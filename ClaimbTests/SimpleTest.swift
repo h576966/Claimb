@@ -8,6 +8,8 @@
 import Foundation
 import SwiftUI
 
+@testable import Claimb
+
 /// Comprehensive test suite for critical business logic components
 final class SimpleTest {
 

@@ -66,7 +66,7 @@ public class MatchRepository {
             ])
 
         // Smart fetching strategy
-        let smartResult = try await performSmartMatchFetch(for: summoner)
+        let smartResult = try await performInitialBulkFetch(for: summoner)
 
         // Process matches in batch
         let (addedCount, skippedCount) = try await processBatchMatches(
@@ -97,61 +97,78 @@ public class MatchRepository {
         let existingMatches = try await getMatches(for: summoner)
         let existingMatchIds = Set(existingMatches.map { $0.matchId })
 
-        let targetCount = MatchFilteringUtils.targetInitialMatchCount
         let currentCount = existingMatches.count
 
-        // Only fetch if we're below target
-        guard currentCount < targetCount else {
-            ClaimbLogger.debug(
-                "Already at target match count, skipping refresh",
-                service: "MatchRepository",
-                metadata: [
-                    "currentCount": String(currentCount),
-                    "targetCount": String(targetCount),
-                ])
-            return
-        }
-
         ClaimbLogger.info(
-            "Incremental refresh: using smart fetch strategy",
+            "Refreshing matches: fetching recent matches",
             service: "MatchRepository",
             metadata: [
                 "currentCount": String(currentCount),
-                "targetCount": String(targetCount),
-                "neededMatches": String(targetCount - currentCount),
+                "strategy": "recent-matches-only",
             ])
 
-        // Use smart fetch to get more matches
-        let smartFetchResult = try await performSmartMatchFetch(for: summoner)
+        // Always fetch recent matches to catch any new games
+        let recentResult = try await performRecentMatchesFetch(for: summoner)
 
         // Filter out matches we already have
-        let newMatchIds = smartFetchResult.matchIds.filter { !existingMatchIds.contains($0) }
+        let newMatchIds = recentResult.matchIds.filter { !existingMatchIds.contains($0) }
 
-        // Process new matches
-        let (addedCount, skippedCount) = try await processBatchMatches(
-            matchIds: newMatchIds,
-            summoner: summoner
-        )
+        ClaimbLogger.info(
+            "Found new matches to process",
+            service: "MatchRepository",
+            metadata: [
+                "totalRecentMatches": String(recentResult.matchIds.count),
+                "newMatches": String(newMatchIds.count),
+                "alreadyHave": String(recentResult.matchIds.count - newMatchIds.count),
+            ])
 
-        ClaimbLogger.dataOperation(
-            "Added new matches",
-            count: addedCount,
-            service: "MatchRepository"
-        )
+        // Process new matches if any
+        if !newMatchIds.isEmpty {
+            let (addedCount, skippedCount) = try await processBatchMatches(
+                matchIds: newMatchIds,
+                summoner: summoner
+            )
 
-        if skippedCount > 0 {
-            ClaimbLogger.debug(
-                "Skipped irrelevant matches",
+            ClaimbLogger.dataOperation(
+                "Added new matches from refresh",
+                count: addedCount,
+                service: "MatchRepository"
+            )
+
+            if skippedCount > 0 {
+                ClaimbLogger.info(
+                    "Skipped matches during refresh",
+                    service: "MatchRepository",
+                    metadata: [
+                        "skippedCount": String(skippedCount),
+                        "reason": "already_processed_or_irrelevant",
+                    ])
+            }
+        } else {
+            ClaimbLogger.info(
+                "No new matches found during refresh",
                 service: "MatchRepository",
                 metadata: [
-                    "skippedCount": String(skippedCount),
-                    "addedCount": String(addedCount),
+                    "totalRecentMatches": String(recentResult.matchIds.count),
+                    "currentDatabaseCount": String(currentCount),
                 ])
         }
 
         try await cleanupOldMatches(for: summoner)
         summoner.lastUpdated = Date()
         try modelContext.save()
+
+        let finalMatchCount = try await getMatches(for: summoner).count
+
+        ClaimbLogger.info(
+            "Refresh completed",
+            service: "MatchRepository",
+            metadata: [
+                "strategy": "recent-matches-only",
+                "totalFetched": String(recentResult.totalFetched),
+                "newMatchesAdded": String(newMatchIds.count),
+                "finalDatabaseCount": String(finalMatchCount),
+            ])
     }
 
     // MARK: - Match Processing
@@ -260,36 +277,115 @@ public class MatchRepository {
 
     // MARK: - Smart Fetching
 
-    /// Performs smart match fetching with ranked-first strategy and fallback
-    public func performSmartMatchFetch(for summoner: Summoner) async throws -> SmartFetchResult {
+    /// Performs initial bulk fetch for first-time users with progressive time windows
+    public func performInitialBulkFetch(for summoner: Summoner) async throws -> SmartFetchResult {
         let targetCount = MatchFilteringUtils.targetInitialMatchCount
         var allMatchIds: [String] = []
         var totalFetched = 0
+        var timeWindowUsed = MatchFilteringUtils.initialFetchTimeWindowDays
 
         let rankedQueues = [420, 440]  // Solo/Duo, Flex
         let normalQueue = 400  // Normal Draft
-        let matchesPerRankedQueue = min(30, targetCount / 2)
 
         ClaimbLogger.info(
-            "Smart fetch: prioritizing ranked games first",
+            "Initial bulk fetch: trying 90-day window first",
             service: "MatchRepository",
             metadata: [
                 "targetCount": String(targetCount),
-                "rankedQueues": rankedQueues.map(String.init).joined(separator: ","),
-                "matchesPerRankedQueue": String(matchesPerRankedQueue),
-                "strategy": "ranked-first-with-normal-fallback",
+                "minMatchesNeeded": String(MatchFilteringUtils.minMatchesForAnalysis),
+                "strategy": "90-day-with-180-day-fallback",
             ])
 
-        // Fetch from ranked queues first
-        for queueId in rankedQueues {
+        // Try 90-day window first
+        let startTime90 = MatchFilteringUtils.daysAgoTimestamp(
+            days: MatchFilteringUtils.initialFetchTimeWindowDays)
+        let result90 = try await fetchMatchesInTimeWindow(
+            summoner: summoner,
+            startTime: startTime90,
+            rankedQueues: rankedQueues,
+            normalQueue: normalQueue,
+            targetCount: targetCount
+        )
+
+        allMatchIds.append(contentsOf: result90.matchIds)
+        totalFetched += result90.totalFetched
+
+        // If we don't have enough matches, try 180-day window
+        if allMatchIds.count < MatchFilteringUtils.minMatchesForAnalysis {
+            ClaimbLogger.info(
+                "Insufficient matches from 90-day window, trying 180-day window",
+                service: "MatchRepository",
+                metadata: [
+                    "currentCount": String(allMatchIds.count),
+                    "minNeeded": String(MatchFilteringUtils.minMatchesForAnalysis),
+                ])
+
+            let startTime180 = MatchFilteringUtils.daysAgoTimestamp(
+                days: MatchFilteringUtils.extendedFetchTimeWindowDays)
+            let result180 = try await fetchMatchesInTimeWindow(
+                summoner: summoner,
+                startTime: startTime180,
+                rankedQueues: rankedQueues,
+                normalQueue: normalQueue,
+                targetCount: targetCount
+            )
+
+            allMatchIds.append(contentsOf: result180.matchIds)
+            totalFetched += result180.totalFetched
+            timeWindowUsed = MatchFilteringUtils.extendedFetchTimeWindowDays
+        }
+
+        // Remove duplicates and limit to target
+        let uniqueMatchIds = Array(Set(allMatchIds))
+        let finalMatchIds = Array(uniqueMatchIds.prefix(targetCount))
+
+        ClaimbLogger.info(
+            "Initial bulk fetch completed",
+            service: "MatchRepository",
+            metadata: [
+                "timeWindowUsed": String(timeWindowUsed),
+                "totalFetched": String(totalFetched),
+                "uniqueCount": String(uniqueMatchIds.count),
+                "finalCount": String(finalMatchIds.count),
+                "targetCount": String(targetCount),
+                "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
+            ])
+
+        return SmartFetchResult(
+            matchIds: finalMatchIds,
+            strategy: .rankedFirst,
+            totalFetched: totalFetched,
+            relevantCount: finalMatchIds.count
+        )
+    }
+
+    /// Performs recent matches fetch for refresh operations
+    public func performRecentMatchesFetch(for summoner: Summoner) async throws -> SmartFetchResult {
+        let startTime = MatchFilteringUtils.daysAgoTimestamp(
+            days: MatchFilteringUtils.refreshTimeWindowDays)
+        var allMatchIds: [String] = []
+        var totalFetched = 0
+
+        let allQueues = [420, 440, 400]  // Solo/Duo, Flex, Normal Draft
+
+        ClaimbLogger.info(
+            "Recent matches fetch: 90-day window",
+            service: "MatchRepository",
+            metadata: [
+                "timeWindowDays": String(MatchFilteringUtils.refreshTimeWindowDays),
+                "strategy": "recent-matches-only",
+            ])
+
+        // Fetch from all queues in recent time window
+        for queueId in allQueues {
             do {
                 let queueHistory = try await riotClient.getMatchHistory(
                     puuid: summoner.puuid,
                     region: summoner.region,
-                    count: matchesPerRankedQueue,
+                    count: 30,  // Reasonable amount per queue for refresh
                     type: nil,
                     queue: queueId,
-                    startTime: nil,
+                    startTime: startTime,
                     endTime: nil
                 )
 
@@ -298,12 +394,80 @@ public class MatchRepository {
                 allMatchIds.append(contentsOf: queueHistory.history)
 
                 ClaimbLogger.info(
-                    "Fetched from ranked queue",
+                    "Fetched recent matches from queue",
                     service: "MatchRepository",
                     metadata: [
                         "queueId": String(queueId),
                         "queueName": MatchFilteringUtils.queueDisplayName(queueId),
-                        "requestedCount": String(matchesPerRankedQueue),
+                        "receivedCount": String(queueCount),
+                        "totalSoFar": String(allMatchIds.count),
+                    ])
+            } catch {
+                ClaimbLogger.warning(
+                    "Failed to fetch recent matches from queue",
+                    service: "MatchRepository",
+                    metadata: [
+                        "queueId": String(queueId),
+                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
+                        "error": error.localizedDescription,
+                    ])
+            }
+        }
+
+        // Remove duplicates
+        let uniqueMatchIds = Array(Set(allMatchIds))
+
+        ClaimbLogger.info(
+            "Recent matches fetch completed",
+            service: "MatchRepository",
+            metadata: [
+                "totalFetched": String(totalFetched),
+                "uniqueCount": String(uniqueMatchIds.count),
+                "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
+            ])
+
+        return SmartFetchResult(
+            matchIds: uniqueMatchIds,
+            strategy: .rankedFirst,
+            totalFetched: totalFetched,
+            relevantCount: uniqueMatchIds.count
+        )
+    }
+
+    /// Helper method to fetch matches within a specific time window
+    private func fetchMatchesInTimeWindow(
+        summoner: Summoner,
+        startTime: Int,
+        rankedQueues: [Int],
+        normalQueue: Int,
+        targetCount: Int
+    ) async throws -> (matchIds: [String], totalFetched: Int) {
+        var allMatchIds: [String] = []
+        var totalFetched = 0
+
+        // Fetch from ranked queues first
+        for queueId in rankedQueues {
+            do {
+                let queueHistory = try await riotClient.getMatchHistory(
+                    puuid: summoner.puuid,
+                    region: summoner.region,
+                    count: 50,  // Max per queue for bulk fetch
+                    type: nil,
+                    queue: queueId,
+                    startTime: startTime,
+                    endTime: nil
+                )
+
+                let queueCount = queueHistory.history.count
+                totalFetched += queueCount
+                allMatchIds.append(contentsOf: queueHistory.history)
+
+                ClaimbLogger.info(
+                    "Fetched from ranked queue in time window",
+                    service: "MatchRepository",
+                    metadata: [
+                        "queueId": String(queueId),
+                        "queueName": MatchFilteringUtils.queueDisplayName(queueId),
                         "receivedCount": String(queueCount),
                         "totalSoFar": String(allMatchIds.count),
                     ])
@@ -320,7 +484,7 @@ public class MatchRepository {
                 }
             } catch {
                 ClaimbLogger.warning(
-                    "Failed to fetch from ranked queue",
+                    "Failed to fetch from ranked queue in time window",
                     service: "MatchRepository",
                     metadata: [
                         "queueId": String(queueId),
@@ -330,11 +494,11 @@ public class MatchRepository {
             }
         }
 
-        // Fetch normal games if still need more
+        // Fetch from normal queue if still need more
         let currentCount = allMatchIds.count
         if currentCount < targetCount {
             let neededMatches = targetCount - currentCount
-            let normalMatchesToFetch = min(neededMatches + 20, 100)
+            let normalMatchesToFetch = min(neededMatches + 20, 50)
 
             ClaimbLogger.info(
                 "Need more matches, fetching from normal draft",
@@ -352,7 +516,7 @@ public class MatchRepository {
                     count: normalMatchesToFetch,
                     type: nil,
                     queue: normalQueue,
-                    startTime: nil,
+                    startTime: startTime,
                     endTime: nil
                 )
 
@@ -361,7 +525,7 @@ public class MatchRepository {
                 allMatchIds.append(contentsOf: normalHistory.history)
 
                 ClaimbLogger.info(
-                    "Fetched from normal draft",
+                    "Fetched from normal draft in time window",
                     service: "MatchRepository",
                     metadata: [
                         "queueId": String(normalQueue),
@@ -372,7 +536,7 @@ public class MatchRepository {
                     ])
             } catch {
                 ClaimbLogger.warning(
-                    "Failed to fetch from normal draft",
+                    "Failed to fetch from normal draft in time window",
                     service: "MatchRepository",
                     metadata: [
                         "queueId": String(normalQueue),
@@ -382,28 +546,7 @@ public class MatchRepository {
             }
         }
 
-        // Remove duplicates and limit to target
-        let uniqueMatchIds = Array(Set(allMatchIds))
-        let finalMatchIds = Array(uniqueMatchIds.prefix(targetCount))
-
-        ClaimbLogger.info(
-            "Smart fetch completed",
-            service: "MatchRepository",
-            metadata: [
-                "totalFetched": String(totalFetched),
-                "uniqueCount": String(uniqueMatchIds.count),
-                "finalCount": String(finalMatchIds.count),
-                "targetCount": String(targetCount),
-                "duplicatesRemoved": String(totalFetched - uniqueMatchIds.count),
-                "strategy": allMatchIds.count >= targetCount ? "ranked-only" : "ranked-plus-normal",
-            ])
-
-        return SmartFetchResult(
-            matchIds: finalMatchIds,
-            strategy: .rankedFirst,
-            totalFetched: totalFetched,
-            relevantCount: finalMatchIds.count
-        )
+        return (matchIds: allMatchIds, totalFetched: totalFetched)
     }
 
     // MARK: - Cache Cleanup
@@ -513,4 +656,3 @@ public class MatchRepository {
         )
     }
 }
-

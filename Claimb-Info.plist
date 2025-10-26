@@ -60,7 +60,8 @@
 	
 	<!-- Network Usage Description -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Claimb needs network access to sync your match data and provide AI coaching insights.</string>
+	<string>Claimb needs network access to sync your performance data and provide AI coaching insights. All data is processed locally on your device for maximum privacy.</string>
+	
 	
 	<!-- Export Compliance - Encryption Declaration -->
 	<key>ITSAppUsesNonExemptEncryption</key>

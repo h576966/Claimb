@@ -12,25 +12,21 @@ import SwiftUI
 
 enum LoginLoadingState: Equatable {
     case idle
-    case fetchingSummoner
-    case loadingChampions
-    case loadingMatches(progress: Int, total: Int)
+    case accountSetup(progress: Double)  // 0-25%
+    case dataLoading(progress: Double)  // 25-75%
+    case finalization(progress: Double)  // 75-100%
     case complete
 
     var message: String {
         switch self {
         case .idle:
             return ""
-        case .fetchingSummoner:
-            return "Fetching summoner data..."
-        case .loadingChampions:
-            return "Loading champion data..."
-        case .loadingMatches(let progress, let total):
-            if total > 0 {
-                return "Loading matches (\(progress)/\(total))..."
-            } else {
-                return "Loading matches..."
-            }
+        case .accountSetup:
+            return "Setting up your account..."
+        case .dataLoading:
+            return "Loading your match data..."
+        case .finalization:
+            return "Preparing your dashboard..."
         case .complete:
             return "Complete!"
         }
@@ -40,16 +36,12 @@ enum LoginLoadingState: Equatable {
         switch self {
         case .idle:
             return 0.0
-        case .fetchingSummoner:
-            return 0.2
-        case .loadingChampions:
-            return 0.4
-        case .loadingMatches(let current, let total):
-            if total > 0 {
-                let matchProgress = Double(current) / Double(total) * 0.5
-                return 0.5 + matchProgress
-            }
-            return 0.7
+        case .accountSetup(let progress):
+            return progress * 0.25  // Scale to 0-25%
+        case .dataLoading(let progress):
+            return 0.25 + (progress * 0.50)  // Scale to 25-75%
+        case .finalization(let progress):
+            return 0.75 + (progress * 0.25)  // Scale to 75-100%
         case .complete:
             return 1.0
         }
@@ -72,28 +64,48 @@ struct LoginView: View {
         ("na1", "North America"),
         ("eun1", "Europe Nordic & East"),
     ]
-    
+
     // MARK: - Smooth Progress Animation
-    
+
     private func startSmoothProgress() {
         progressTimer?.invalidate()
         smoothProgress = 0.0
-        
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            let targetProgress = loadingState.progress
-            
-            // Increment by 1-2% each time for smooth animation
-            let increment = max(0.01, (targetProgress - smoothProgress) * 0.3)
-            smoothProgress = min(targetProgress, smoothProgress + increment)
-            
-            // Stop when we reach the target
-            if smoothProgress >= targetProgress {
+
+        // Simple approach: animate to 80% over 2-3 seconds regardless of actual work
+        let targetProgress = 0.8
+        let animationDuration = 2.5  // seconds
+        let totalSteps = Int(animationDuration / 0.05)  // 50 steps
+        let stepSize = targetProgress / Double(totalSteps)
+
+        var currentStep = 0
+
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            currentStep += 1
+
+            if currentStep >= totalSteps {
+                // Reached 80%, stop here and let actual work complete it
                 timer.invalidate()
                 smoothProgress = targetProgress
+            } else {
+                // Smoothly advance to 80%
+                smoothProgress = Double(currentStep) * stepSize
             }
         }
     }
-    
+
+    private func updateProgress(to newState: LoginLoadingState) {
+        loadingState = newState
+
+        // If we're completing, jump to 100%
+        if newState == .complete {
+            progressTimer?.invalidate()
+            smoothProgress = 1.0
+        } else if progressTimer == nil {
+            // Start smooth progress if not already running
+            startSmoothProgress()
+        }
+    }
+
     private func stopSmoothProgress() {
         progressTimer?.invalidate()
         progressTimer = nil
@@ -492,12 +504,12 @@ struct LoginView: View {
 
     private var loadingTip: String {
         switch loadingState {
-        case .fetchingSummoner:
-            return "Claimb analyzes your last 100 matches to provide insights"
-        case .loadingChampions:
-            return "We load 171 champions with role-specific baselines"
-        case .loadingMatches:
-            return "Your match data is cached locally for offline access"
+        case .accountSetup:
+            return "We're fetching your summoner data and loading champion information"
+        case .dataLoading:
+            return "Analyzing your recent matches to provide personalized insights"
+        case .finalization:
+            return "Setting up your personalized dashboard with performance metrics"
         default:
             return "All your data stays on your device - privacy first!"
         }
@@ -509,8 +521,7 @@ struct LoginView: View {
         guard isValidInput else { return }
 
         errorMessage = nil
-        loadingState = .fetchingSummoner
-        startSmoothProgress()
+        updateProgress(to: .accountSetup(progress: 0.0))
 
         // Create DataManager
         let dataManager = DataManager.shared(with: userSession.modelContext)
@@ -545,24 +556,16 @@ struct LoginView: View {
             return
         }
 
-        // Load champion data
+        // Update to data loading phase
         await MainActor.run {
-            loadingState = .loadingChampions
+            updateProgress(to: .dataLoading(progress: 0.0))
         }
 
+        // Load champion data
         _ = await dataManager.loadChampions()
 
-        // Load matches with progress
-        await MainActor.run {
-            loadingState = .loadingMatches(progress: 0, total: 100)
-        }
-
+        // Fetch matches
         let refreshState = await dataManager.refreshMatches(for: summoner)
-
-        // Complete the loading
-        await MainActor.run {
-            loadingState = .loadingMatches(progress: 100, total: 100)
-        }
 
         if case .error(let error) = refreshState {
             // Log the error but don't fail login if only match loading fails
@@ -573,9 +576,17 @@ struct LoginView: View {
             )
         }
 
+        // Update to finalization phase
+        await MainActor.run {
+            updateProgress(to: .finalization(progress: 0.0))
+        }
+
+        // Small delay for final processing
+        try? await Task.sleep(nanoseconds: 300_000_000)  // 0.3s
+
         // Complete
         await MainActor.run {
-            loadingState = .complete
+            updateProgress(to: .complete)
         }
 
         // Small delay before transitioning

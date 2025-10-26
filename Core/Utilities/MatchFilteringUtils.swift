@@ -30,6 +30,16 @@ public struct MatchFilteringUtils {
     /// Maximum matches to fetch per request (API limit)
     public static let maxMatchesPerRequest = 100
 
+    /// Time window for initial bulk fetch (in days) - try 90 days first, then 180 if needed
+    public static let initialFetchTimeWindowDays = 90
+    public static let extendedFetchTimeWindowDays = 180
+
+    /// Minimum matches needed for meaningful analysis
+    public static let minMatchesForAnalysis = 15
+
+    /// Time window for refresh operations (recent matches)
+    public static let refreshTimeWindowDays = 90
+
     // MARK: - Time Calculations
 
     /// Calculates start time for 1 year ago (in seconds since epoch)

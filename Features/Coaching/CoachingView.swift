@@ -52,6 +52,7 @@ class CoachingViewModel {
     // MARK: - Background Refresh State
     var isRefreshingInBackground = false
     var showCachedDataWarning = false
+    var isGeneratingPerformanceSummary = false
 
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
@@ -279,6 +280,10 @@ class CoachingViewModel {
             return
         }
 
+        // Set loading state
+        isGeneratingPerformanceSummary = true
+        performanceSummaryError = ""  // Clear any previous errors
+
         // Check cache first - show immediately if available
         if let cachedSummary = try? await dataManager.getCachedPerformanceSummary(
             for: summoner,
@@ -286,6 +291,7 @@ class CoachingViewModel {
         ) {
             performanceSummary = cachedSummary
             showCachedDataWarning = true
+            isGeneratingPerformanceSummary = false
             ClaimbLogger.info(
                 "Showing cached performance summary", service: "CoachingViewModel",
                 metadata: [
@@ -317,6 +323,7 @@ class CoachingViewModel {
 
             performanceSummary = summary
             showCachedDataWarning = false
+            isGeneratingPerformanceSummary = false
 
             ClaimbLogger.info(
                 "Performance summary completed", service: "CoachingViewModel",
@@ -327,6 +334,7 @@ class CoachingViewModel {
 
         } catch {
             performanceSummaryError = ErrorHandler.userFriendlyMessage(for: error)
+            isGeneratingPerformanceSummary = false
             ClaimbLogger.error(
                 "Performance summary failed", service: "CoachingViewModel",
                 error: error,
@@ -642,6 +650,10 @@ struct CoachingView: View {
                 postGameAnalysisContent(analysis: analysis)
             } else if let error = viewModel?.postGameError, !error.isEmpty {
                 postGameErrorContent(error: error)
+            } else if viewModel?.isAnalyzing == true {
+                postGameLoadingContent()
+            } else if viewModel?.isRefreshingInBackground == true {
+                postGameRefreshingContent()
             } else {
                 postGameEmptyContent()
             }
@@ -733,6 +745,33 @@ struct CoachingView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private func postGameLoadingContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            ClaimbSpinner()
+                .frame(width: 24, height: 24)
+
+            Text("Generating post-game analysis...")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func postGameRefreshingContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                ClaimbSpinner()
+                    .frame(width: 16, height: 16)
+
+                Text("Refreshing analysis...")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private func postGameEmptyContent() -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "gamecontroller")
@@ -760,6 +799,10 @@ struct CoachingView: View {
                 summaryContent(summary: summary)
             } else if let error = viewModel?.performanceSummaryError, !error.isEmpty {
                 summaryErrorContent(error: error)
+            } else if viewModel?.isGeneratingPerformanceSummary == true {
+                summaryLoadingContent()
+            } else if viewModel?.isRefreshingInBackground == true {
+                summaryRefreshingContent()
             } else {
                 summaryEmptyContent()
             }
@@ -908,6 +951,38 @@ struct CoachingView: View {
                 .foregroundColor(DesignSystem.Colors.textPrimary)
 
             Text(error)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func summaryLoadingContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            ClaimbSpinner()
+                .frame(width: 24, height: 24)
+
+            Text("Generating performance analysis...")
+                .font(DesignSystem.Typography.callout)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func summaryRefreshingContent() -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                ClaimbSpinner()
+                    .frame(width: 16, height: 16)
+
+                Text("Refreshing analysis...")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+
+            Text("Updating with your latest matches")
                 .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)

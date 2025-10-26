@@ -3,7 +3,7 @@
 <div align="center">
   <img src="Claimb/Claimb/Assets.xcassets/AppIcon.appiconset/1024.png" alt="Claimb Logo" width="120" height="120">
   
-  **Your personal LoL coach in your pocket**
+  **Your personal performance analytics coach**
   
   [![iOS](https://img.shields.io/badge/iOS-18.0+-blue.svg)](https://developer.apple.com/ios/)
   [![Swift](https://img.shields.io/badge/Swift-6.1+-orange.svg)](https://swift.org/)
@@ -13,7 +13,7 @@
 
 ## 🎯 **What is Claimb?**
 
-Claimb is a **local-first** companion app for League designed for iPhone users who want to improve their gameplay through data-driven insights and personalized AI coaching. Unlike other apps that require constant internet connectivity, Claimb works offline and respects your privacy by keeping all data on your device.
+Claimb is a **local-first** performance analytics app designed for competitive gamers who want to improve their gameplay through data-driven insights and personalized AI coaching. Unlike other apps that require constant internet connectivity, Claimb works offline and respects your privacy by keeping all data on your device.
 
 ### **Core Features**
 - 📊 **Performance Analytics**: Track your performance with role-specific KPIs and baseline comparisons
@@ -64,12 +64,12 @@ Claimb is a **local-first** companion app for League designed for iPhone users w
 - **UIState Pattern**: Consistent loading, error, and empty states across all views
 - **Design System**: Complete Apple Watch-like interface with dark card-based layouts
 
-### **✅ Recently Completed**
-- **Supabase Edge Function Integration**: Secure API calls through server-side proxy
-- **Simplified Architecture**: Eliminated over-abstraction and reduced complexity by 36%
-- **AI Coaching Enhancements**: OpenAI Responses API integration with gpt-5-mini
-- **Code Quality Improvements**: Removed 600+ lines of dead code, better error handling
-- **Performance Optimizations**: 67-100% reduction in API calls, faster app startup
+### **✅ Recently Completed (December 2024)**
+- **Smart Match Fetching**: 90-day initial window with 180-day fallback for infrequent players
+- **Enhanced Loading UX**: Smooth progress animation with 3-phase system (Account Setup → Data Loading → Finalization)
+- **Improved Coaching States**: Proper loading indicators for post-game analysis and performance summary
+- **Better Error Handling**: Contextual loading messages instead of misleading "Play more games" text
+- **Match Repository Optimization**: Separate strategies for initial bulk fetch vs recent matches refresh
 
 ## 🏗️ **Current Implementation Status**
 
@@ -164,6 +164,12 @@ We recently completed a comprehensive production-readiness initiative to ensure 
 - **Supabase Edge Functions**: All external API calls routed through secure server-side proxy
 - **Server-Side API Keys**: Riot Games API, Data Dragon API, and OpenAI API keys managed server-side
 - **Zero Client Exposure**: No API keys ever exposed to the client application
+
+### **🔄 Loading & Progress System**
+- **3-Phase Loading**: Account Setup (0-25%), Data Loading (25-75%), Finalization (75-100%)
+- **Smart Progress Animation**: Smooth progress bar that advances to 80% over 2.5 seconds
+- **Contextual Messaging**: Appropriate loading messages for each phase
+- **Optimized Match Fetching**: Progressive time windows ensure sufficient data for all player types
 
 ### **🤖 AI Coaching System**
 - **Dual-Focused Coaching**: Post-game analysis and performance summary
@@ -434,20 +440,21 @@ We welcome contributions! Please follow these guidelines:
 
 This project is licensed under the MIT License.
 
-## 📊 **Recent Improvements (October 2025)**
+## 📊 **Recent Improvements (December 2024)**
 
 ### **Key Updates**
-- **OpenAI Responses API**: Full integration with gpt-5-mini and proper JSON enforcement
-- **Code Cleanup**: Removed 600+ lines of dead code for cleaner, faster builds
-- **Performance**: 67-100% reduction in API calls on app launch
-- **AI Coaching**: Enhanced with baseline comparisons and queue context
-- **Smooth UX**: Improved login progress animation and better error handling
+- **Match Fetching Optimization**: Implemented smart 90-180 day time windows ensuring infrequent players get sufficient match data
+- **Loading Progress Enhancement**: Fixed stuck progress bar with smooth 3-phase animation system (Account Setup → Data Loading → Finalization)
+- **Coaching UX Improvements**: Added proper loading states for post-game analysis and performance summary with contextual messages
+- **Enhanced Error Handling**: Replaced misleading "Play more games" messages with appropriate loading indicators
+- **Performance Optimizations**: Optimized match loading with progressive time windows and improved caching strategies
+- **User Experience**: Smooth progress animation that advances to 80% over 2.5 seconds for consistent loading feel
 
 ---
 
 ## 🙏 **Acknowledgments**
 
-- **Riot Games** for providing the League of Legends API
+- **Riot Games** for providing the official gaming APIs
 - **Data Dragon** for static game data
 - **Apple** for SwiftUI and SwiftData frameworks
 - **Community** for feedback and suggestions
@@ -461,6 +468,6 @@ This project is licensed under the MIT License.
 ---
 
 <div align="center">
-  <p>Made with ❤️ for the League of Legends community</p>
+  <p>Made with ❤️ for the competitive gaming community</p>
   <p>© 2024 Claimb. All rights reserved.</p>
 </div>

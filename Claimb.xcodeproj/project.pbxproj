@@ -39,6 +39,7 @@
 		F35F16462E95BF1500E1DD47 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F36188B22E89D05900D6A86A /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F36367782E986F640055041E /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F365D9D82EA56AB100C75232 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F378E1612EA4F36E003AF534 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F385BF4C2EA54AF000B305D1 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -64,6 +65,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Claimb-Info.plist",
+				ClaimbTests/SimpleTest.swift,
 			);
 			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
 		};
@@ -187,6 +189,11 @@
 			sourceTree = "<group>";
 		};
 		F363677C2E986F640055041E /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F365D9DD2EA56AB100C75232 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -376,8 +383,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
-					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
+					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
+					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F3E629842E7AAA6700DF2F2D /* Products */;
@@ -440,6 +447,10 @@
 					ProjectRef = F36F09B32E7AADC000B06E02 /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F365D9DD2EA56AB100C75232 /* Products */;
+					ProjectRef = F365D9D82EA56AB100C75232 /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F3539F832E895ED80073B155 /* Products */;
 					ProjectRef = F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */;
 				},
@@ -480,12 +491,12 @@
 					ProjectRef = F3B89FC82E8DD0E6007AAF06 /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
-					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
+					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
+					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
 				},
 				{
-					ProductGroup = F3CDD1C32E8B30C300CB00F8 /* Products */;
-					ProjectRef = F3CDD1BE2E8B30C300CB00F8 /* Claimb.xcodeproj */;
+					ProductGroup = F38BFDBA2E98C1F9007F004F /* Products */;
+					ProjectRef = F38BFDB62E98C1F9007F004F /* Claimb.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -694,7 +705,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -731,7 +742,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ClaimbRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
