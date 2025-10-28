@@ -75,13 +75,5 @@ public class Baseline {
         case needsImprovement = "Needs Improvement"
         case poor = "Poor"
 
-        public var color: String {
-            switch self {
-            case .excellent: return "green"
-            case .good: return "blue"
-            case .needsImprovement: return "orange"
-            case .poor: return "red"
-            }
-        }
     }
 }
