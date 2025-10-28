@@ -10,6 +10,9 @@ import Observation
 import SwiftData
 import SwiftUI
 
+// Import required types for coaching functionality
+// Note: These types are available through the main app module
+
 // MARK: - CoachingViewModel
 
 @MainActor
@@ -74,6 +77,9 @@ class CoachingViewModel {
             // Check if performance summary needs updating
             await checkPerformanceSummaryUpdate(matches: matches)
 
+            // Pre-calculate KPIs for goal selection to avoid empty modal
+            await calculateKPIsForGoals(matches: matches)
+
         } catch {
             matchState = .error(error)
             ClaimbLogger.error(
@@ -118,19 +124,19 @@ class CoachingViewModel {
     /// Checks if performance summary needs updating based on Friday cycle and goals
     private func checkPerformanceSummaryUpdate(matches: [Match]) async {
         let recentMatches = Array(matches.prefix(10))
-        
+
         // Check if we should show Friday modal or generate summary
         let shouldUpdate = UserGoals.shouldShowFridayModal() || !UserGoals.hasActiveGoal()
-        
+
         if shouldUpdate {
             ClaimbLogger.info(
                 "Triggering goal-based performance summary update", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
                     "hasActiveGoal": String(UserGoals.hasActiveGoal()),
-                    "needsGoalUpdate": String(UserGoals.needsGoalUpdate())
+                    "needsGoalUpdate": String(UserGoals.needsGoalUpdate()),
                 ])
-            
+
             // If no goal is set, show modal immediately
             if !UserGoals.hasActiveGoal() {
                 showGoalSetupModal = true
@@ -147,37 +153,111 @@ class CoachingViewModel {
             }
         }
     }
-    
+
     /// Shows the goal setup modal (triggered from header button)
     func showGoalsModal() {
         showGoalSetupModal = true
         ClaimbLogger.info("Goal setup modal triggered from header", service: "CoachingViewModel")
     }
-    
+
     /// Gets the top 3 KPIs that need improvement for goal selection
     func getTopKPIsForGoals() -> [KPIMetric] {
-        // This needs to access KPI data from MatchDataViewModel or DataManager
-        // For now, return empty array - this will be populated when we integrate with KPI calculation
-        // TODO: Integrate with KPI calculation service to get real data
-        return []
+        guard case .loaded(let matches) = matchState, !matches.isEmpty else {
+            ClaimbLogger.warning(
+                "No matches available for KPI goal selection", service: "CoachingViewModel")
+            return createFallbackKPIs()
+        }
+
+        // Calculate KPIs using the same service and logic as MatchDataViewModel
+        Task {
+            await calculateKPIsForGoals(matches: matches)
+        }
+
+        // Return cached KPIs if available, otherwise fallback
+        return cachedKPIs.isEmpty ? createFallbackKPIs() : Array(cachedKPIs.prefix(3))
     }
-    
+
+    // MARK: - KPI Calculation for Goals
+
+    /// Cached KPI metrics for goal selection
+    private var cachedKPIs: [KPIMetric] = []
+
+    /// Calculates KPIs specifically for goal selection
+    private func calculateKPIsForGoals(matches: [Match]) async {
+        do {
+            // Use only the last 20 matches for KPI calculations (recent performance focus)
+            let recentMatches = Array(matches.prefix(20))
+            let roleKPIs = try await kpiService.calculateRoleKPIs(
+                matches: recentMatches,
+                role: primaryRole,
+                summoner: summoner
+            )
+
+            // Sort KPIs by priority (worst performing first)
+            cachedKPIs = roleKPIs.sorted { $0.sortPriority < $1.sortPriority }
+
+            ClaimbLogger.info(
+                "Calculated KPIs for goal selection", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "role": primaryRole,
+                    "kpiCount": String(cachedKPIs.count),
+                    "topKPI": cachedKPIs.first?.metric ?? "none",
+                ])
+
+        } catch {
+            ClaimbLogger.error(
+                "Failed to calculate KPIs for goals", service: "CoachingViewModel",
+                error: error)
+            cachedKPIs = createFallbackKPIs()
+        }
+    }
+
+    /// Creates fallback KPIs when real data is unavailable
+    private func createFallbackKPIs() -> [KPIMetric] {
+        ClaimbLogger.debug("Using fallback KPIs for goal selection", service: "CoachingViewModel")
+
+        return [
+            KPIMetric(
+                metric: "deaths_per_game",
+                value: "5.0",
+                baseline: nil,
+                performanceLevel: .needsImprovement,
+                color: DesignSystem.Colors.warning
+            ),
+            KPIMetric(
+                metric: "cs_per_min",
+                value: "6.2",
+                baseline: nil,
+                performanceLevel: .needsImprovement,
+                color: DesignSystem.Colors.warning
+            ),
+            KPIMetric(
+                metric: "vision_score_per_min",
+                value: "1.5",
+                baseline: nil,
+                performanceLevel: .poor,
+                color: DesignSystem.Colors.error
+            ),
+        ]
+    }
+
     /// Handles goal completion and generates performance summary with goal context
     func onGoalCompleted() async {
         showGoalSetupModal = false
-        
+
         // Get current matches to generate goal-aware performance summary
         if case .loaded(let matches) = matchState {
             let recentMatches = Array(matches.prefix(10))
-            
+
             ClaimbLogger.info(
                 "Generating performance summary after goal selection", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
                     "goalKPI": UserGoals.getPrimaryGoal() ?? "unknown",
-                    "focusType": UserGoals.getFocusType().rawValue
+                    "focusType": UserGoals.getFocusType().rawValue,
                 ])
-            
+
             Task {
                 await generatePerformanceSummary(matches: recentMatches)
             }
@@ -216,7 +296,7 @@ class CoachingViewModel {
         do {
             // Get current goal context
             let goalContext = GoalContext.current()
-            
+
             // Generate new analysis with fast timeout (OpenAI call)
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
@@ -264,7 +344,7 @@ class CoachingViewModel {
         do {
             // Get current goal context
             let goalContext = GoalContext.current()
-            
+
             // Generate fresh analysis
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
@@ -343,7 +423,7 @@ class CoachingViewModel {
         do {
             // Get current goal context
             let goalContext = GoalContext.current()
-            
+
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
                 summoner: summoner,
@@ -389,7 +469,7 @@ class CoachingViewModel {
         do {
             // Get current goal context
             let goalContext = GoalContext.current()
-            
+
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: matches,
                 summoner: summoner,

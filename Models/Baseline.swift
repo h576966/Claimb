@@ -74,7 +74,7 @@ public class Baseline {
         case good = "Good"
         case needsImprovement = "Needs Improvement"
         case poor = "Poor"
-        
+
         public var displayName: String {
             return self.rawValue
         }
