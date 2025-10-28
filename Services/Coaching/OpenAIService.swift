@@ -28,7 +28,8 @@ public class OpenAIService {
     public func generatePostGameAnalysis(
         match: Match,
         summoner: Summoner,
-        kpiService: KPICalculationService
+        kpiService: KPICalculationService,
+        goalContext: GoalContext? = nil
     ) async throws -> PostGameAnalysis {
 
         // Validate proxy service availability
@@ -69,7 +70,8 @@ public class OpenAIService {
             timelineData: nil,  // Timeline feature removed
             laneOpponent: laneOpponent,
             teamContext: teamContext,
-            baselineContext: baselineContext
+            baselineContext: baselineContext,
+            goalContext: goalContext
         )
 
         // Use the single prompt from CoachingPromptBuilder
@@ -130,7 +132,8 @@ public class OpenAIService {
         matches: [Match],
         summoner: Summoner,
         primaryRole: String,
-        kpiService: KPICalculationService
+        kpiService: KPICalculationService,
+        goalContext: GoalContext? = nil
     ) async throws -> PerformanceSummary {
 
         // Validate proxy service availability
@@ -179,7 +182,8 @@ public class OpenAIService {
             summoner: summoner,
             primaryRole: primaryRole,
             bestPerformingChampions: bestPerformingChampions,
-            streakData: streakData
+            streakData: streakData,
+            goalContext: goalContext
         )
 
         // Note: JSON schema enforcement is handled by the edge function

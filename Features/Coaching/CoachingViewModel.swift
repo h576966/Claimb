@@ -5,6 +5,7 @@
 //  Created by AI Assistant on 2025-01-28.
 //
 
+import Foundation
 import Observation
 import SwiftData
 import SwiftUI
@@ -30,7 +31,6 @@ class CoachingViewModel {
     var postGameError: String = ""
     var performanceSummaryError: String = ""
     var lastAnalyzedMatchId: PersistentIdentifier?
-    var performanceSummaryUpdateCounter: Int = 0
     var selectedCoachingTab: CoachingTab = .postGame
 
     // MARK: - Background Refresh State
@@ -38,8 +38,8 @@ class CoachingViewModel {
     var showCachedDataWarning = false
     var isGeneratingPerformanceSummary = false
 
-    // MARK: - Performance Summary Update Logic
-    private let performanceSummaryUpdateInterval = 5  // Update every 5 games
+    // MARK: - Goals System Integration
+    var showGoalSetupModal = false
 
     init(dataManager: DataManager, summoner: Summoner, primaryRole: String) {
         self.dataManager = dataManager
@@ -115,27 +115,69 @@ class CoachingViewModel {
         }
     }
 
-    /// Checks if performance summary needs updating based on game count
+    /// Checks if performance summary needs updating based on Friday cycle and goals
     private func checkPerformanceSummaryUpdate(matches: [Match]) async {
         let recentMatches = Array(matches.prefix(10))
-
-        // Update counter based on number of games
-        let newCounter = recentMatches.count
-
-        // Only update if we've crossed a 5-game boundary
-        if newCounter != performanceSummaryUpdateCounter
-            && newCounter % performanceSummaryUpdateInterval == 0
-        {
-
-            performanceSummaryUpdateCounter = newCounter
-
+        
+        // Check if we should show Friday modal or generate summary
+        let shouldUpdate = UserGoals.shouldShowFridayModal() || !UserGoals.hasActiveGoal()
+        
+        if shouldUpdate {
             ClaimbLogger.info(
-                "Auto-updating performance summary", service: "CoachingViewModel",
+                "Triggering goal-based performance summary update", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
-                    "gameCount": String(newCounter),
+                    "hasActiveGoal": String(UserGoals.hasActiveGoal()),
+                    "needsGoalUpdate": String(UserGoals.needsGoalUpdate())
                 ])
-
+            
+            // If no goal is set, show modal immediately
+            if !UserGoals.hasActiveGoal() {
+                showGoalSetupModal = true
+            }
+            // If it's time for weekly check-in, show modal
+            else if UserGoals.shouldShowFridayModal() {
+                showGoalSetupModal = true
+            }
+            // If we have an active goal but performance summary is missing, generate it
+            else if UserGoals.hasActiveGoal() && performanceSummary == nil {
+                Task {
+                    await generatePerformanceSummary(matches: recentMatches)
+                }
+            }
+        }
+    }
+    
+    /// Shows the goal setup modal (triggered from header button)
+    func showGoalsModal() {
+        showGoalSetupModal = true
+        ClaimbLogger.info("Goal setup modal triggered from header", service: "CoachingViewModel")
+    }
+    
+    /// Gets the top 3 KPIs that need improvement for goal selection
+    func getTopKPIsForGoals() -> [KPIMetric] {
+        // This needs to access KPI data from MatchDataViewModel or DataManager
+        // For now, return empty array - this will be populated when we integrate with KPI calculation
+        // TODO: Integrate with KPI calculation service to get real data
+        return []
+    }
+    
+    /// Handles goal completion and generates performance summary with goal context
+    func onGoalCompleted() async {
+        showGoalSetupModal = false
+        
+        // Get current matches to generate goal-aware performance summary
+        if case .loaded(let matches) = matchState {
+            let recentMatches = Array(matches.prefix(10))
+            
+            ClaimbLogger.info(
+                "Generating performance summary after goal selection", service: "CoachingViewModel",
+                metadata: [
+                    "summoner": summoner.gameName,
+                    "goalKPI": UserGoals.getPrimaryGoal() ?? "unknown",
+                    "focusType": UserGoals.getFocusType().rawValue
+                ])
+            
             Task {
                 await generatePerformanceSummary(matches: recentMatches)
             }
@@ -172,11 +214,15 @@ class CoachingViewModel {
         postGameError = ""
 
         do {
+            // Get current goal context
+            let goalContext = GoalContext.current()
+            
             // Generate new analysis with fast timeout (OpenAI call)
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
                 summoner: summoner,
-                kpiService: kpiService
+                kpiService: kpiService,
+                goalContext: goalContext
             )
 
             // Cache the response
@@ -216,11 +262,15 @@ class CoachingViewModel {
         isRefreshingInBackground = true
 
         do {
+            // Get current goal context
+            let goalContext = GoalContext.current()
+            
             // Generate fresh analysis
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
                 summoner: summoner,
-                kpiService: kpiService
+                kpiService: kpiService,
+                goalContext: goalContext
             )
 
             // Cache the response
@@ -291,11 +341,15 @@ class CoachingViewModel {
 
         // No cache available - generate fresh
         do {
+            // Get current goal context
+            let goalContext = GoalContext.current()
+            
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
                 summoner: summoner,
                 primaryRole: primaryRole,
-                kpiService: kpiService
+                kpiService: kpiService,
+                goalContext: goalContext
             )
 
             // Cache the response
@@ -333,11 +387,15 @@ class CoachingViewModel {
         isRefreshingInBackground = true
 
         do {
+            // Get current goal context
+            let goalContext = GoalContext.current()
+            
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: matches,
                 summoner: summoner,
                 primaryRole: primaryRole,
-                kpiService: kpiService
+                kpiService: kpiService,
+                goalContext: goalContext
             )
 
             // Cache the response

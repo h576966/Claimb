@@ -9,7 +9,8 @@ import SwiftUI
 
 struct SharedHeaderView: View {
     let summoner: Summoner
-    let actionButton: ActionButton?
+    let actionButton: ActionButton?  // Deprecated: use actionButtons instead
+    let actionButtons: [ActionButton]
     let onLogout: (() -> Void)?
 
     @State private var showLogoutConfirmation = false
@@ -20,8 +21,17 @@ struct SharedHeaderView: View {
         let action: () -> Void
         let isLoading: Bool
         let isDisabled: Bool
+        
+        init(title: String, icon: String, action: @escaping () -> Void, isLoading: Bool = false, isDisabled: Bool = false) {
+            self.title = title
+            self.icon = icon
+            self.action = action
+            self.isLoading = isLoading
+            self.isDisabled = isDisabled
+        }
     }
 
+    // Legacy initializer for backward compatibility
     init(
         summoner: Summoner,
         actionButton: ActionButton? = nil,
@@ -29,6 +39,19 @@ struct SharedHeaderView: View {
     ) {
         self.summoner = summoner
         self.actionButton = actionButton
+        self.actionButtons = actionButton != nil ? [actionButton!] : []
+        self.onLogout = onLogout
+    }
+    
+    // New initializer with multiple action buttons
+    init(
+        summoner: Summoner,
+        actionButtons: [ActionButton],
+        onLogout: (() -> Void)? = nil
+    ) {
+        self.summoner = summoner
+        self.actionButton = nil
+        self.actionButtons = actionButtons
         self.onLogout = onLogout
     }
 
@@ -60,27 +83,31 @@ struct SharedHeaderView: View {
 
                 Spacer()
 
-                // Action Button (Right side) - Icon only
-                if let actionButton = actionButton {
-                    Button(action: actionButton.action) {
-                        if actionButton.isLoading {
-                            ClaimbInlineSpinner(size: 20)
-                        } else {
-                            Image(systemName: actionButton.icon)
-                                .font(DesignSystem.Typography.title3)
-                                .foregroundColor(DesignSystem.Colors.primary)
+                // Action Buttons (Right side) - Icons only
+                if !actionButtons.isEmpty {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
+                        ForEach(Array(actionButtons.enumerated()), id: \.offset) { index, button in
+                            Button(action: button.action) {
+                                if button.isLoading {
+                                    ClaimbInlineSpinner(size: 20)
+                                } else {
+                                    Image(systemName: button.icon)
+                                        .font(DesignSystem.Typography.title3)
+                                        .foregroundColor(DesignSystem.Colors.primary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .background(DesignSystem.Colors.cardBackground)
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                            )
+                            .disabled(button.isDisabled || button.isLoading)
+                            .accessibilityLabel(button.isLoading ? "Loading" : button.title)
+                            .accessibilityHint(button.title == "Goals" ? "Manage your improvement goals" : "Fetches latest match data from Riot Games")
                         }
                     }
-                    .frame(width: 44, height: 44)
-                    .background(DesignSystem.Colors.cardBackground)
-                    .cornerRadius(DesignSystem.CornerRadius.small)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                            .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
-                    )
-                    .disabled(actionButton.isDisabled || actionButton.isLoading)
-                    .accessibilityLabel(actionButton.isLoading ? "Refreshing" : actionButton.title)
-                    .accessibilityHint("Fetches latest match data from Riot Games")
                 }
 
                 // Logout Button (if provided) - Icon only with confirmation

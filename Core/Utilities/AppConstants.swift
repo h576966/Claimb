@@ -26,6 +26,13 @@ enum AppConstants {
         
         // Onboarding
         static let hasSeenOnboarding = "hasSeenOnboarding"
+        
+        // Goals System
+        static let primaryGoalKPI = "primaryGoalKPI"
+        static let focusType = "focusType"
+        static let learningChampion = "learningChampion"
+        static let learningRole = "learningRole"
+        static let goalSetDate = "goalSetDate"
     }
 
     // MARK: - Champion Filtering

@@ -68,22 +68,37 @@ struct CoachingView: View {
             // This runs on first appear AND whenever refreshTrigger changes
             await viewModel?.loadMatches()
         }
+        .sheet(isPresented: Binding(
+            get: { viewModel?.showGoalSetupModal ?? false },
+            set: { if !$0 { viewModel?.showGoalSetupModal = false } }
+        )) {
+            goalSetupModal
+        }
     }
 
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            actionButton: SharedHeaderView.ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: {
-                    refreshTrigger += 1
-                },
-                isLoading: (viewModel?.isAnalyzing ?? false)
-                    || (viewModel?.isRefreshingInBackground ?? false),
-                isDisabled: (viewModel?.isAnalyzing ?? false)
-                    || (viewModel?.isRefreshingInBackground ?? false)
-            ),
+            actionButtons: [
+                SharedHeaderView.ActionButton(
+                    title: "Goals",
+                    icon: "target",
+                    action: {
+                        viewModel?.showGoalsModal()
+                    }
+                ),
+                SharedHeaderView.ActionButton(
+                    title: "Refresh",
+                    icon: "arrow.clockwise",
+                    action: {
+                        refreshTrigger += 1
+                    },
+                    isLoading: (viewModel?.isAnalyzing ?? false)
+                        || (viewModel?.isRefreshingInBackground ?? false),
+                    isDisabled: (viewModel?.isAnalyzing ?? false)
+                        || (viewModel?.isRefreshingInBackground ?? false)
+                )
+            ],
             onLogout: {
                 userSession.logout()
             }
@@ -660,6 +675,26 @@ struct CoachingView: View {
                 dataManager: dataManager,
                 summoner: summoner,
                 primaryRole: userSession.selectedPrimaryRole
+            )
+        }
+    }
+
+    // MARK: - Goal Setup Modal
+    
+    @ViewBuilder
+    private var goalSetupModal: some View {
+        if let viewModel = viewModel {
+            GoalSetupModal(
+                topKPIs: viewModel.getTopKPIsForGoals(),
+                isFirstTime: UserGoals.isFirstTimeGoalSetup(),
+                onComplete: {
+                    Task {
+                        await viewModel.onGoalCompleted()
+                    }
+                },
+                onDismiss: {
+                    viewModel.showGoalSetupModal = false
+                }
             )
         }
     }

@@ -109,15 +109,25 @@ struct ChampionView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            actionButton: SharedHeaderView.ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: {
-                    refreshTrigger += 1
-                },
-                isLoading: matchDataViewModel?.isRefreshing ?? false,
-                isDisabled: matchDataViewModel?.isRefreshing ?? false
-            ),
+            actionButtons: [
+                SharedHeaderView.ActionButton(
+                    title: "Goals",
+                    icon: "target",
+                    action: {
+                        // TODO: Implement goals modal for ChampionView
+                        ClaimbLogger.info("Goals button tapped", service: "ChampionView")
+                    }
+                ),
+                SharedHeaderView.ActionButton(
+                    title: "Refresh",
+                    icon: "arrow.clockwise",
+                    action: {
+                        refreshTrigger += 1
+                    },
+                    isLoading: matchDataViewModel?.isRefreshing ?? false,
+                    isDisabled: matchDataViewModel?.isRefreshing ?? false
+                )
+            ],
             onLogout: {
                 userSession.logout()
             }

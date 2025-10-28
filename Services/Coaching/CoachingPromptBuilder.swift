@@ -22,7 +22,8 @@ public struct CoachingPromptBuilder {
         timelineData: String?,
         laneOpponent: String?,
         teamContext: String,
-        baselineContext: String? = nil
+        baselineContext: String? = nil,
+        goalContext: GoalContext? = nil
     ) -> String {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
@@ -69,6 +70,15 @@ public struct CoachingPromptBuilder {
                 **BASELINE COMPARISON:**
                 \(baseline)
                 Note: Use these targets as context for improvement areas, not as strict goals to mention.
+                """
+        }
+
+        // Add goal context if available
+        if let goalContext = goalContext {
+            prompt += """
+
+                **PLAYER FOCUS:** \(goalContext.promptDescription)
+                Priority: Tailor advice specifically toward improving \(goalContext.primaryKPI). Consider the player's \(goalContext.focusType.rawValue.lowercased()) context when providing recommendations.
                 """
         }
 
@@ -137,7 +147,8 @@ public struct CoachingPromptBuilder {
         summoner: Summoner,
         primaryRole: String,
         bestPerformingChampions: [MatchStatsCalculator.ChampionStats],
-        streakData: StreakData?
+        streakData: StreakData?,
+        goalContext: GoalContext? = nil
     ) -> String {
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
@@ -154,10 +165,22 @@ public struct CoachingPromptBuilder {
         let championPoolContext = createChampionPoolContext(
             bestPerformingChampions: bestPerformingChampions)
 
-        return """
+        var prompt = """
             You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
 
             **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
+            """
+
+        // Add goal context if available
+        if let goalContext = goalContext {
+            prompt += """
+
+            **PLAYER FOCUS:** \(goalContext.promptDescription)
+            Priority: Focus analysis on \(goalContext.primaryKPI) improvement. Provide recommendations aligned with \(goalContext.focusType.rawValue.lowercased()) goals.
+            """
+        }
+
+        prompt += """
 
             \(detailedContext)\(championPoolContext)
 
@@ -176,6 +199,8 @@ public struct CoachingPromptBuilder {
             Focus on actionable advice, avoid technical stats and parentheses.
             Ensure all required fields are present and properly formatted.
             """
+        
+        return prompt
     }
 
     // MARK: - Context Builders
