@@ -74,6 +74,9 @@ class CoachingViewModel {
             // Auto-trigger post-game analysis for most recent game
             await autoTriggerPostGameAnalysis(matches: matches)
 
+            // Clear cached KPIs when new matches are loaded
+            cachedKPIs = []
+            
             // Check if performance summary needs updating
             await checkPerformanceSummaryUpdate(matches: matches)
 
@@ -168,9 +171,11 @@ class CoachingViewModel {
             return createFallbackKPIs()
         }
 
-        // Calculate KPIs using the same service and logic as MatchDataViewModel
-        Task {
-            await calculateKPIsForGoals(matches: matches)
+        // Only start calculation if not already in progress and no cached data
+        if cachedKPIs.isEmpty && !isCalculatingKPIs {
+            Task {
+                await calculateKPIsForGoals(matches: matches)
+            }
         }
 
         // Return cached KPIs if available, otherwise fallback
@@ -178,12 +183,19 @@ class CoachingViewModel {
     }
 
     // MARK: - KPI Calculation for Goals
-
+    
     /// Cached KPI metrics for goal selection
     private var cachedKPIs: [KPIMetric] = []
+    
+    /// Flag to prevent multiple concurrent KPI calculations
+    private var isCalculatingKPIs = false
 
     /// Calculates KPIs specifically for goal selection
     private func calculateKPIsForGoals(matches: [Match]) async {
+        // Set flag to prevent concurrent calculations
+        isCalculatingKPIs = true
+        defer { isCalculatingKPIs = false }
+        
         do {
             // Use only the last 20 matches for KPI calculations (recent performance focus)
             let recentMatches = Array(matches.prefix(20))
@@ -196,7 +208,7 @@ class CoachingViewModel {
             // Sort KPIs by priority (worst performing first)
             cachedKPIs = roleKPIs.sorted { $0.sortPriority < $1.sortPriority }
 
-            ClaimbLogger.info(
+            ClaimbLogger.debug(
                 "Calculated KPIs for goal selection", service: "CoachingViewModel",
                 metadata: [
                     "summoner": summoner.gameName,
