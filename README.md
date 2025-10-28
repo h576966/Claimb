@@ -1,7 +1,7 @@
 # Claimb - Ranked Performance & AI Coaching
 
 <div align="center">
-  <img src="Claimb/Claimb/Assets.xcassets/AppIcon.appiconset/1024.png" alt="Claimb Logo" width="120" height="120">
+  <img src="Assets.xcassets/AppIcon.appiconset/1024.png" alt="Claimb Logo" width="120" height="120">
   
   **Your personal performance analytics coach**
   
@@ -64,19 +64,20 @@ Claimb is a **local-first** performance analytics app designed for competitive g
 - **UIState Pattern**: Consistent loading, error, and empty states across all views
 - **Design System**: Complete Apple Watch-like interface with dark card-based layouts
 
-### **✅ Recently Completed (December 2024)**
+### **✅ Recently Completed (October 2025)**
+- **Architectural Cleanup**: Split CoachingView into separate ViewModel for better maintainability (1164→788 lines)
+- **Code Optimization**: Centralized UserDefaults keys, removed redundant imports, created string formatting utilities
+- **Codebase Quality**: Removed duplicate rules, fixed design system violations, optimized file structure
+- **Documentation Cleanup**: Removed outdated App Store submission files, cleaned up repository structure
 - **Smart Match Fetching**: 90-day initial window with 180-day fallback for infrequent players
 - **Enhanced Loading UX**: Smooth progress animation with 3-phase system (Account Setup → Data Loading → Finalization)
-- **Improved Coaching States**: Proper loading indicators for post-game analysis and performance summary
-- **Better Error Handling**: Contextual loading messages instead of misleading "Play more games" text
-- **Match Repository Optimization**: Separate strategies for initial bulk fetch vs recent matches refresh
 
 ## 🏗️ **Current Implementation Status**
 
 ### **✅ Architecture (Fully Implemented)**
 - **SwiftData Models**: 6 models with proper relationships and computed properties
 - **Supabase Integration**: Complete proxy service with secure API key management
-- **DataManager**: 879 lines with extracted components (MatchParser, ChampionDataLoader, BaselineDataLoader)
+- **DataManager**: 670 lines with extracted components (MatchParser, ChampionDataLoader, BaselineDataLoader)
 - **UIState Pattern**: Standardized state management across all views
 - **Design System**: Complete with colors, typography, spacing, and reusable components
 - **Request Deduplication**: Generic system preventing duplicate API calls
@@ -269,7 +270,7 @@ Claimb/
 ```
 
 ### **Key Services**
-- **DataManager**: Core data coordination and caching (879 lines, 36% reduced)
+- **DataManager**: Core data coordination and caching (670 lines)
 - **MatchParser**: Focused match and participant data parsing (292 lines)
 - **ChampionDataLoader**: Champion data management and loading (~90 lines)
 - **BaselineDataLoader**: Baseline data management (~110 lines)
@@ -281,9 +282,10 @@ Claimb/
 - **UserSession**: Session management and persistent login with role persistence
 
 ### **Architecture Principles**
-- **Simplicity First**: Eliminated over-abstraction, reduced complexity by 36%
-- **DRY Principle**: Generic request deduplication, factory patterns eliminate boilerplate
+- **Simplicity First**: Eliminated over-abstraction, maintained clean architectural boundaries
+- **DRY Principle**: Centralized constants, string formatting utilities, generic request deduplication
 - **Single Responsibility**: Extracted focused components (MatchParser, ChampionDataLoader, BaselineDataLoader)
+- **Maintainable Structure**: Split large files (CoachingView: 1164→788 lines) for better organization
 - **Direct Integration**: Champion class mapping integrated into model layer
 - **Performance Optimized**: Static JSON loading over database queries, request deduplication
 - **Type Safety**: Generic systems with compile-time safety and UIState pattern
@@ -440,15 +442,20 @@ We welcome contributions! Please follow these guidelines:
 
 This project is licensed under the MIT License.
 
-## 📊 **Recent Improvements (December 2024)**
+## 📊 **Recent Improvements (October 2025)**
 
-### **Key Updates**
-- **Match Fetching Optimization**: Implemented smart 90-180 day time windows ensuring infrequent players get sufficient match data
-- **Loading Progress Enhancement**: Fixed stuck progress bar with smooth 3-phase animation system (Account Setup → Data Loading → Finalization)
-- **Coaching UX Improvements**: Added proper loading states for post-game analysis and performance summary with contextual messages
-- **Enhanced Error Handling**: Replaced misleading "Play more games" messages with appropriate loading indicators
-- **Performance Optimizations**: Optimized match loading with progressive time windows and improved caching strategies
-- **User Experience**: Smooth progress animation that advances to 80% over 2.5 seconds for consistent loading feel
+### **Code Quality & Architecture**
+- **File Structure Optimization**: Split CoachingView.swift (1164→788 lines) with extracted CoachingViewModel for better maintainability
+- **Constants Centralization**: Moved hardcoded UserDefaults keys to AppConstants for consistency across the codebase
+- **String Formatting Utilities**: Created centralized StringFormatting extension with common numeric format patterns
+- **Import Optimization**: Removed redundant Foundation/SwiftUI imports across all files for cleaner compilation
+- **Design System Compliance**: Fixed hardcoded color violations and removed duplicate development rules
+- **Documentation Cleanup**: Removed outdated App Store submission files and system files (.DS_Store) from repository
+
+### **Performance & UX**
+- **Match Fetching Optimization**: Smart 90-180 day time windows ensuring sufficient data for all player types
+- **Loading Progress Enhancement**: Smooth 3-phase animation system (Account Setup → Data Loading → Finalization)
+- **Enhanced Error Handling**: Contextual loading messages with proper state management
 
 ---
 
