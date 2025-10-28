@@ -34,7 +34,7 @@ public class MatchDataViewModel {
 
     // MARK: - In-Memory Caches
     private var kpiCache: [String: [KPIMetric]] = [:]
-    private let kpiPersistPrefix = "kpiCache_"
+    private let kpiPersistPrefix = AppConstants.UserDefaultsKeys.kpiCachePrefix
 
     // Baseline cache to eliminate RunLoop blocking pattern
     private var baselineCache: [String: Baseline] = [:]
@@ -274,7 +274,7 @@ public class MatchDataViewModel {
         kpis.append(
             KPIMetric(
                 metric: "deaths_per_game",
-                value: String(format: "%.1f", deathsPerGame),
+                value: deathsPerGame.oneDecimal,
                 baseline: baseline,
                 performanceLevel: .good,
                 color: DesignSystem.Colors.accent
@@ -283,7 +283,7 @@ public class MatchDataViewModel {
         kpis.append(
             KPIMetric(
                 metric: "vision_score_per_min",
-                value: String(format: "%.2f", visionScorePerMin),
+                value: visionScorePerMin.twoDecimals,
                 baseline: baseline,
                 performanceLevel: .good,
                 color: DesignSystem.Colors.accent
@@ -292,7 +292,7 @@ public class MatchDataViewModel {
         kpis.append(
             KPIMetric(
                 metric: "cs_per_min",
-                value: String(format: "%.1f", csPerMin),
+                value: csPerMin.oneDecimal,
                 baseline: baseline,
                 performanceLevel: .good,
                 color: DesignSystem.Colors.accent

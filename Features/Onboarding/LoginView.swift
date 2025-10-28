@@ -604,8 +604,8 @@ struct LoginView: View {
             loadingState = .idle
 
             // Show onboarding for first-time users
-            if !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
-                UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+            if !UserDefaults.standard.bool(forKey: AppConstants.UserDefaultsKeys.hasSeenOnboarding) {
+                UserDefaults.standard.set(true, forKey: AppConstants.UserDefaultsKeys.hasSeenOnboarding)
                 showOnboarding = true
             }
         }

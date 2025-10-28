@@ -17,6 +17,15 @@ enum AppConstants {
         static let championsLoadedVersion = "championsLoadedVersion"
         static let baselinesLoadedVersion = "baselinesLoadedVersion"
         static let kpiCachePrefix = "kpiCache_"
+        
+        // User Session
+        static let summonerName = "summonerName"
+        static let tagline = "tagline"
+        static let region = "region"
+        static let selectedPrimaryRole = "selectedPrimaryRole"
+        
+        // Onboarding
+        static let hasSeenOnboarding = "hasSeenOnboarding"
     }
 
     // MARK: - Champion Filtering

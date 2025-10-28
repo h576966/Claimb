@@ -51,11 +51,11 @@ public class KPICalculationService {
         ClaimbLogger.debug(
             "KPI Calculations for \(role)", service: "KPICalculationService",
             metadata: [
-                "deathsPerGame": String(format: "%.2f", deathsPerGame),
-                "visionScore": String(format: "%.2f", visionScore),
-                "killParticipation": String(format: "%.2f", killParticipation),
-                "csPerMinute": String(format: "%.2f", csPerMinute),
-                "objectiveParticipation": String(format: "%.2f", objectiveParticipation),
+                "deathsPerGame": deathsPerGame.twoDecimals,
+                "visionScore": visionScore.twoDecimals,
+                "killParticipation": killParticipation.twoDecimals,
+                "csPerMinute": csPerMinute.twoDecimals,
+                "objectiveParticipation": objectiveParticipation.twoDecimals,
                 "participantCount": String(participants.count),
             ])
 
@@ -276,33 +276,7 @@ public class KPICalculationService {
     private func formatKPIValue(_ value: Double, for metric: String) -> String {
         // Ensure value is not NaN or infinite
         let safeValue = value.isNaN || value.isInfinite ? 0.0 : value
-
-        switch metric {
-        case "deaths_per_game":
-            // Deaths per Game: 1 decimal place
-            return String(format: "%.1f", safeValue)
-        case "kill_participation_pct":
-            // Kill Participation: percentage (0.45 -> 45%)
-            return String(format: "%.0f%%", safeValue * 100)
-        case "cs_per_min":
-            // CS per Minute: 1 decimal place
-            return String(format: "%.1f", safeValue)
-        case "primary_role_consistency":
-            // Role Consistency: percentage (55.00 -> 55%)
-            return String(format: "%.0f%%", safeValue)
-        case "champion_pool_size":
-            // Champion Pool Size: integer (6.00 -> 6)
-            return String(format: "%.0f", safeValue)
-        case "vision_score_per_min":
-            // Vision Score per Minute: 1 decimal place
-            return String(format: "%.1f", safeValue)
-        case "objective_participation_pct", "team_damage_pct", "damage_taken_share_pct":
-            // Other percentage metrics: percentage format
-            return String(format: "%.0f%%", safeValue * 100)
-        default:
-            // Default: 1 decimal place
-            return String(format: "%.1f", safeValue)
-        }
+        return StringFormatter.formatKPIValue(safeValue, for: metric)
     }
 
     private func getBaselineForMetric(metric: String, role: String) async -> Baseline? {
@@ -318,9 +292,9 @@ public class KPICalculationService {
                     "Found baseline for \(metric) in \(baselineRole)",
                     service: "KPICalculationService",
                     metadata: [
-                        "mean": String(format: "%.3f", baseline.mean),
-                        "p40": String(format: "%.3f", baseline.p40),
-                        "p60": String(format: "%.3f", baseline.p60),
+                        "mean": StringFormatter.formatBaseline(baseline.mean),
+                        "p40": StringFormatter.formatBaseline(baseline.p40),
+                        "p60": StringFormatter.formatBaseline(baseline.p60),
                     ])
                 return baseline
             }

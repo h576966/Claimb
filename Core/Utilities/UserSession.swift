@@ -49,9 +49,9 @@ public class UserSession {
         ClaimbLogger.debug("Starting login check", service: "UserSession")
 
         // Check if we have stored login credentials
-        guard let gameName = UserDefaults.standard.string(forKey: "summonerName"),
-            let tagLine = UserDefaults.standard.string(forKey: "tagline"),
-            let region = UserDefaults.standard.string(forKey: "region")
+        guard let gameName = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.summonerName),
+            let tagLine = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.tagline),
+            let region = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.region)
         else {
             ClaimbLogger.debug("No stored credentials found", service: "UserSession")
             isLoggedIn = false
@@ -193,14 +193,14 @@ public class UserSession {
             ])
 
         // Save credentials to UserDefaults
-        UserDefaults.standard.set(summoner.gameName, forKey: "summonerName")
-        UserDefaults.standard.set(summoner.tagLine, forKey: "tagline")
-        UserDefaults.standard.set(summoner.region, forKey: "region")
+        UserDefaults.standard.set(summoner.gameName, forKey: AppConstants.UserDefaultsKeys.summonerName)
+        UserDefaults.standard.set(summoner.tagLine, forKey: AppConstants.UserDefaultsKeys.tagline)
+        UserDefaults.standard.set(summoner.region, forKey: AppConstants.UserDefaultsKeys.region)
 
         // Verify credentials were saved
-        let savedGameName = UserDefaults.standard.string(forKey: "summonerName")
-        let savedTagLine = UserDefaults.standard.string(forKey: "tagline")
-        let savedRegion = UserDefaults.standard.string(forKey: "region")
+        let savedGameName = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.summonerName)
+        let savedTagLine = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.tagline)
+        let savedRegion = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.region)
         ClaimbLogger.debug(
             "Credentials saved - gameName: \(savedGameName ?? "nil"), tagLine: \(savedTagLine ?? "nil"), region: \(savedRegion ?? "nil")",
             service: "UserSession",
@@ -300,16 +300,16 @@ public class UserSession {
 
     /// Checks if the user has previously logged in (has stored credentials)
     public var hasStoredCredentials: Bool {
-        return UserDefaults.standard.string(forKey: "summonerName") != nil
-            && UserDefaults.standard.string(forKey: "tagline") != nil
-            && UserDefaults.standard.string(forKey: "region") != nil
+        return UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.summonerName) != nil
+            && UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.tagline) != nil
+            && UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.region) != nil
     }
 
     /// Clears stored login credentials
     private func clearStoredCredentials() {
-        UserDefaults.standard.removeObject(forKey: "summonerName")
-        UserDefaults.standard.removeObject(forKey: "tagline")
-        UserDefaults.standard.removeObject(forKey: "region")
+        UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.summonerName)
+        UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.tagline)
+        UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.region)
     }
 
     /// Refreshes the current summoner data
@@ -356,7 +356,7 @@ public class UserSession {
 
     /// Loads the stored primary role from UserDefaults
     private func loadStoredPrimaryRole() {
-        if let storedRole = UserDefaults.standard.string(forKey: "selectedPrimaryRole") {
+        if let storedRole = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole) {
             selectedPrimaryRole = storedRole
         }
     }
@@ -364,7 +364,7 @@ public class UserSession {
     /// Updates the primary role and persists it
     public func updatePrimaryRole(_ role: String) {
         selectedPrimaryRole = role
-        UserDefaults.standard.set(role, forKey: "selectedPrimaryRole")
+        UserDefaults.standard.set(role, forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole)
         ClaimbLogger.info("Primary role updated", service: "UserSession", metadata: ["role": role])
     }
 

@@ -32,11 +32,11 @@ public struct CoachingPromptBuilder {
         let rankContext = createRankContext(summoner: summoner)
 
         // Add critical performance metrics
-        let csPerMin = String(format: "%.1f", participant.csPerMinute)
-        let visionPerMin = String(format: "%.1f", participant.visionScorePerMinute)
-        let killParticipation = String(format: "%.0f%%", participant.killParticipation * 100)
-        let teamDamage = String(format: "%.0f%%", participant.teamDamagePercentage * 100)
-        let goldPerMin = String(format: "%.0f", participant.goldPerMinute)
+        let csPerMin = participant.csPerMinute.oneDecimal
+        let visionPerMin = participant.visionScorePerMinute.oneDecimal
+        let killParticipation = participant.killParticipation.asPercentage
+        let teamDamage = participant.teamDamagePercentage.asPercentage
+        let goldPerMin = participant.goldPerMinute.asWholeNumber
         let objectiveParticipation = String(
             format: "%.0f%%", participant.objectiveParticipationPercentage)
 

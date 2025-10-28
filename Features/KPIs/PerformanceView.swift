@@ -5,7 +5,6 @@
 //  Created by AI Assistant on 2025-09-10.
 //
 
-import Foundation
 // Import all required types and utilities
 import Observation
 import SwiftData
