@@ -127,9 +127,9 @@ struct KPICard: View {
                         showConfirmation = true
                     }
                 }) {
-                    Image(systemName: isFocused ? "star.fill" : "star")
+                    Image(systemName: isFocused ? "circle.fill" : "circle")
                         .font(.system(size: 18))
-                        .foregroundColor(isFocused ? DesignSystem.Colors.accent : DesignSystem.Colors.textSecondary)
+                        .foregroundColor(isFocused ? .white : DesignSystem.Colors.textSecondary)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -162,7 +162,7 @@ struct KPICard: View {
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
                 .stroke(
-                    isFocused ? DesignSystem.Colors.accent : DesignSystem.Colors.cardBorder,
+                    isFocused ? .white : DesignSystem.Colors.cardBorder,
                     lineWidth: isFocused ? 2 : 1
                 )
         )
