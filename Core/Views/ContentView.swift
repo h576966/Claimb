@@ -58,7 +58,7 @@ struct ContentView: View {
                 userSession = UserSession(modelContext: modelContext)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .init("UserSessionDidChange"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: AppConstants.Notifications.userSessionDidChange)) { _ in
             ClaimbLogger.debug("Received UserSessionDidChange notification", service: "ContentView")
             refreshTrigger += 1
         }

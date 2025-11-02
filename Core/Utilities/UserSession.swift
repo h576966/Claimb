@@ -26,13 +26,9 @@ public enum GameTypeFilter: String, CaseIterable {
     case allGames = "All Games"
     case rankedOnly = "Ranked Only"
     
+    /// Display name for UI (same as rawValue)
     public var displayName: String {
-        switch self {
-        case .allGames:
-            return "All Games"
-        case .rankedOnly:
-            return "Ranked Only"
-        }
+        return rawValue
     }
 }
 
@@ -52,12 +48,10 @@ public class UserSession {
         loadStoredPrimaryRole()
         loadStoredGameTypeFilter()
 
-        // Add a small delay to ensure database is ready
+        // Check for existing login asynchronously
+        // ModelContext is ready immediately, no delay needed
         Task {
-            try? await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
-            await MainActor.run {
-                self.checkExistingLogin()
-            }
+            self.checkExistingLogin()
         }
     }
 
@@ -132,10 +126,9 @@ public class UserSession {
                         }
                     }
 
-                    await MainActor.run {
-                        self.currentSummoner = summoner
-                        self.isLoggedIn = true
-                    }
+                    // Already on MainActor (@MainActor class)
+                    self.currentSummoner = summoner
+                    self.isLoggedIn = true
                 } else {
                     // Summoner not found in database, but we have credentials
                     // Try to recreate the summoner from stored credentials
@@ -191,10 +184,9 @@ public class UserSession {
         // Load champion data if needed
         _ = await dataManager.loadChampions()
 
-        await MainActor.run {
-            self.currentSummoner = summoner
-            self.isLoggedIn = true
-        }
+        // Already on MainActor (@MainActor class)
+        self.currentSummoner = summoner
+        self.isLoggedIn = true
 
         ClaimbLogger.info(
             "Successfully recreated summoner from stored credentials", service: "UserSession")
@@ -240,7 +232,7 @@ public class UserSession {
             ])
 
         // Post notification to trigger view updates
-        NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
+        NotificationCenter.default.post(name: AppConstants.Notifications.userSessionDidChange, object: nil)
     }
 
     /// Refreshes rank data if it's stale (older than 5 minutes)
@@ -312,7 +304,7 @@ public class UserSession {
         self.isLoggedIn = false
 
         // Post notification to trigger view updates
-        NotificationCenter.default.post(name: .init("UserSessionDidChange"), object: nil)
+        NotificationCenter.default.post(name: AppConstants.Notifications.userSessionDidChange, object: nil)
     }
 
     /// Checks if the user has previously logged in (has stored credentials)
@@ -364,9 +356,8 @@ public class UserSession {
             return
         }
 
-        await MainActor.run {
-            self.currentSummoner = refreshedSummoner
-        }
+        // Already on MainActor (@MainActor class)
+        self.currentSummoner = refreshedSummoner
     }
 
     // MARK: - Primary Role Management

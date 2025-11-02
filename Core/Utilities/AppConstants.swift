@@ -10,6 +10,13 @@ import Foundation
 /// Application-wide constants for consistent configuration
 enum AppConstants {
 
+    // MARK: - Notifications
+    
+    /// Typed notification names for type-safe notification handling
+    enum Notifications {
+        static let userSessionDidChange = Notification.Name("UserSessionDidChange")
+    }
+
     // MARK: - UserDefaults Keys
 
     enum UserDefaultsKeys {

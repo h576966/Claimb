@@ -82,8 +82,20 @@ public class DataManager {
     }
 
     /// Gets the shared DataManager instance, creating it if needed
+    /// WARNING: All calls must use the same ModelContext. Using different contexts will cause data inconsistencies.
     public static func shared(with modelContext: ModelContext) -> DataManager {
         if let existing = sharedInstance {
+            // Validate that the same ModelContext is being used
+            if existing._modelContext !== modelContext {
+                ClaimbLogger.warning(
+                    "DataManager.shared() called with different ModelContext! This may cause data inconsistencies.",
+                    service: "DataManager",
+                    metadata: [
+                        "existingContext": String(describing: existing._modelContext),
+                        "newContext": String(describing: modelContext)
+                    ]
+                )
+            }
             return existing
         }
 
@@ -94,6 +106,11 @@ public class DataManager {
         )
 
         sharedInstance = instance
+        ClaimbLogger.info(
+            "DataManager singleton initialized",
+            service: "DataManager",
+            metadata: ["context": String(describing: modelContext)]
+        )
         return instance
     }
 

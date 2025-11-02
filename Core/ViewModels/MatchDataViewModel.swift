@@ -61,10 +61,10 @@ public class MatchDataViewModel {
         self.summoner = summoner
         self.userSession = userSession
 
-        // Initialize KPI calculation service if userSession is provided
-        if let userSession = userSession {
-            let kpiDataManager = DataManager.shared(with: userSession.modelContext)
-            self.kpiCalculationService = KPICalculationService(dataManager: kpiDataManager)
+        // Initialize KPI calculation service if userSession and dataManager are provided
+        // Reuse the existing dataManager instance to avoid creating duplicates
+        if userSession != nil, let dataManager = dataManager {
+            self.kpiCalculationService = KPICalculationService(dataManager: dataManager)
         } else {
             self.kpiCalculationService = nil
         }
