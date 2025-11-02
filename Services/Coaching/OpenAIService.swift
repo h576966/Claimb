@@ -340,9 +340,7 @@ public class OpenAIService {
         let kdaDiff = teamAvgKDA > 0 ? ((playerKDA - teamAvgKDA) / teamAvgKDA) * 100 : 0
         let csDiff = teamAvgCS > 0 ? ((playerCS - teamAvgCS) / teamAvgCS) * 100 : 0
 
-        // Calculate rank among teammates (1 = best)
-        let kdaRank = teamKDAs.filter { $0 > playerKDA }.count + 1
-        let csRank = teamCSMins.filter { $0 > playerCS }.count + 1
+        // Calculate damage rank among teammates (1 = best)
         let damageRank = allDamageShares.filter { $0 > playerDamageShare }.count + 1
 
         // Format team comparison line
