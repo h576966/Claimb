@@ -411,7 +411,10 @@ public class OpenAIService {
 
         guard !contextLines.isEmpty else { return nil }
 
-        return "**RELATIVE PERFORMANCE CONTEXT:**\n\(contextLines.joined(separator: "\n"))"
+        return """
+            **TEAM & OPPONENT CONTEXT:**
+            \(contextLines.joined(separator: "\n"))
+            """
     }
 
     /// Fetches baseline context for key performance metrics

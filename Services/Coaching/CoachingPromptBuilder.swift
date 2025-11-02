@@ -46,8 +46,23 @@ public struct CoachingPromptBuilder {
             match.isRanked
             ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
 
+        // Build system context with relative performance if available
+        var systemContext =
+            "You are a League of Legends coach analyzing a single game for immediate improvement."
+
+        if let relativeContext = relativePerformanceContext {
+            systemContext += """
+
+
+                Context for your analysis (use naturally in your coaching, don't mention explicitly):
+                \(relativeContext)
+
+                Consider this when coaching: If player performed above team average despite a loss or faced fed enemies, be encouraging and acknowledge their effort. If player underperformed compared to teammates, be constructively critical. Adjust your tone and focus based on whether they carried, performed average, or were carried by their team.
+                """
+        }
+
         var prompt = """
-            You are a League of Legends coach analyzing a single game for immediate improvement.
+            \(systemContext)
 
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
@@ -62,14 +77,6 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
-
-        // Add relative performance context if available (team/enemy comparisons)
-        if let relativeContext = relativePerformanceContext {
-            prompt += """
-
-                \(relativeContext)
-                """
-        }
 
         // Add baseline context if available (simple, focused comparison)
         if let baseline = baselineContext {

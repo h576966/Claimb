@@ -152,7 +152,7 @@ class CoachingViewModel {
             matchId: matchId
         ) {
             postGameAnalysis = cachedAnalysis
-            showCachedDataWarning = true
+            showCachedDataWarning = false  // Valid cache doesn't need warning
             ClaimbLogger.info(
                 "Showing cached post-game analysis", service: "CoachingViewModel",
                 metadata: [
@@ -160,10 +160,9 @@ class CoachingViewModel {
                     "matchId": matchId,
                 ])
 
-            // Try to refresh in background with fast timeout
-            Task {
-                await refreshPostGameAnalysisInBackground(for: match, matchId: matchId)
-            }
+            // Don't trigger background refresh for valid cache
+            // Cache expiration is handled by getCachedPostGameAnalysis (24h default)
+            // Only regenerate if cache is missing or expired (will happen naturally on next check)
             return
         }
 
@@ -274,7 +273,7 @@ class CoachingViewModel {
             matchCount: recentMatches.count
         ) {
             performanceSummary = cachedSummary
-            showCachedDataWarning = true
+            showCachedDataWarning = false  // Valid cache doesn't need warning
             isGeneratingPerformanceSummary = false
             ClaimbLogger.info(
                 "Showing cached performance summary", service: "CoachingViewModel",
@@ -282,10 +281,9 @@ class CoachingViewModel {
                     "summoner": summoner.gameName
                 ])
 
-            // Try to refresh in background
-            Task {
-                await refreshPerformanceSummaryInBackground(matches: recentMatches)
-            }
+            // Don't trigger background refresh for valid cache
+            // Cache expiration is handled by getCachedPerformanceSummary (24h default)
+            // Only regenerate if cache is missing or expired (will happen naturally on next check)
             return
         }
 
