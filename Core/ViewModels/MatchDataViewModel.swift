@@ -42,9 +42,11 @@ public class MatchDataViewModel {
 
     private func kpiCacheKey(matches: [Match], role: String) -> String {
         // Use recent 20 matches for cache key to ensure cache consistency
+        // Include game type filter in cache key to avoid serving wrong cache
         let recentCount = min(matches.count, 20)
         let latestId = matches.first?.matchId ?? "none"
-        return "\(summoner.puuid)|\(role)|\(recentCount)|\(latestId)"
+        let filterKey = userSession?.gameTypeFilter.rawValue ?? "all"
+        return "\(summoner.puuid)|\(role)|\(recentCount)|\(latestId)|\(filterKey)"
     }
 
     /// Creates baseline cache key
@@ -75,7 +77,13 @@ public class MatchDataViewModel {
         // Cancel any existing task
         currentTask?.cancel()
 
-        currentTask = Task {
+        currentTask = Task { @MainActor in
+            // Check for cancellation before starting
+            guard !Task.isCancelled else {
+                ClaimbLogger.debug("Task was cancelled before starting", service: "MatchDataViewModel")
+                return
+            }
+            
             guard let dataManager = dataManager else {
                 matchState = .error(DataManagerError.notAvailable)
                 championState = .error(DataManagerError.notAvailable)
@@ -88,41 +96,79 @@ public class MatchDataViewModel {
             // Load matches and champions in parallel
             // Note: We capture summoner here to avoid Sendable issues with async let
             let currentSummoner = summoner
+            
+            // Check cancellation before expensive operations
+            guard !Task.isCancelled else { return }
+            
             async let matchResult = dataManager.loadMatches(for: currentSummoner, limit: limit)
             async let championResult = dataManager.loadChampions()
 
             let (matches, champions) = await (matchResult, championResult)
 
+            // Check cancellation after async operations
+            guard !Task.isCancelled else { return }
+
             matchState = matches
             championState = champions
 
             // Pre-cache baselines to eliminate RunLoop blocking pattern
+            // Retry if previous attempt failed (e.g., after app was backgrounded)
             if !baselinesLoaded {
                 await loadBaselinesIntoCache()
             }
+
+            // Check cancellation before expensive calculations
+            guard !Task.isCancelled else { return }
 
             // Update all statistics if we have data
             if case .loaded(let matchData) = matches {
                 roleStats = calculateRoleStats(from: matchData, summoner: summoner)
 
+                // Auto-select most played role on first load (if not manually set)
+                // Use all matches (not filtered) for initial role selection
+                if let userSession = userSession, !roleStats.isEmpty {
+                    // Calculate role stats from ALL matches for initial selection
+                    let allMatchesRoleStats = calculateRoleStatsAllMatches(from: matchData, summoner: summoner)
+                    if !allMatchesRoleStats.isEmpty {
+                        userSession.setPrimaryRoleFromMatchData(roleStats: allMatchesRoleStats)
+                    }
+                }
+
                 // Calculate champion stats if we have champions
                 if case .loaded(let championData) = champions {
-                    await calculateChampionStats(matches: matchData, champions: championData)
+                    // Check cancellation before expensive calculation
+                    guard !Task.isCancelled else { return }
+                    // Apply game type filter before calculating
+                    let filteredMatches = filterMatchesByGameType(matchData)
+                    await calculateChampionStats(matches: filteredMatches, champions: championData)
                 }
 
                 // KPIs: serve cached first, then refresh in background
+                // Use filtered matches for cache lookup
                 if userSession != nil {
-                    let servedFromCache = loadKPIsFromCacheIfAvailable(matches: matchData)
+                    let filteredMatches = filterMatchesByGameType(matchData)
+                    let servedFromCache = loadKPIsFromCacheIfAvailable(matches: filteredMatches)
                     if !servedFromCache {
+                        guard !Task.isCancelled else { return }
                         await calculateKPIs(matches: matchData)
                     } else {
-                        Task { await calculateKPIs(matches: matchData) }
+                        // Background task - don't await cancellation check
+                        Task { 
+                            guard !Task.isCancelled else { return }
+                            await calculateKPIs(matches: matchData)
+                        }
                     }
                 }
             }
         }
 
         await currentTask?.value
+    }
+
+    /// Recalculates role statistics with current filter (public for view access)
+    public func recalculateRoleStats() {
+        guard let matches = matchState.data else { return }
+        roleStats = calculateRoleStats(from: matches, summoner: summoner)
     }
 
     /// Refreshes matches from the API and recalculates role statistics
@@ -207,9 +253,12 @@ public class MatchDataViewModel {
     public func loadChampionStats(role: String? = nil, filter: ChampionFilter = .mostPlayed) async {
         guard let matches = matchState.data, let champions = championState.data else { return }
 
+        // Apply game type filter
+        let filteredMatches = filterMatchesByGameType(matches)
+        
         let currentRole = role ?? userSession?.selectedPrimaryRole ?? "BOTTOM"
         championStats = calculateChampionStats(
-            from: matches,
+            from: filteredMatches,
             champions: champions,
             role: currentRole,
             filter: filter
@@ -219,6 +268,7 @@ public class MatchDataViewModel {
     /// Calculates KPIs for the current role
     public func calculateKPIsForCurrentRole() async {
         guard let matches = matchState.data else { return }
+        // Filtering is applied inside calculateKPIs
         await calculateKPIs(matches: matches)
     }
 
@@ -228,8 +278,11 @@ public class MatchDataViewModel {
     {
         guard let matches = matchState.data else { return [] }
 
+        // Apply game type filter first
+        let filteredMatches = filterMatchesByGameType(matches)
+        
         // Filter matches for this specific champion
-        let championMatches = matches.filter { match in
+        let championMatches = filteredMatches.filter { match in
             match.participants.contains { participant in
                 participant.championId == championStat.champion.id
                     && participant.puuid == summoner.puuid
@@ -323,6 +376,20 @@ public class MatchDataViewModel {
     }
 
     // MARK: - Private Methods
+    
+    /// Filters matches based on the current game type filter setting
+    private func filterMatchesByGameType(_ matches: [Match]) -> [Match] {
+        guard let userSession = userSession else {
+            return matches  // No filter if no userSession
+        }
+        
+        switch userSession.gameTypeFilter {
+        case .allGames:
+            return matches
+        case .rankedOnly:
+            return matches.filter { $0.isRanked }
+        }
+    }
 
     /// Calculates champion statistics from matches and champions
     private func calculateChampionStats(matches: [Match], champions: [Champion]) async {
@@ -343,18 +410,22 @@ public class MatchDataViewModel {
             let userSession = userSession
         else { return }
 
+        // Apply game type filter
+        let filteredMatches = filterMatchesByGameType(matches)
+        
         let role = userSession.selectedPrimaryRole
 
         do {
             // Use only the last 20 matches for KPI calculations (recent performance focus)
-            let recentMatches = Array(matches.prefix(20))
+            let recentMatches = Array(filteredMatches.prefix(20))
             let roleKPIs = try await kpiCalculationService.calculateRoleKPIs(
                 matches: recentMatches,
                 role: role,
                 summoner: summoner
             )
 
-            let key = kpiCacheKey(matches: matches, role: role)
+            // Use filtered matches for cache key to ensure correct cache entry per filter
+            let key = kpiCacheKey(matches: filteredMatches, role: role)
 
             // Sort KPIs by priority (worst performing first)
             let sortedKPIs = roleKPIs.sorted { $0.sortPriority < $1.sortPriority }
@@ -409,11 +480,23 @@ public class MatchDataViewModel {
         return false
     }
 
-    /// Calculates role statistics from matches
+    /// Calculates role statistics from matches (respects game type filter)
     private func calculateRoleStats(from matches: [Match], summoner: Summoner) -> [RoleStats] {
+        // Apply game type filter
+        let filteredMatches = filterMatchesByGameType(matches)
+        return calculateRoleStatsFromFilteredMatches(filteredMatches, summoner: summoner)
+    }
+    
+    /// Calculates role statistics from all matches (no filter) - used for initial role selection
+    private func calculateRoleStatsAllMatches(from matches: [Match], summoner: Summoner) -> [RoleStats] {
+        return calculateRoleStatsFromFilteredMatches(matches, summoner: summoner)
+    }
+    
+    /// Internal helper to calculate role stats from already filtered matches
+    private func calculateRoleStatsFromFilteredMatches(_ filteredMatches: [Match], summoner: Summoner) -> [RoleStats] {
         var roleStats: [String: (wins: Int, total: Int)] = [:]
 
-        for match in matches {
+        for match in filteredMatches {
             // Find the summoner's participant in this match
             guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
             else {
@@ -457,11 +540,14 @@ public class MatchDataViewModel {
     public func getChampionKPIDisplay(for championStat: ChampionStats, role: String)
         -> [ChampionKPIDisplay]
     {
+        // Apply game type filter before passing matches to KPI display service
+        let filteredMatches = filterMatchesByGameType(currentMatches)
+        
         return KPIDisplayService.getChampionKPIDisplay(
             for: championStat,
             role: role,
             summoner: summoner,
-            allMatches: currentMatches,
+            allMatches: filteredMatches,
             baselineCache: baselineCache
         )
     }
@@ -482,17 +568,25 @@ public class MatchDataViewModel {
         )
 
         do {
-            // Load all baselines from database
+            // Load all baselines from database with error handling for stale contexts
             let descriptor = FetchDescriptor<Baseline>()
             let baselines = try dataManager.modelContext.fetch(descriptor)
 
             // Store in dictionary for O(1) lookup
+            // Extract values immediately to avoid accessing properties on potentially faulted objects
             for baseline in baselines {
+                // Access properties while context is active to materialize faults
+                let role = baseline.role
+                let classTag = baseline.classTag
+                let metric = baseline.metric
+                
                 let key = baselineCacheKey(
-                    role: baseline.role,
-                    classTag: baseline.classTag,
-                    metric: baseline.metric
+                    role: role,
+                    classTag: classTag,
+                    metric: metric
                 )
+                
+                // Store the baseline object (properties already materialized)
                 baselineCache[key] = baseline
             }
 
@@ -510,8 +604,14 @@ public class MatchDataViewModel {
             ClaimbLogger.error(
                 "Failed to load baselines into cache",
                 service: AppConstants.LoggingServices.matchDataViewModel,
-                error: error
+                error: error,
+                metadata: [
+                    "errorType": String(describing: type(of: error)),
+                    "errorDescription": error.localizedDescription
+                ]
             )
+            // Don't mark as loaded on error - allow retry on next load
+            baselinesLoaded = false
         }
     }
 

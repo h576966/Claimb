@@ -89,6 +89,16 @@ struct ChampionView: View {
                     role: userSession.selectedPrimaryRole, filter: selectedFilter)
             }
         }
+        .onChange(of: userSession.gameTypeFilter) { _, _ in
+            Task {
+                // Recalculate stats with existing matches (no need to reload from DB)
+                guard let viewModel = matchDataViewModel else { return }
+                if case .loaded = viewModel.matchState {
+                    await viewModel.loadChampionStats(role: userSession.selectedPrimaryRole, filter: selectedFilter)
+                    await viewModel.calculateKPIsForCurrentRole()
+                }
+            }
+        }
         .sheet(isPresented: $showRoleSelection) {
             if let viewModel = matchDataViewModel {
                 RoleSelectorView(
@@ -118,9 +128,7 @@ struct ChampionView: View {
                 isLoading: matchDataViewModel?.isRefreshing ?? false,
                 isDisabled: matchDataViewModel?.isRefreshing ?? false
             ),
-            onLogout: {
-                userSession.logout()
-            }
+            userSession: userSession
         )
     }
 
@@ -252,6 +260,7 @@ struct ExpandableChampionStatsCard: View {
     /// Cached KPI results to prevent recalculation on every render
     @State private var cachedKPIs: [ChampionKPIDisplay] = []
     @State private var lastCalculatedRole: String = ""
+    @State private var lastCalculatedFilter: GameTypeFilter?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -324,13 +333,22 @@ struct ExpandableChampionStatsCard: View {
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             calculateKPIsIfNeeded()
         }
+        .onChange(of: userSession.gameTypeFilter) { _, _ in
+            // Force recalculation when filter changes
+            lastCalculatedFilter = nil
+            calculateKPIsIfNeeded()
+        }
     }
 
-    /// Calculate KPIs only when role changes or first time
+    /// Calculate KPIs when role or filter changes
     private func calculateKPIsIfNeeded() {
         let currentRole = userSession.selectedPrimaryRole
-        if lastCalculatedRole != currentRole {
+        let currentFilter = userSession.gameTypeFilter
+        
+        // Recalculate if role or filter changed
+        if lastCalculatedRole != currentRole || lastCalculatedFilter != currentFilter {
             lastCalculatedRole = currentRole
+            lastCalculatedFilter = currentFilter
             cachedKPIs = viewModel.getChampionKPIDisplay(
                 for: championStat,
                 role: currentRole

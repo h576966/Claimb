@@ -84,9 +84,7 @@ struct CoachingView: View {
                 isDisabled: (viewModel?.isAnalyzing ?? false)
                     || (viewModel?.isRefreshingInBackground ?? false)
             ),
-            onLogout: {
-                userSession.logout()
-            }
+            userSession: userSession
         )
     }
 

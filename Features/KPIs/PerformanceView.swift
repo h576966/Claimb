@@ -235,6 +235,17 @@ struct PerformanceView: View {
                 await matchDataViewModel?.calculateKPIsForCurrentRole()
             }
         }
+        .onChange(of: userSession.gameTypeFilter) { _, _ in
+            Task {
+                // Recalculate stats with existing matches (no need to reload from DB)
+                guard let viewModel = matchDataViewModel else { return }
+                if case .loaded = viewModel.matchState {
+                    // Recalculate role stats, KPIs with current filter
+                    viewModel.recalculateRoleStats()
+                    await viewModel.calculateKPIsForCurrentRole()
+                }
+            }
+        }
         .sheet(isPresented: $showRoleSelection) {
             if let viewModel = matchDataViewModel {
                 RoleSelectorView(
@@ -264,9 +275,7 @@ struct PerformanceView: View {
                 isLoading: matchDataViewModel?.isRefreshing ?? false,
                 isDisabled: matchDataViewModel?.isRefreshing ?? false
             ),
-            onLogout: {
-                userSession.logout()
-            }
+            userSession: userSession
         )
     }
 

@@ -10,9 +10,9 @@ import SwiftUI
 struct SharedHeaderView: View {
     let summoner: Summoner
     let actionButton: ActionButton?
-    let onLogout: (() -> Void)?
+    let userSession: UserSession?
 
-    @State private var showLogoutConfirmation = false
+    @State private var showSettings = false
 
     struct ActionButton {
         let title: String
@@ -25,11 +25,11 @@ struct SharedHeaderView: View {
     init(
         summoner: Summoner,
         actionButton: ActionButton? = nil,
-        onLogout: (() -> Void)? = nil
+        userSession: UserSession? = nil
     ) {
         self.summoner = summoner
         self.actionButton = actionButton
-        self.onLogout = onLogout
+        self.userSession = userSession
     }
 
     var body: some View {
@@ -83,12 +83,12 @@ struct SharedHeaderView: View {
                     .accessibilityHint("Fetches latest match data from Riot Games")
                 }
 
-                // Logout Button (if provided) - Icon only with confirmation
-                if onLogout != nil {
+                // Settings Button (if userSession provided)
+                if userSession != nil {
                     Button(action: {
-                        showLogoutConfirmation = true
+                        showSettings = true
                     }) {
-                        Image(systemName: "person.circle")
+                        Image(systemName: "gearshape")
                             .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                     }
@@ -99,8 +99,8 @@ struct SharedHeaderView: View {
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
                             .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
                     )
-                    .accessibilityLabel("Account")
-                    .accessibilityHint("View account options and logout")
+                    .accessibilityLabel("Settings")
+                    .accessibilityHint("Open settings and account options")
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
@@ -112,15 +112,10 @@ struct SharedHeaderView: View {
                 .frame(height: 0.5)
         }
         .background(DesignSystem.Colors.background)
-        .alert("Logout", isPresented: $showLogoutConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Logout", role: .destructive) {
-                onLogout?()
+        .sheet(isPresented: $showSettings) {
+            if let userSession = userSession {
+                SettingsView(userSession: userSession, isPresented: $showSettings)
             }
-        } message: {
-            Text(
-                "Are you sure you want to logout? You'll need to sign in again to access your data."
-            )
         }
     }
 }
@@ -144,7 +139,7 @@ struct SharedHeaderView: View {
                 isLoading: false,
                 isDisabled: false
             ),
-            onLogout: { ClaimbLogger.debug("Logout tapped", service: "SharedHeaderView") }
+            userSession: nil  // Preview doesn't need userSession
         )
 
         Spacer()

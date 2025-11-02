@@ -10,7 +10,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab = 2  // Default to CoachingView
-    @State private var showLogoutConfirmation = false
+    @State private var showSettings = false
     let summoner: Summoner
     let userSession: UserSession
 
@@ -58,21 +58,18 @@ struct MainTabView: View {
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Logout") {
-                    showLogoutConfirmation = true
+                Button(action: {
+                    showSettings = true
+                }) {
+                    Image(systemName: "gearshape")
+                        .foregroundColor(DesignSystem.Colors.secondary)
                 }
-                .foregroundColor(DesignSystem.Colors.secondary)
-                .accessibilityLabel("Logout")
-                .accessibilityHint("Sign out and return to login screen")
+                .accessibilityLabel("Settings")
+                .accessibilityHint("Open settings and account options")
             }
         }
-        .alert("Logout", isPresented: $showLogoutConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Logout", role: .destructive) {
-                logout()
-            }
-        } message: {
-            Text("Are you sure you want to logout?")
+        .sheet(isPresented: $showSettings) {
+            SettingsView(userSession: userSession, isPresented: $showSettings)
         }
         .onAppear {
             // Refresh rank data if stale (uses smart caching)
@@ -80,10 +77,6 @@ struct MainTabView: View {
                 await userSession.refreshRanksIfNeeded()
             }
         }
-    }
-
-    private func logout() {
-        userSession.logout()
     }
 }
 

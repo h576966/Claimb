@@ -21,6 +21,21 @@ public enum UserSessionError: Error, LocalizedError {
     }
 }
 
+/// Game type filter for match analysis
+public enum GameTypeFilter: String, CaseIterable {
+    case allGames = "All Games"
+    case rankedOnly = "Ranked Only"
+    
+    public var displayName: String {
+        switch self {
+        case .allGames:
+            return "All Games"
+        case .rankedOnly:
+            return "Ranked Only"
+        }
+    }
+}
+
 /// Manages user session state and persistent login
 @MainActor
 @Observable
@@ -28,12 +43,14 @@ public class UserSession {
     public var isLoggedIn = false
     public var currentSummoner: Summoner?
     public var selectedPrimaryRole: String = "TOP"
+    public var gameTypeFilter: GameTypeFilter = .allGames
 
     public var modelContext: ModelContext
 
     public init(modelContext: ModelContext) {
         self.modelContext = modelContext
         loadStoredPrimaryRole()
+        loadStoredGameTypeFilter()
 
         // Add a small delay to ensure database is ready
         Task {
@@ -360,6 +377,14 @@ public class UserSession {
             selectedPrimaryRole = storedRole
         }
     }
+    
+    /// Loads the stored game type filter from UserDefaults
+    private func loadStoredGameTypeFilter() {
+        if let storedFilter = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.rankedOnlyFilter),
+           let filter = GameTypeFilter(rawValue: storedFilter) {
+            gameTypeFilter = filter
+        }
+    }
 
     /// Updates the primary role and persists it
     public func updatePrimaryRole(_ role: String) {
@@ -368,13 +393,48 @@ public class UserSession {
         ClaimbLogger.info("Primary role updated", service: "UserSession", metadata: ["role": role])
     }
 
+    /// Updates the game type filter and persists it
+    public func updateGameTypeFilter(_ filter: GameTypeFilter) {
+        gameTypeFilter = filter
+        UserDefaults.standard.set(filter.rawValue, forKey: AppConstants.UserDefaultsKeys.rankedOnlyFilter)
+        ClaimbLogger.info("Game type filter updated", service: "UserSession", metadata: ["filter": filter.displayName])
+    }
+    
     /// Sets the primary role based on most played role from match data
+    /// Only auto-selects if no role has been manually selected before (not stored in UserDefaults)
     public func setPrimaryRoleFromMatchData(roleStats: [RoleStats]) {
-        // Only update if we haven't set a role yet or if it's still the default
-        if selectedPrimaryRole == "TOP" || selectedPrimaryRole.isEmpty {
-            if let mostPlayedRole = roleStats.first(where: { $0.totalGames > 0 }) {
-                updatePrimaryRole(mostPlayedRole.role)
-            }
+        // Check if a role has been manually set by user (stored in UserDefaults)
+        let hasManuallySelectedRole = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole) != nil
+        
+        // Only auto-select if user hasn't manually selected a role yet
+        guard !hasManuallySelectedRole else {
+            ClaimbLogger.debug(
+                "Role already manually selected, skipping auto-selection",
+                service: "UserSession",
+                metadata: ["currentRole": selectedPrimaryRole]
+            )
+            return
         }
+        
+        // Find the most played role (roleStats is already sorted by totalGames descending)
+        guard let mostPlayedRole = roleStats.first(where: { $0.totalGames > 0 }) else {
+            ClaimbLogger.debug(
+                "No role stats available for auto-selection",
+                service: "UserSession"
+            )
+            return
+        }
+        
+        ClaimbLogger.info(
+            "Auto-selecting most played role as primary role",
+            service: "UserSession",
+            metadata: [
+                "role": mostPlayedRole.role,
+                "totalGames": String(mostPlayedRole.totalGames),
+                "winRate": String(format: "%.2f", mostPlayedRole.winRate)
+            ]
+        )
+        
+        updatePrimaryRole(mostPlayedRole.role)
     }
 }

@@ -23,6 +23,7 @@ enum AppConstants {
         static let tagline = "tagline"
         static let region = "region"
         static let selectedPrimaryRole = "selectedPrimaryRole"
+        static let rankedOnlyFilter = "rankedOnlyFilter"
         
         // Onboarding
         static let hasSeenOnboarding = "hasSeenOnboarding"

@@ -46,8 +46,21 @@ public class MatchRepository {
         let allMatches = try modelContext.fetch(descriptor)
 
         // Filter matches for this summoner and apply role analysis filter
-        let filteredMatches = allMatches.filter { match in
-            match.summoner?.puuid == summoner.puuid && match.isIncludedInRoleAnalysis
+        // Materialize relationships while context is active to avoid faults after context becomes stale
+        let summonerPuuid = summoner.puuid
+        let filteredMatches = allMatches.compactMap { match -> Match? in
+            // Safely access relationship properties while context is active
+            guard let matchSummonerPuuid = match.summoner?.puuid else {
+                return nil
+            }
+            guard matchSummonerPuuid == summonerPuuid else {
+                return nil
+            }
+            // Materialize isIncludedInRoleAnalysis property while context is active
+            guard match.isIncludedInRoleAnalysis else {
+                return nil
+            }
+            return match
         }
 
         return Array(filteredMatches.prefix(limit))
