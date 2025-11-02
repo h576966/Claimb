@@ -657,7 +657,8 @@ struct CoachingView: View {
             viewModel = CoachingViewModel(
                 dataManager: dataManager,
                 summoner: summoner,
-                primaryRole: userSession.selectedPrimaryRole
+                primaryRole: userSession.selectedPrimaryRole,
+                userSession: userSession
             )
         }
     }

@@ -40,6 +40,8 @@ public class UserSession {
     public var currentSummoner: Summoner?
     public var selectedPrimaryRole: String = "TOP"
     public var gameTypeFilter: GameTypeFilter = .allGames
+    public var focusedKPI: String?
+    public var focusedKPISince: Date?
 
     public var modelContext: ModelContext
 
@@ -47,6 +49,7 @@ public class UserSession {
         self.modelContext = modelContext
         loadStoredPrimaryRole()
         loadStoredGameTypeFilter()
+        loadStoredFocusedKPI()
 
         // Check for existing login asynchronously
         // ModelContext is ready immediately, no delay needed
@@ -375,6 +378,43 @@ public class UserSession {
            let filter = GameTypeFilter(rawValue: storedFilter) {
             gameTypeFilter = filter
         }
+    }
+    
+    /// Loads the stored focused KPI from UserDefaults
+    private func loadStoredFocusedKPI() {
+        focusedKPI = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.focusedKPI)
+        if let timestamp = UserDefaults.standard.object(forKey: AppConstants.UserDefaultsKeys.focusedKPISince) as? Date {
+            focusedKPISince = timestamp
+        }
+    }
+    
+    /// Sets a focused KPI and persists it with timestamp
+    public func setFocusedKPI(_ metric: String) {
+        focusedKPI = metric
+        focusedKPISince = Date()
+        UserDefaults.standard.set(metric, forKey: AppConstants.UserDefaultsKeys.focusedKPI)
+        UserDefaults.standard.set(focusedKPISince, forKey: AppConstants.UserDefaultsKeys.focusedKPISince)
+        
+        ClaimbLogger.info(
+            "Focused KPI set",
+            service: "UserSession",
+            metadata: [
+                "metric": metric
+            ]
+        )
+    }
+    
+    /// Clears the focused KPI and persists the change
+    public func clearFocusedKPI() {
+        focusedKPI = nil
+        focusedKPISince = nil
+        UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.focusedKPI)
+        UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.focusedKPISince)
+        
+        ClaimbLogger.info(
+            "Focused KPI cleared",
+            service: "UserSession"
+        )
     }
 
     /// Updates the primary role and persists it

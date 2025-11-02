@@ -551,6 +551,124 @@ public class MatchDataViewModel {
             baselineCache: baselineCache
         )
     }
+    
+    /// Calculates KPI trend since a specific date for focused KPI tracking
+    public func calculateKPITrend(for metric: String, since: Date) -> KPITrend? {
+        guard case .loaded(let matches) = matchState, !matches.isEmpty else {
+            return nil
+        }
+        
+        // Get filtered matches
+        let filteredMatches = filterMatchesByGameType(matches)
+        
+        // Filter matches by role if userSession is available
+        let role = userSession?.selectedPrimaryRole ?? "TOP"
+        let roleMatches = filteredMatches.filter { match in
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+                return false
+            }
+            return RoleUtils.normalizeRole(teamPosition: participant.teamPosition) == role
+        }
+        
+        guard !roleMatches.isEmpty else { return nil }
+        
+        // Split matches into before and since focus date
+        let matchesSinceFocus = roleMatches.filter { $0.gameDate >= since }
+        let matchesBeforeFocus = roleMatches.filter { $0.gameDate < since }
+        
+        guard !matchesSinceFocus.isEmpty else { return nil }
+        
+        // Calculate metric value for matches since focus
+        let currentValue = calculateMetricValue(
+            for: metric,
+            matches: matchesSinceFocus,
+            role: role
+        )
+        
+        // Calculate starting value (from matches before focus, or use current if no before matches)
+        let startingValue: Double
+        if !matchesBeforeFocus.isEmpty {
+            // Use the most recent matches before focus (up to 10 games)
+            let recentBeforeMatches = Array(matchesBeforeFocus.prefix(10))
+            startingValue = calculateMetricValue(
+                for: metric,
+                matches: recentBeforeMatches,
+                role: role
+            )
+        } else {
+            // If no matches before focus, use current value as starting (0% change)
+            startingValue = currentValue
+        }
+        
+        // Calculate change percentage
+        let changePercentage: Double
+        if startingValue != 0 {
+            changePercentage = ((currentValue - startingValue) / abs(startingValue)) * 100
+        } else {
+            changePercentage = 0
+        }
+        
+        // Determine if improving (depends on metric - deaths is inverse)
+        let isImproving: Bool
+        if metric == "deaths_per_game" {
+            isImproving = currentValue < startingValue
+        } else {
+            isImproving = currentValue > startingValue
+        }
+        
+        return KPITrend(
+            matchesSince: matchesSinceFocus.count,
+            currentValue: currentValue,
+            startingValue: startingValue,
+            changePercentage: changePercentage,
+            isImproving: isImproving
+        )
+    }
+    
+    /// Calculates the numeric value for a specific metric
+    private func calculateMetricValue(
+        for metric: String,
+        matches: [Match],
+        role: String
+    ) -> Double {
+        let participants = matches.compactMap { match in
+            match.participants.first(where: {
+                $0.puuid == summoner.puuid
+                    && RoleUtils.normalizeRole(teamPosition: $0.teamPosition) == role
+            })
+        }
+        
+        guard !participants.isEmpty else { return 0.0 }
+        
+        switch metric {
+        case "deaths_per_game":
+            let totalDeaths = participants.reduce(0) { $0 + $1.deaths }
+            return Double(totalDeaths) / Double(participants.count)
+            
+        case "vision_score_per_min":
+            let totalVision = participants.reduce(0.0) { $0 + $1.visionScorePerMinute }
+            return totalVision / Double(participants.count)
+            
+        case "cs_per_min":
+            let totalCS = participants.reduce(0.0) { $0 + $1.csPerMinute }
+            return totalCS / Double(participants.count)
+            
+        case "kill_participation_pct":
+            let totalKP = participants.reduce(0.0) { $0 + $1.killParticipation }
+            return (totalKP / Double(participants.count)) * 100
+            
+        case "objective_participation_pct":
+            let totalOP = participants.reduce(0.0) { $0 + $1.objectiveParticipationPercentage }
+            return totalOP / Double(participants.count)
+            
+        case "team_damage_pct":
+            let totalDmg = participants.reduce(0.0) { $0 + $1.teamDamagePercentage }
+            return (totalDmg / Double(participants.count)) * 100
+            
+        default:
+            return 0.0
+        }
+    }
 
     /// Loads all baselines into memory cache (eliminates async→sync RunLoop hack)
     private func loadBaselinesIntoCache() async {
@@ -666,6 +784,30 @@ public struct ChampionKPIDisplay {
         case "damage_taken_share_pct": return "Dmg Taken"
         default: return metric
         }
+    }
+}
+
+// MARK: - KPI Trend Structure
+
+public struct KPITrend {
+    public let matchesSince: Int
+    public let currentValue: Double
+    public let startingValue: Double
+    public let changePercentage: Double
+    public let isImproving: Bool
+    
+    public init(
+        matchesSince: Int,
+        currentValue: Double,
+        startingValue: Double,
+        changePercentage: Double,
+        isImproving: Bool
+    ) {
+        self.matchesSince = matchesSince
+        self.currentValue = currentValue
+        self.startingValue = startingValue
+        self.changePercentage = changePercentage
+        self.isImproving = isImproving
     }
 }
 

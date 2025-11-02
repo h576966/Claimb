@@ -31,6 +31,8 @@ enum AppConstants {
         static let region = "region"
         static let selectedPrimaryRole = "selectedPrimaryRole"
         static let rankedOnlyFilter = "rankedOnlyFilter"
+        static let focusedKPI = "focusedKPI"
+        static let focusedKPISince = "focusedKPISince"
         
         // Onboarding
         static let hasSeenOnboarding = "hasSeenOnboarding"

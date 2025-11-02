@@ -153,7 +153,9 @@ public struct CoachingPromptBuilder {
         summoner: Summoner,
         primaryRole: String,
         bestPerformingChampions: [MatchStatsCalculator.ChampionStats],
-        streakData: StreakData?
+        streakData: StreakData?,
+        focusedKPI: String? = nil,
+        focusedKPITrend: KPITrend? = nil
     ) -> String {
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
@@ -169,13 +171,15 @@ public struct CoachingPromptBuilder {
             matches: matches, summoner: summoner, primaryRole: primaryRole)
         let championPoolContext = createChampionPoolContext(
             bestPerformingChampions: bestPerformingChampions)
+        let focusedKPIContext = createFocusedKPIContext(
+            focusedKPI: focusedKPI, focusedKPITrend: focusedKPITrend)
 
         return """
             You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
 
             **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
 
-            \(detailedContext)\(championPoolContext)
+            \(detailedContext)\(championPoolContext)\(focusedKPIContext)
 
 
             **OUTPUT (JSON, max 120 words):**
@@ -355,6 +359,40 @@ public struct CoachingPromptBuilder {
         }
 
         return context
+    }
+    
+    /// Creates focused KPI context for performance summary prompts
+    private static func createFocusedKPIContext(
+        focusedKPI: String?,
+        focusedKPITrend: KPITrend?
+    ) -> String {
+        guard let kpi = focusedKPI, let trend = focusedKPITrend else {
+            return ""
+        }
+        
+        let displayName: String
+        switch kpi {
+        case "deaths_per_game": displayName = "Deaths per Game"
+        case "vision_score_per_min": displayName = "Vision Score/min"
+        case "kill_participation_pct": displayName = "Kill Participation"
+        case "cs_per_min": displayName = "CS per Minute"
+        case "objective_participation_pct": displayName = "Objective Participation"
+        case "team_damage_pct": displayName = "Damage Share"
+        case "damage_taken_share_pct": displayName = "Damage Taken Share"
+        default: displayName = kpi
+        }
+        
+        let progressStatus = trend.isImproving ? "improvement ↑" : "decline ↓"
+        
+        return """
+        
+        
+        **FOCUSED KPI (Player is actively working on this):**
+        \(displayName) - \(String(format: "%.1f%%", abs(trend.changePercentage))) \(progressStatus) over \(trend.matchesSince) games
+        Current: \(String(format: "%.1f", trend.currentValue)) | Starting: \(String(format: "%.1f", trend.startingValue))
+        
+        IMPORTANT: Provide specific feedback on this focused area in your analysis. Acknowledge progress if improving, encourage continued focus if declining.
+        """
     }
 
     /// Creates KPI trends context comparing first half vs second half of recent games

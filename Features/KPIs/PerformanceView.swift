@@ -70,57 +70,110 @@ struct RankBadge: View {
 
 struct KPICard: View {
     let kpi: KPIMetric
+    let isFocused: Bool
+    let trend: KPITrend?
+    let onFocusToggle: () -> Void
+    
+    @State private var showConfirmation = false
 
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
-            // Left side: Title and performance indicator
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                Text(kpi.displayName)
-                    .font(DesignSystem.Typography.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+        VStack(spacing: 0) {
+            HStack(spacing: DesignSystem.Spacing.md) {
+                // Left side: Title and performance indicator
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                    Text(kpi.displayName)
+                        .font(DesignSystem.Typography.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                // Performance indicator - more compact
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    Circle()
-                        .fill(kpi.color)
-                        .frame(width: 6, height: 6)
+                    // Performance indicator - more compact
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Circle()
+                            .fill(kpi.color)
+                            .frame(width: 6, height: 6)
 
-                    Text(performanceLevelText(kpi.performanceLevel))
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(kpi.color)
+                        Text(performanceLevelText(kpi.performanceLevel))
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(kpi.color)
+                    }
                 }
+
+                Spacer()
+
+                // Right side: Values - more compact vertical layout
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(kpi.formattedValue)
+                        .font(DesignSystem.Typography.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(kpi.color)
+
+                    // Target value with reduced spacing
+                    if let baseline = kpi.baseline {
+                        let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
+                        let formattedTarget = formatTargetValue(targetValue, for: kpi.metric)
+                        Text("Target: \(formattedTarget)")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                }
+                
+                // Focus toggle button
+                Button(action: {
+                    if isFocused {
+                        onFocusToggle()
+                    } else {
+                        showConfirmation = true
+                    }
+                }) {
+                    Image(systemName: isFocused ? "star.fill" : "star")
+                        .font(.system(size: 18))
+                        .foregroundColor(isFocused ? DesignSystem.Colors.accent : DesignSystem.Colors.textSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-
-            Spacer()
-
-            // Right side: Values - more compact vertical layout
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(kpi.formattedValue)
-                    .font(DesignSystem.Typography.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(kpi.color)
-
-                // Target value with reduced spacing
-                if let baseline = kpi.baseline {
-                    let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
-                    let formattedTarget = formatTargetValue(targetValue, for: kpi.metric)
-                    Text("Target: \(formattedTarget)")
+            
+            // Trend indicator (only shown when focused)
+            if isFocused, let trend = trend {
+                Divider()
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Image(systemName: trend.isImproving ? "arrow.up.right" : "arrow.down.right")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(trend.isImproving ? DesignSystem.Colors.accent : DesignSystem.Colors.error)
+                    
+                    Text(String(format: "%.1f%% %@ over %d games", 
+                               abs(trend.changePercentage),
+                               trend.isImproving ? "improvement" : "decline",
+                               trend.matchesSince))
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
+                    
+                    Spacer()
                 }
             }
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
-        .padding(.vertical, DesignSystem.Spacing.sm + 2)  // Slightly more than sm for better touch target
+        .padding(.vertical, DesignSystem.Spacing.sm + 2)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
-                .stroke(DesignSystem.Colors.cardBorder, lineWidth: 1)
+                .stroke(
+                    isFocused ? DesignSystem.Colors.accent : DesignSystem.Colors.cardBorder,
+                    lineWidth: isFocused ? 2 : 1
+                )
         )
+        .alert("Change Focus Area?", isPresented: $showConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Change Focus") {
+                onFocusToggle()
+            }
+        } message: {
+            Text("Changing your focus area will reset progress tracking. Your previous focus progress will be lost.")
+        }
     }
 
     private func performanceLevelText(_ level: Baseline.PerformanceLevel) -> String {
@@ -395,12 +448,36 @@ struct PerformanceView: View {
                 // KPI Cards
                 if let viewModel = matchDataViewModel {
                     ForEach(viewModel.kpiMetrics, id: \.metric) { kpi in
-                        KPICard(kpi: kpi)
+                        let isFocused = kpi.metric == userSession.focusedKPI
+                        let trend = isFocused && userSession.focusedKPISince != nil
+                            ? viewModel.calculateKPITrend(for: kpi.metric, since: userSession.focusedKPISince!)
+                            : nil
+                        
+                        KPICard(
+                            kpi: kpi,
+                            isFocused: isFocused,
+                            trend: trend,
+                            onFocusToggle: {
+                                if isFocused {
+                                    userSession.clearFocusedKPI()
+                                } else {
+                                    userSession.setFocusedKPI(kpi.metric)
+                                }
+                            }
+                        )
                     }
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.bottom, DesignSystem.Spacing.xl)
+        }
+        .onAppear {
+            // Auto-select worst performing KPI if no focus set
+            if userSession.focusedKPI == nil,
+               let viewModel = matchDataViewModel,
+               let worstKPI = viewModel.kpiMetrics.first {
+                userSession.setFocusedKPI(worstKPI.metric)
+            }
         }
     }
 

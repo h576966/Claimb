@@ -137,7 +137,9 @@ public class OpenAIService {
         matches: [Match],
         summoner: Summoner,
         primaryRole: String,
-        kpiService: KPICalculationService
+        kpiService: KPICalculationService,
+        focusedKPI: String? = nil,
+        focusedKPITrend: KPITrend? = nil
     ) async throws -> PerformanceSummary {
 
         // Validate proxy service availability
@@ -186,7 +188,9 @@ public class OpenAIService {
             summoner: summoner,
             primaryRole: primaryRole,
             bestPerformingChampions: bestPerformingChampions,
-            streakData: streakData
+            streakData: streakData,
+            focusedKPI: focusedKPI,
+            focusedKPITrend: focusedKPITrend
         )
 
         // Note: JSON schema enforcement is handled by the edge function
