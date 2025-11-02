@@ -147,6 +147,7 @@ struct LoginView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 120, height: 120)
+                    .background(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
 
                 VStack(spacing: DesignSystem.Spacing.sm) {
