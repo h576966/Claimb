@@ -67,8 +67,8 @@ public struct CoachingPromptBuilder {
         if let relativeContext = relativePerformanceContext {
             prompt += """
 
-            \(relativeContext)
-            """
+                \(relativeContext)
+                """
         }
 
         // Add baseline context if available (simple, focused comparison)
