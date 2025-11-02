@@ -52,6 +52,12 @@ public class OpenAIService {
             userParticipant: participant
         )
 
+        // Get relative performance context (team/enemy comparisons)
+        let relativePerformanceContext = createRelativePerformanceContext(
+            match: match,
+            userParticipant: participant
+        )
+
         // Get baseline context for key metrics (simple approach - no complex formatting)
         let baselineContext = await fetchBaselineContext(
             for: participant,
@@ -69,6 +75,7 @@ public class OpenAIService {
             timelineData: nil,  // Timeline feature removed
             laneOpponent: laneOpponent,
             teamContext: teamContext,
+            relativePerformanceContext: relativePerformanceContext,
             baselineContext: baselineContext
         )
 
@@ -282,6 +289,129 @@ public class OpenAIService {
             """
 
         return (laneOpponentInfo, teamContext)
+    }
+
+    /// Creates relative performance context comparing player to teammates and enemies
+    /// Provides quantitative comparisons optimized for LLM understanding
+    private func createRelativePerformanceContext(
+        match: Match,
+        userParticipant: Participant
+    ) -> String? {
+        let userTeamId = userParticipant.teamId
+        let userTeam = match.participants.filter { $0.teamId == userTeamId }
+        let enemyTeam = match.participants.filter { $0.teamId != userTeamId }
+
+        guard userTeam.count >= 4, enemyTeam.count >= 4 else {
+            // Not enough data for meaningful comparison
+            return nil
+        }
+
+        var contextLines: [String] = []
+
+        // Calculate team averages for key metrics
+        let teamKDAs = userTeam.map { participant -> Double in
+            let deaths = max(participant.deaths, 1) // Avoid division by zero
+            return Double(participant.kills + participant.assists) / Double(deaths)
+        }
+        let teamCSMins = userTeam.map { $0.csPerMinute }
+        let teamDamageTotal = userTeam.reduce(0) { $0 + $1.totalDamageDealtToChampions }
+
+        let teamAvgKDA = teamKDAs.reduce(0, +) / Double(teamKDAs.count)
+        let teamAvgCS = teamCSMins.reduce(0, +) / Double(teamCSMins.count)
+
+        // Player metrics
+        let playerKDA = userParticipant.kda
+        let playerCS = userParticipant.csPerMinute
+        
+        // Calculate player's damage share and all team damage shares
+        let playerDamageShare = teamDamageTotal > 0
+            ? Double(userParticipant.totalDamageDealtToChampions) / Double(teamDamageTotal)
+            : 0.0
+        let allDamageShares = userTeam.map { participant -> Double in
+            guard teamDamageTotal > 0 else { return 0.0 }
+            return Double(participant.totalDamageDealtToChampions) / Double(teamDamageTotal)
+        }
+
+        // Calculate percentage differences
+        let kdaDiff = teamAvgKDA > 0 ? ((playerKDA - teamAvgKDA) / teamAvgKDA) * 100 : 0
+        let csDiff = teamAvgCS > 0 ? ((playerCS - teamAvgCS) / teamAvgCS) * 100 : 0
+
+        // Calculate rank among teammates (1 = best)
+        let kdaRank = teamKDAs.filter { $0 > playerKDA }.count + 1
+        let csRank = teamCSMins.filter { $0 > playerCS }.count + 1
+        let damageRank = allDamageShares.filter { $0 > playerDamageShare }.count + 1
+
+        // Format team comparison line
+        let kdaSign = kdaDiff >= 0 ? "+" : ""
+        let csSign = csDiff >= 0 ? "+" : ""
+        contextLines.append(
+            "- Team comparison: KDA \(playerKDA.oneDecimal) (team avg \(teamAvgKDA.oneDecimal), \(kdaSign)\(String(format: "%.0f", kdaDiff))%), CS/min \(playerCS.oneDecimal) (team avg \(teamAvgCS.oneDecimal), \(csSign)\(String(format: "%.0f", csDiff))%), Damage rank: \(damageRank)/\(userTeam.count)"
+        )
+
+        // Calculate enemy team strength
+        let enemyKDAs = enemyTeam.map { participant -> Double in
+            let deaths = max(participant.deaths, 1)
+            return Double(participant.kills + participant.assists) / Double(deaths)
+        }
+        let enemyAvgKDA = enemyKDAs.reduce(0, +) / Double(enemyKDAs.count)
+        let yourTeamAvgKDA = teamAvgKDA
+
+        if enemyAvgKDA > yourTeamAvgKDA * 1.15 {
+            // Enemy team is significantly stronger
+            contextLines.append(
+                "- Enemy team: Avg KDA \(enemyAvgKDA.oneDecimal) (your team \(yourTeamAvgKDA.oneDecimal)) - Stronger enemy team"
+            )
+        } else if enemyAvgKDA < yourTeamAvgKDA * 0.85 {
+            // Enemy team is significantly weaker
+            contextLines.append(
+                "- Enemy team: Avg KDA \(enemyAvgKDA.oneDecimal) (your team \(yourTeamAvgKDA.oneDecimal)) - Weaker enemy team"
+            )
+        } else {
+            // Teams are relatively balanced
+            contextLines.append(
+                "- Enemy team: Avg KDA \(enemyAvgKDA.oneDecimal) (your team \(yourTeamAvgKDA.oneDecimal)) - Balanced teams"
+            )
+        }
+
+        // Lane opponent comparison
+        if let laneOpponent = enemyTeam.first(where: { $0.teamPosition == userParticipant.teamPosition }) {
+            let opponentKDA = laneOpponent.kda
+            let opponentKDAStr = "\(laneOpponent.kills)/\(laneOpponent.deaths)/\(laneOpponent.assists)"
+            let playerKDAStr = "\(userParticipant.kills)/\(userParticipant.deaths)/\(userParticipant.assists)"
+
+            if opponentKDA > playerKDA * 1.2 {
+                contextLines.append(
+                    "- Lane opponent: \(opponentKDAStr) KDA vs your \(playerKDAStr) - Lost lane matchup"
+                )
+            } else if opponentKDA < playerKDA * 0.8 {
+                contextLines.append(
+                    "- Lane opponent: \(opponentKDAStr) KDA vs your \(playerKDAStr) - Won lane matchup"
+                )
+            } else {
+                contextLines.append(
+                    "- Lane opponent: \(opponentKDAStr) KDA vs your \(playerKDAStr) - Even lane matchup"
+                )
+            }
+        }
+
+        // Identify fed enemies (KDA > 4.0 or deaths < 3)
+        let fedEnemies = enemyTeam.filter { participant in
+            let kda = participant.kda
+            return kda > 4.0 || participant.deaths < 3
+        }
+
+        if !fedEnemies.isEmpty {
+            let fedList = fedEnemies.map { participant in
+                let position = participant.teamPosition
+                let kdaStr = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
+                return "Enemy \(position) (\(kdaStr))"
+            }.joined(separator: ", ")
+            contextLines.append("- Fed threats: \(fedList)")
+        }
+
+        guard !contextLines.isEmpty else { return nil }
+
+        return "**RELATIVE PERFORMANCE CONTEXT:**\n\(contextLines.joined(separator: "\n"))"
     }
 
     /// Fetches baseline context for key performance metrics

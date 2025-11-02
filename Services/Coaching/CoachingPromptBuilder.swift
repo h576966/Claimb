@@ -22,6 +22,7 @@ public struct CoachingPromptBuilder {
         timelineData: String?,
         laneOpponent: String?,
         teamContext: String,
+        relativePerformanceContext: String? = nil,
         baselineContext: String? = nil
     ) -> String {
         let gameResult = participant.win ? "Victory" : "Defeat"
@@ -61,6 +62,14 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
+
+        // Add relative performance context if available (team/enemy comparisons)
+        if let relativeContext = relativePerformanceContext {
+            prompt += """
+
+            \(relativeContext)
+            """
+        }
 
         // Add baseline context if available (simple, focused comparison)
         if let baseline = baselineContext {
