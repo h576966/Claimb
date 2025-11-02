@@ -26,7 +26,7 @@ enum CoachingTab: String, CaseIterable {
 
 struct CoachingView: View {
     let summoner: Summoner
-    let userSession: UserSession
+    @Bindable var userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CoachingViewModel?
     @State private var refreshTrigger = 0

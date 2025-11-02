@@ -153,7 +153,7 @@ struct KPICard: View {
 
 struct PerformanceView: View {
     @Bindable var summoner: Summoner
-    let userSession: UserSession
+    @Bindable var userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showRoleSelection = false
