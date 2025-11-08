@@ -114,6 +114,17 @@ public class OpenAIService {
         // Make API request through proxy with combined prompt
         // Note: Using lower token limit for concise responses
         // Pass match metadata so edge function can fetch and inject timeline data
+        ClaimbLogger.debug(
+            "Requesting post-game analysis with timeline metadata",
+            service: "OpenAIService",
+            metadata: [
+                "matchId": match.matchId,
+                "puuid": summoner.puuid,
+                "region": summoner.region,
+                "championName": championName
+            ]
+        )
+        
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
@@ -123,6 +134,15 @@ public class OpenAIService {
             matchId: match.matchId,
             puuid: summoner.puuid,
             region: summoner.region  // Edge function will map platform/region to routing region
+        )
+        
+        ClaimbLogger.debug(
+            "Received AI response",
+            service: "OpenAIService",
+            metadata: [
+                "responseLength": String(responseText.count),
+                "containsTimeline": responseText.lowercased().contains("10min") ? "YES" : "NO"
+            ]
         )
 
         // Parse response using JSONResponseParser
