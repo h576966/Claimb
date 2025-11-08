@@ -51,3 +51,16 @@ public struct PerformanceSummary: Codable {
         self.climbingAdvice = climbingAdvice
     }
 }
+
+/// KPI improvement tips response
+public struct KPIImprovementTips: Codable {
+    public let tips: String  // 2-3 concise sentences (max 60 words)
+    public let kpiMetric: String
+    public let generatedAt: Date
+
+    public init(tips: String, kpiMetric: String, generatedAt: Date) {
+        self.tips = tips
+        self.kpiMetric = kpiMetric
+        self.generatedAt = generatedAt
+    }
+}

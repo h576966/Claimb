@@ -13,7 +13,7 @@ import SwiftData
 public class CoachingResponseCache {
     @Attribute(.unique) public var id: String
     public var summonerPuuid: String
-    public var responseType: String  // "postGame" or "performance"
+    public var responseType: String  // "postGame", "performance", or "kpiTips"
     public var matchId: String?      // For post-game analysis (nil for performance summary)
     public var responseJSON: String  // Serialized response
     public var createdAt: Date
@@ -52,5 +52,12 @@ public class CoachingResponseCache {
         guard responseType == "performance" else { return nil }
         let data = responseJSON.data(using: .utf8) ?? Data()
         return try JSONDecoder().decode(PerformanceSummary.self, from: data)
+    }
+
+    /// Deserialize KPIImprovementTips from JSON
+    public func getKPIImprovementTips() throws -> KPIImprovementTips? {
+        guard responseType == "kpiTips" else { return nil }
+        let data = responseJSON.data(using: .utf8) ?? Data()
+        return try JSONDecoder().decode(KPIImprovementTips.self, from: data)
     }
 }

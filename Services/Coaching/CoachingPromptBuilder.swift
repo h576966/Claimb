@@ -46,20 +46,9 @@ public struct CoachingPromptBuilder {
             match.isRanked
             ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
 
-        // Build system context with relative performance if available
-        var systemContext =
+        // Build simple system context
+        let systemContext =
             "You are a League of Legends coach analyzing a single game for immediate improvement."
-
-        if let relativeContext = relativePerformanceContext {
-            systemContext += """
-
-
-                Context for your analysis (use naturally in your coaching, don't mention explicitly):
-                \(relativeContext)
-
-                Consider this when coaching: If player performed above team average despite a loss or faced fed enemies, be encouraging and acknowledge their effort. If player underperformed compared to teammates, be constructively critical. Adjust your tone and focus based on whether they carried, performed average, or were carried by their team.
-                """
-        }
 
         var prompt = """
             \(systemContext)
@@ -77,6 +66,22 @@ public struct CoachingPromptBuilder {
             - Gold/min: \(goldPerMin)
             - Objective Participation: \(objectiveParticipation)
             """
+
+        // Add relative performance context prominently if available
+        if let relativeContext = relativePerformanceContext {
+            prompt += """
+
+
+            **RELATIVE PERFORMANCE ANALYSIS:**
+            \(relativeContext)
+
+            IMPORTANT: Use this context to assess if the player carried, got carried, or underperformed relative to their team.
+            - If performed above team average despite loss or faced fed enemies → be encouraging and acknowledge their effort
+            - If underperformed compared to teammates → focus on constructive improvement areas
+            - If carried the team → acknowledge their strong performance and leadership
+            Adjust your tone and focus based on their relative contribution.
+            """
+        }
 
         // Add baseline context if available (simple, focused comparison)
         if let baseline = baselineContext {
@@ -97,18 +102,18 @@ public struct CoachingPromptBuilder {
                 """
         }
 
-        // Add timeline data if available
+        // Add timeline data if available (injected by edge function)
         if let timeline = timelineData {
             prompt += """
 
-                **TIMELINE:** \(timeline)
-                Focus on: Specific timing mistakes, trading errors, power spikes, recalls.
-                """
+            **TIMELINE:** \(timeline)
+            Focus on: Early game checkpoints, timing efficiency, resource advantages.
+            """
         }
 
         prompt += """
 
-            **OUTPUT (JSON, max 100 words):**
+            **OUTPUT (JSON, max 110 words):**
             {
               "keyTakeaways": ["3 actionable insights, avoid stats and parentheses"],
               "championSpecificAdvice": "2 sentences: what worked, what didn't",
@@ -360,7 +365,7 @@ public struct CoachingPromptBuilder {
 
         return context
     }
-    
+
     /// Creates focused KPI context for performance summary prompts
     private static func createFocusedKPIContext(
         focusedKPI: String?,
@@ -369,7 +374,7 @@ public struct CoachingPromptBuilder {
         guard let kpi = focusedKPI, let trend = focusedKPITrend else {
             return ""
         }
-        
+
         let displayName: String
         switch kpi {
         case "deaths_per_game": displayName = "Deaths per Game"
@@ -381,18 +386,18 @@ public struct CoachingPromptBuilder {
         case "damage_taken_share_pct": displayName = "Damage Taken Share"
         default: displayName = kpi
         }
-        
+
         let progressStatus = trend.isImproving ? "improvement ↑" : "decline ↓"
-        
+
         return """
-        
-        
-        **FOCUSED KPI (Player is actively working on this):**
-        \(displayName) - \(String(format: "%.1f%%", abs(trend.changePercentage))) \(progressStatus) over \(trend.matchesSince) games
-        Current: \(String(format: "%.1f", trend.currentValue)) | Starting: \(String(format: "%.1f", trend.startingValue))
-        
-        IMPORTANT: Provide specific feedback on this focused area in your analysis. Acknowledge progress if improving, encourage continued focus if declining.
-        """
+
+
+            **FOCUSED KPI (Player is actively working on this):**
+            \(displayName) - \(String(format: "%.1f%%", abs(trend.changePercentage))) \(progressStatus) over \(trend.matchesSince) games
+            Current: \(String(format: "%.1f", trend.currentValue)) | Starting: \(String(format: "%.1f", trend.startingValue))
+
+            IMPORTANT: Provide specific feedback on this focused area in your analysis. Acknowledge progress if improving, encourage continued focus if declining.
+            """
     }
 
     /// Creates KPI trends context comparing first half vs second half of recent games
@@ -424,6 +429,74 @@ public struct CoachingPromptBuilder {
         }
 
         return context
+    }
+
+    // MARK: - KPI Improvement Tips Prompt
+
+    /// Creates a prompt for generating KPI improvement tips
+    public static func createKPIImprovementPrompt(
+        kpiMetric: String,
+        displayName: String,
+        currentValue: Double,
+        targetValue: Double,
+        role: String,
+        rank: String,
+        championPool: [String]
+    ) -> String {
+        // Calculate the gap
+        let gap = abs(currentValue - targetValue)
+        let gapPercentage = (gap / targetValue) * 100
+
+        // Determine if lower or higher is better
+        let isLowerBetter = kpiMetric == "deaths_per_game"
+        let needsImprovement: Bool
+        let comparisonText: String
+
+        if isLowerBetter {
+            needsImprovement = currentValue > targetValue
+            comparisonText = needsImprovement ? "above" : "at or below"
+        } else {
+            needsImprovement = currentValue < targetValue
+            comparisonText = needsImprovement ? "below" : "at or above"
+        }
+
+        // Format values based on metric type
+        let formattedCurrent: String
+        let formattedTarget: String
+
+        switch kpiMetric {
+        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
+            "damage_taken_share_pct":
+            formattedCurrent = String(format: "%.0f%%", currentValue * 100)
+            formattedTarget = String(format: "%.0f%%", targetValue * 100)
+        case "cs_per_min", "vision_score_per_min":
+            formattedCurrent = String(format: "%.1f", currentValue)
+            formattedTarget = String(format: "%.1f", targetValue)
+        case "deaths_per_game":
+            formattedCurrent = String(format: "%.1f", currentValue)
+            formattedTarget = String(format: "%.1f", targetValue)
+        default:
+            formattedCurrent = String(format: "%.1f", currentValue)
+            formattedTarget = String(format: "%.1f", targetValue)
+        }
+
+        // Get top 3 champions
+        let topChampions = championPool.prefix(3).joined(separator: ", ")
+        let championContext = topChampions.isEmpty ? "" : " Your main champions: \(topChampions)."
+
+        return """
+            You are a League of Legends coach helping a mid-elo player improve.
+
+            Player Context:
+            - Role: \(role)
+            - Rank: \(rank)\(championContext)
+
+            Goal: Improve \(displayName)
+            - Current: \(formattedCurrent)
+            - Target: \(formattedTarget)
+
+            Give exactly 2 simple, practical tips (max 35 words total) that a mid-elo player can immediately apply in their next game. Use clear language, avoid jargon. Focus on easy habits or patterns to practice. Start directly with the tips.
+            """
     }
 
     // MARK: - Helper Methods

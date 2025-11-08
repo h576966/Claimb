@@ -389,9 +389,12 @@ public class UserSession {
     }
     
     /// Sets a focused KPI and persists it with timestamp
-    public func setFocusedKPI(_ metric: String) {
+    public func setFocusedKPI(_ metric: String, isManualSelection: Bool = false) {
         focusedKPI = metric
         focusedKPISince = Date()
+        
+        // Store flag for UI to know if tips should be generated
+        UserDefaults.standard.set(isManualSelection, forKey: "\(AppConstants.UserDefaultsKeys.focusedKPI)_isManual")
         UserDefaults.standard.set(metric, forKey: AppConstants.UserDefaultsKeys.focusedKPI)
         UserDefaults.standard.set(focusedKPISince, forKey: AppConstants.UserDefaultsKeys.focusedKPISince)
         
@@ -399,9 +402,16 @@ public class UserSession {
             "Focused KPI set",
             service: "UserSession",
             metadata: [
-                "metric": metric
+                "metric": metric,
+                "isManual": String(isManualSelection)
             ]
         )
+    }
+    
+    /// Checks if the currently focused KPI was manually selected (vs auto-selected)
+    public func isFocusedKPIManuallySelected() -> Bool {
+        guard focusedKPI != nil else { return false }
+        return UserDefaults.standard.bool(forKey: "\(AppConstants.UserDefaultsKeys.focusedKPI)_isManual")
     }
     
     /// Clears the focused KPI and persists the change
@@ -410,6 +420,7 @@ public class UserSession {
         focusedKPISince = nil
         UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.focusedKPI)
         UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.focusedKPISince)
+        UserDefaults.standard.removeObject(forKey: "\(AppConstants.UserDefaultsKeys.focusedKPI)_isManual")
         
         ClaimbLogger.info(
             "Focused KPI cleared",

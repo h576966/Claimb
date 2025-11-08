@@ -42,7 +42,10 @@ class CoachingViewModel {
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
 
-    init(dataManager: DataManager, summoner: Summoner, primaryRole: String, userSession: UserSession? = nil) {
+    init(
+        dataManager: DataManager, summoner: Summoner, primaryRole: String,
+        userSession: UserSession? = nil
+    ) {
         self.dataManager = dataManager
         self.summoner = summoner
         self.openAIService = OpenAIService()
@@ -294,7 +297,8 @@ class CoachingViewModel {
             // Calculate focused KPI trend if available
             let focusedKPITrend: KPITrend?
             if let focusedKPI = userSession?.focusedKPI,
-               let focusedKPISince = userSession?.focusedKPISince {
+                let focusedKPISince = userSession?.focusedKPISince
+            {
                 focusedKPITrend = calculateKPITrendForSummary(
                     metric: focusedKPI,
                     since: focusedKPISince,
@@ -303,7 +307,7 @@ class CoachingViewModel {
             } else {
                 focusedKPITrend = nil
             }
-            
+
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
                 summoner: summoner,
@@ -351,7 +355,8 @@ class CoachingViewModel {
             // Calculate focused KPI trend if available
             let focusedKPITrend: KPITrend?
             if let focusedKPI = userSession?.focusedKPI,
-               let focusedKPISince = userSession?.focusedKPISince {
+                let focusedKPISince = userSession?.focusedKPISince
+            {
                 focusedKPITrend = calculateKPITrendForSummary(
                     metric: focusedKPI,
                     since: focusedKPISince,
@@ -360,7 +365,7 @@ class CoachingViewModel {
             } else {
                 focusedKPITrend = nil
             }
-            
+
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: matches,
                 summoner: summoner,
@@ -400,7 +405,7 @@ class CoachingViewModel {
 
         isRefreshingInBackground = false
     }
-    
+
     /// Calculates KPI trend for performance summary
     private func calculateKPITrendForSummary(
         metric: String,
@@ -409,26 +414,27 @@ class CoachingViewModel {
     ) -> KPITrend? {
         // Filter matches by role
         let roleMatches = matches.filter { match in
-            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
                 return false
             }
             return RoleUtils.normalizeRole(teamPosition: participant.teamPosition) == primaryRole
         }
-        
+
         guard !roleMatches.isEmpty else { return nil }
-        
+
         // Split matches into before and since focus date
         let matchesSinceFocus = roleMatches.filter { $0.gameDate >= since }
         let matchesBeforeFocus = roleMatches.filter { $0.gameDate < since }
-        
+
         guard !matchesSinceFocus.isEmpty else { return nil }
-        
+
         // Calculate metric value for matches since focus
         let currentValue = calculateMetricValueForSummary(
             for: metric,
             matches: matchesSinceFocus
         )
-        
+
         // Calculate starting value
         let startingValue: Double
         if !matchesBeforeFocus.isEmpty {
@@ -440,7 +446,7 @@ class CoachingViewModel {
         } else {
             startingValue = currentValue
         }
-        
+
         // Calculate change percentage
         let changePercentage: Double
         if startingValue != 0 {
@@ -448,7 +454,7 @@ class CoachingViewModel {
         } else {
             changePercentage = 0
         }
-        
+
         // Determine if improving
         let isImproving: Bool
         if metric == "deaths_per_game" {
@@ -456,7 +462,7 @@ class CoachingViewModel {
         } else {
             isImproving = currentValue > startingValue
         }
-        
+
         return KPITrend(
             matchesSince: matchesSinceFocus.count,
             currentValue: currentValue,
@@ -465,7 +471,7 @@ class CoachingViewModel {
             isImproving: isImproving
         )
     }
-    
+
     /// Calculates metric value for performance summary
     private func calculateMetricValueForSummary(
         for metric: String,
@@ -474,34 +480,34 @@ class CoachingViewModel {
         let participants = matches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })
         }
-        
+
         guard !participants.isEmpty else { return 0.0 }
-        
+
         switch metric {
         case "deaths_per_game":
             let totalDeaths = participants.reduce(0) { $0 + $1.deaths }
             return Double(totalDeaths) / Double(participants.count)
-            
+
         case "vision_score_per_min":
             let totalVision = participants.reduce(0.0) { $0 + $1.visionScorePerMinute }
             return totalVision / Double(participants.count)
-            
+
         case "cs_per_min":
             let totalCS = participants.reduce(0.0) { $0 + $1.csPerMinute }
             return totalCS / Double(participants.count)
-            
+
         case "kill_participation_pct":
             let totalKP = participants.reduce(0.0) { $0 + $1.killParticipation }
             return (totalKP / Double(participants.count)) * 100
-            
+
         case "objective_participation_pct":
             let totalOP = participants.reduce(0.0) { $0 + $1.objectiveParticipationPercentage }
             return totalOP / Double(participants.count)
-            
+
         case "team_damage_pct":
             let totalDmg = participants.reduce(0.0) { $0 + $1.teamDamagePercentage }
             return (totalDmg / Double(participants.count)) * 100
-            
+
         default:
             return 0.0
         }

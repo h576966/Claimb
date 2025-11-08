@@ -578,7 +578,12 @@ public class ProxyService {
         prompt: String,
         model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000,
-        reasoningEffort: String? = nil  // "minimal", "medium", or "heavy" for gpt-5 models
+        reasoningEffort: String? = nil,  // "minimal", "medium", or "heavy" for gpt-5 models
+        textFormat: String? = "json",  // "json" for structured responses, "text" for plain text, nil to omit
+        // Optional match metadata for timeline enhancement
+        matchId: String? = nil,
+        puuid: String? = nil,
+        region: String? = nil
     ) async throws -> String {
         var req = URLRequest(url: baseURL.appendingPathComponent("ai/coach"))
         req.httpMethod = "POST"
@@ -589,15 +594,28 @@ public class ProxyService {
             "prompt": prompt,  // Edge function expects "prompt" and converts to "input" for OpenAI
             "model": model,
             "max_output_tokens": maxOutputTokens,
-            "text_format": "json",  // Request JSON format for structured responses
-                // Note: Using text_format: "json" for structured responses without complex schema
-                // Note: modalities is added by edge function, don't send it from client
         ]
+        
+        // Add text_format if specified
+        if let format = textFormat {
+            requestBody["text_format"] = format
+        }
 
         // Add reasoning effort for gpt-5 models (edge function accepts both formats)
         if let effort = reasoningEffort, model.contains("gpt-5") {
             requestBody["reasoning_effort"] = effort  // Flat field for edge function
             requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
+        }
+        
+        // Add match metadata for timeline enhancement (if provided)
+        if let matchId = matchId {
+            requestBody["matchId"] = matchId
+        }
+        if let puuid = puuid {
+            requestBody["puuid"] = puuid
+        }
+        if let region = region {
+            requestBody["region"] = region
         }
 
         req.httpBody = try JSONSerialization.data(withJSONObject: requestBody)

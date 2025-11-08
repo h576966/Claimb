@@ -192,6 +192,38 @@ public class CoachingCacheRepository {
         )
     }
 
+    /// Caches KPI improvement tips
+    public func cacheKPIImprovementTips(
+        _ tips: KPIImprovementTips,
+        for summoner: Summoner,
+        metric: String,
+        expirationHours: Int = 168  // 7 days
+    ) async throws {
+        let cacheKey = "\(summoner.puuid)_kpiTips_\(metric)"
+        try await cacheResponse(
+            tips,
+            responseType: "kpiTips",
+            cacheKey: cacheKey,
+            summonerPuuid: summoner.puuid,
+            summonerName: summoner.gameName,
+            expirationHours: expirationHours
+        )
+    }
+
+    /// Retrieves cached KPI improvement tips
+    public func getCachedKPIImprovementTips(
+        for summoner: Summoner,
+        metric: String
+    ) async throws -> KPIImprovementTips? {
+        let cacheId = "\(summoner.puuid)_kpiTips_\(metric)"
+        return try await getCachedResponse(
+            cacheId: cacheId,
+            responseType: "KPI tips",
+            summonerName: summoner.gameName,
+            decoder: { try $0.getKPIImprovementTips() }
+        )
+    }
+
     /// Cleans up expired coaching responses
     public func cleanupExpiredResponses() async throws {
         let now = Date()

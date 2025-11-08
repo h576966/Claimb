@@ -73,8 +73,18 @@ struct KPICard: View {
     let isFocused: Bool
     let trend: KPITrend?
     let onFocusToggle: () -> Void
+    let userSession: UserSession
+    let summoner: Summoner
+    let role: String
+    let championPool: [String]
+    let openAIService: OpenAIService
+    let cacheRepository: CoachingCacheRepository
     
     @State private var showConfirmation = false
+    @State private var tips: KPIImprovementTips?
+    @State private var isLoadingTips = false
+    @State private var tipsError: String?
+    @State private var showFirstTimeHelp = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -139,20 +149,123 @@ struct KPICard: View {
                 Divider()
                     .padding(.vertical, DesignSystem.Spacing.xs)
                 
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    Image(systemName: trend.isImproving ? "arrow.up.right" : "arrow.down.right")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(trend.isImproving ? DesignSystem.Colors.accent : DesignSystem.Colors.error)
+                VStack(spacing: DesignSystem.Spacing.xs) {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: trend.isImproving ? "arrow.up.right" : "arrow.down.right")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(trend.isImproving ? DesignSystem.Colors.accent : DesignSystem.Colors.error)
+                        
+                        Text(String(format: "%.1f%% %@ over %d games", 
+                                   abs(trend.changePercentage),
+                                   trend.isImproving ? "improvement" : "decline",
+                                   trend.matchesSince))
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                        
+                        Spacer()
+                    }
                     
-                    Text(String(format: "%.1f%% %@ over %d games", 
-                               abs(trend.changePercentage),
-                               trend.isImproving ? "improvement" : "decline",
-                               trend.matchesSince))
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                    
-                    Spacer()
+                    // Visual progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background
+                            Rectangle()
+                                .fill(DesignSystem.Colors.cardBorder)
+                                .frame(height: 2)
+                            
+                            // Progress
+                            Rectangle()
+                                .fill(trend.isImproving ? DesignSystem.Colors.accent : DesignSystem.Colors.error)
+                                .frame(width: min(geometry.size.width * (abs(trend.changePercentage) / 100.0), geometry.size.width), height: 2)
+                        }
+                    }
+                    .frame(height: 2)
                 }
+            }
+            
+            // Tips display (only shown when focused and manually selected)
+            if isFocused && (isLoadingTips || tips != nil || tipsError != nil || showFirstTimeHelp) {
+                Divider()
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                
+                // First-time help message
+                if showFirstTimeHelp && tips == nil && !isLoadingTips {
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "sparkles")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.accent)
+                            .padding(.top, 2)
+                        
+                        Text("You'll get AI tips and track your progress on this metric")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        Spacer(minLength: 0)
+                    }
+                } else if isLoadingTips {
+                    // Show shimmer while loading
+                    ShimmerView(lines: 3)
+                } else if let tips = tips {
+                    // Show tips
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "lightbulb.fill")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.accent)
+                            .padding(.top, 2)
+                        
+                        Text(tips.tips)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        Spacer(minLength: 0)
+                    }
+                } else if let error = tipsError {
+                    // Show error message
+                    HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "info.circle")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .padding(.top, 2)
+                        
+                        Text(error)
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+        .onChange(of: isFocused) { _, newValue in
+            if newValue {
+                // Show first-time help message if user hasn't seen it
+                let hasSeenHelp = UserDefaults.standard.bool(forKey: "hasSeenKPIFocusHelp_\(kpi.metric)")
+                if !hasSeenHelp && userSession.isFocusedKPIManuallySelected() {
+                    showFirstTimeHelp = true
+                    UserDefaults.standard.set(true, forKey: "hasSeenKPIFocusHelp_\(kpi.metric)")
+                    // Hide help message after 3 seconds and load tips
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        await MainActor.run {
+                            showFirstTimeHelp = false
+                        }
+                        await loadTips()
+                    }
+                } else if userSession.isFocusedKPIManuallySelected() && tips == nil && !isLoadingTips {
+                    // Load tips immediately if already seen help
+                    Task {
+                        await loadTips()
+                    }
+                }
+            } else {
+                // Clear tips state when unfocused
+                tips = nil
+                isLoadingTips = false
+                tipsError = nil
+                showFirstTimeHelp = false
             }
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
@@ -197,6 +310,87 @@ struct KPICard: View {
             return String(format: "%.1f", value)
         default:
             return String(format: "%.1f", value)
+        }
+    }
+    
+    private func loadTips() async {
+        guard let baseline = kpi.baseline else {
+            ClaimbLogger.warning(
+                "Cannot generate tips without baseline data",
+                service: "PerformanceView",
+                metadata: [
+                    "metric": kpi.metric,
+                    "displayName": kpi.displayName
+                ]
+            )
+            // Show helpful message to user
+            await MainActor.run {
+                self.tipsError = "Baseline data not available yet. Tips will be available once baseline data is loaded."
+            }
+            return
+        }
+        
+        isLoadingTips = true
+        tipsError = nil
+        
+        do {
+            let targetValue = kpi.metric == "deaths_per_game" ? baseline.p40 : baseline.p60
+            
+            // Parse the formatted value string back to Double
+            // Handle percentage values (e.g., "45%" -> 0.45) vs regular values (e.g., "5.2" -> 5.2)
+            let cleanedValue = kpi.value.replacingOccurrences(of: "%", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            guard var currentValue = Double(cleanedValue) else {
+                ClaimbLogger.warning(
+                    "Failed to parse KPI value",
+                    service: "PerformanceView",
+                    metadata: [
+                        "metric": kpi.metric,
+                        "value": kpi.value
+                    ]
+                )
+                isLoadingTips = false
+                return
+            }
+            
+            // Convert percentage values back to decimals to match baseline format
+            // Percentage metrics store baselines as decimals (0.45), but display as percentages (45%)
+            if kpi.metric.hasSuffix("_pct") && kpi.value.contains("%") {
+                currentValue = currentValue / 100.0
+            }
+            
+            let loadedTips = try await openAIService.generateKPIImprovementTips(
+                kpiMetric: kpi.metric,
+                displayName: kpi.displayName,
+                currentValue: currentValue,
+                targetValue: targetValue,
+                summoner: summoner,
+                role: role,
+                championPool: championPool,
+                cacheRepository: cacheRepository
+            )
+            
+            // Update on main actor
+            await MainActor.run {
+                self.tips = loadedTips
+                self.isLoadingTips = false
+            }
+        } catch {
+            // Log error but fail gracefully
+            ClaimbLogger.error(
+                "Failed to load KPI tips",
+                service: "PerformanceView",
+                error: error,
+                metadata: [
+                    "metric": kpi.metric
+                ]
+            )
+            
+            await MainActor.run {
+                self.tipsError = error.localizedDescription
+                self.isLoadingTips = false
+            }
         }
     }
 
@@ -443,7 +637,17 @@ struct PerformanceView: View {
     }
 
     private func kpiListView(matches: [Match]) -> some View {
-        ScrollView {
+        // Prepare dependencies OUTSIDE the view builder to avoid recreation
+        let championPool = MatchStatsCalculator.calculateBestPerformingChampions(
+            matches: Array(matches.prefix(10)),
+            summoner: summoner,
+            primaryRole: userSession.selectedPrimaryRole
+        ).map { $0.name }
+        
+        let openAIService = OpenAIService()
+        let cacheRepository = CoachingCacheRepository(modelContext: modelContext)
+        
+        return ScrollView {
             LazyVStack(spacing: DesignSystem.Spacing.sm) {
                 // KPI Cards
                 if let viewModel = matchDataViewModel {
@@ -461,9 +665,15 @@ struct PerformanceView: View {
                                 if isFocused {
                                     userSession.clearFocusedKPI()
                                 } else {
-                                    userSession.setFocusedKPI(kpi.metric)
+                                    userSession.setFocusedKPI(kpi.metric, isManualSelection: true)
                                 }
-                            }
+                            },
+                            userSession: userSession,
+                            summoner: summoner,
+                            role: userSession.selectedPrimaryRole,
+                            championPool: championPool,
+                            openAIService: openAIService,
+                            cacheRepository: cacheRepository
                         )
                     }
                 }
@@ -472,11 +682,11 @@ struct PerformanceView: View {
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
         .onAppear {
-            // Auto-select worst performing KPI if no focus set
+            // Auto-select worst performing KPI if no focus set (not manual)
             if userSession.focusedKPI == nil,
                let viewModel = matchDataViewModel,
                let worstKPI = viewModel.kpiMetrics.first {
-                userSession.setFocusedKPI(worstKPI.metric)
+                userSession.setFocusedKPI(worstKPI.metric, isManualSelection: false)
             }
         }
     }

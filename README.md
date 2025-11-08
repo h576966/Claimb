@@ -331,7 +331,7 @@ The app includes comprehensive test views for development (DEBUG builds only):
 ### **Supported APIs**
 - **Riot Games API**: Account lookup, summoner data, match history and details
 - **Riot League-V4 API**: Rank data for Solo/Duo and Flex queues
-- **Riot Timeline API**: Early game timeline data for detailed analysis (via `riotTimelineLite` endpoint)
+- **Riot Timeline API**: Early game timeline data (10min/15min checkpoints, first back/kill/death, turret plates) automatically integrated into AI coaching
 - **Data Dragon API**: Champion data, icons, and version management
 - **OpenAI API**: AI coaching insights via gpt-5-mini (Responses API with reasoning)
 
@@ -364,9 +364,11 @@ The app includes comprehensive test views for development (DEBUG builds only):
 - [x] Simplify CoachingView UI to two focused cards
 - [x] Remove role/champion diversity from Performance section display
 - [x] Add smart auto-trigger logic for post-game analysis
-- [x] Integrate timeline data for specific timing-based insights
+- [x] Integrate timeline data via edge function (10min/15min checkpoints, timings, turret plates)
 - [x] Implement optimistic caching with background refresh
 - [x] Add lane matchup and team composition context
+- [x] Add relative performance analysis (player vs team average, enemy strength)
+- [x] Enhance prompt with team context and timeline integration
 
 ### **Phase 2.5: Rank System Integration (Completed)**
 - [x] Implement League-V4 API integration for rank data

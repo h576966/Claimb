@@ -57,6 +57,10 @@ public class OpenAIService {
             match: match,
             userParticipant: participant
         )
+        ClaimbLogger.debug(
+            "Relative performance context: \(relativePerformanceContext != nil ? "generated" : "not available")",
+            service: "OpenAIService"
+        )
 
         // Get baseline context for key metrics (simple approach - no complex formatting)
         let baselineContext = await fetchBaselineContext(
@@ -72,7 +76,7 @@ public class OpenAIService {
             summoner: summoner,
             championName: championName,
             role: role,
-            timelineData: nil,  // Timeline feature removed
+            timelineData: nil,  // Timeline now fetched and injected by edge function
             laneOpponent: laneOpponent,
             teamContext: teamContext,
             relativePerformanceContext: relativePerformanceContext,
@@ -109,12 +113,16 @@ public class OpenAIService {
 
         // Make API request through proxy with combined prompt
         // Note: Using lower token limit for concise responses
+        // Pass match metadata so edge function can fetch and inject timeline data
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
-            reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
+            reasoningEffort: "low",  // Use "low" reasoning to reduce token usage
+            matchId: match.matchId,
+            puuid: summoner.puuid,
+            region: summoner.region  // Edge function will map platform/region to routing region
         )
 
         // Parse response using JSONResponseParser
@@ -255,6 +263,101 @@ public class OpenAIService {
         return summary
     }
 
+    /// Generates KPI improvement tips for a focused KPI
+    public func generateKPIImprovementTips(
+        kpiMetric: String,
+        displayName: String,
+        currentValue: Double,
+        targetValue: Double,
+        summoner: Summoner,
+        role: String,
+        championPool: [String],
+        cacheRepository: CoachingCacheRepository
+    ) async throws -> KPIImprovementTips {
+        // Check cache first (7-day expiration)
+        if let cachedTips = try await cacheRepository.getCachedKPIImprovementTips(
+            for: summoner,
+            metric: kpiMetric
+        ) {
+            ClaimbLogger.debug(
+                "Using cached KPI tips",
+                service: "OpenAIService",
+                metadata: [
+                    "metric": kpiMetric,
+                    "summoner": summoner.gameName,
+                ]
+            )
+            return cachedTips
+        }
+
+        // Validate proxy service availability
+        guard !AppConfig.appToken.isEmpty else {
+            throw OpenAIError.invalidAPIKey
+        }
+
+        // Get rank for context
+        let rank = summoner.soloDuoRank ?? "Unranked"
+
+        // Build prompt
+        let prompt = CoachingPromptBuilder.createKPIImprovementPrompt(
+            kpiMetric: kpiMetric,
+            displayName: displayName,
+            currentValue: currentValue,
+            targetValue: targetValue,
+            role: role,
+            rank: rank,
+            championPool: championPool
+        )
+
+        ClaimbLogger.debug(
+            "Generating KPI improvement tips",
+            service: "OpenAIService",
+            metadata: [
+                "metric": kpiMetric,
+                "summoner": summoner.gameName,
+                "role": role,
+                "rank": rank,
+            ]
+        )
+
+        // Make API request through proxy
+        // Use plain text format (not JSON) since we just need 2 sentences
+        let proxyService = ProxyService()
+        let responseText = try await proxyService.aiCoach(
+            prompt: prompt,
+            model: "gpt-5-mini",
+            maxOutputTokens: 200,  // Reduced for more concise tips (2 sentences, ~35 words)
+            reasoningEffort: "minimal",  // Simple task, reduce cost
+            textFormat: "text"  // Plain text response, not JSON
+        )
+
+        // Create tips object
+        let tips = KPIImprovementTips(
+            tips: responseText.trimmingCharacters(in: .whitespacesAndNewlines),
+            kpiMetric: kpiMetric,
+            generatedAt: Date()
+        )
+
+        // Cache for 7 days (168 hours)
+        try await cacheRepository.cacheKPIImprovementTips(
+            tips,
+            for: summoner,
+            metric: kpiMetric,
+            expirationHours: 168
+        )
+
+        ClaimbLogger.debug(
+            "KPI improvement tips generated and cached",
+            service: "OpenAIService",
+            metadata: [
+                "metric": kpiMetric,
+                "tipsLength": String(tips.tips.count),
+            ]
+        )
+
+        return tips
+    }
+
     // MARK: - Private Helper Methods
 
     /// Extracts lane opponent and team context information
@@ -314,7 +417,7 @@ public class OpenAIService {
 
         // Calculate team averages for key metrics
         let teamKDAs = userTeam.map { participant -> Double in
-            let deaths = max(participant.deaths, 1) // Avoid division by zero
+            let deaths = max(participant.deaths, 1)  // Avoid division by zero
             return Double(participant.kills + participant.assists) / Double(deaths)
         }
         let teamCSMins = userTeam.map { $0.csPerMinute }
@@ -326,9 +429,10 @@ public class OpenAIService {
         // Player metrics
         let playerKDA = userParticipant.kda
         let playerCS = userParticipant.csPerMinute
-        
+
         // Calculate player's damage share and all team damage shares
-        let playerDamageShare = teamDamageTotal > 0
+        let playerDamageShare =
+            teamDamageTotal > 0
             ? Double(userParticipant.totalDamageDealtToChampions) / Double(teamDamageTotal)
             : 0.0
         let allDamageShares = userTeam.map { participant -> Double in
@@ -376,10 +480,14 @@ public class OpenAIService {
         }
 
         // Lane opponent comparison
-        if let laneOpponent = enemyTeam.first(where: { $0.teamPosition == userParticipant.teamPosition }) {
+        if let laneOpponent = enemyTeam.first(where: {
+            $0.teamPosition == userParticipant.teamPosition
+        }) {
             let opponentKDA = laneOpponent.kda
-            let opponentKDAStr = "\(laneOpponent.kills)/\(laneOpponent.deaths)/\(laneOpponent.assists)"
-            let playerKDAStr = "\(userParticipant.kills)/\(userParticipant.deaths)/\(userParticipant.assists)"
+            let opponentKDAStr =
+                "\(laneOpponent.kills)/\(laneOpponent.deaths)/\(laneOpponent.assists)"
+            let playerKDAStr =
+                "\(userParticipant.kills)/\(userParticipant.deaths)/\(userParticipant.assists)"
 
             if opponentKDA > playerKDA * 1.2 {
                 contextLines.append(

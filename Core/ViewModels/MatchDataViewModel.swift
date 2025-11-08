@@ -93,7 +93,7 @@ public class MatchDataViewModel {
             matchState = .loading
             championState = .loading
 
-            // Load matches and champions in parallel
+            // Load matches, champions, and baselines in parallel
             // Note: We capture summoner here to avoid Sendable issues with async let
             let currentSummoner = summoner
             
@@ -102,8 +102,9 @@ public class MatchDataViewModel {
             
             async let matchResult = dataManager.loadMatches(for: currentSummoner, limit: limit)
             async let championResult = dataManager.loadChampions()
+            async let baselineResult = dataManager.loadBaselineData()
 
-            let (matches, champions) = await (matchResult, championResult)
+            let (matches, champions, _) = await (matchResult, championResult, baselineResult)
 
             // Check cancellation after async operations
             guard !Task.isCancelled else { return }
