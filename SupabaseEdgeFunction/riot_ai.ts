@@ -631,12 +631,12 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     if (!HAS_OPENAI_KEY) return json({
         error: "openai_key_missing"
     }, 500);
-    
+
     // Optional match metadata for timeline fetching
     const matchId = typeof body?.matchId === "string" ? body.matchId.trim() : null;
     const puuid = typeof body?.puuid === "string" ? body.puuid.trim() : null;
     const regionOrPlatform = typeof body?.region === "string" ? body.region.trim() : null;
-    
+
     // Optional system/dev prompt (Responses uses `instructions`)
     const instructions = typeof body?.system === "string" ? body.system : typeof body?.instructions === "string" ? body.instructions : undefined;
     // max_output_tokens: 1..2000
@@ -689,7 +689,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
         };
     }
     const metadata = body?.metadata && typeof body.metadata === "object" ? body.metadata : undefined;
-    
+
     // Fetch and inject timeline data if match metadata is provided
     let enhancedPrompt = prompt;
     if (matchId && puuid && regionOrPlatform) {
@@ -705,7 +705,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             console.warn("Timeline fetch failed, continuing without timeline:", err?.message || err);
         }
     }
-    
+
     const payload = {
         model,
         input: enhancedPrompt,
@@ -778,23 +778,23 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
 /* =========== Helper: Fetch Timeline for Prompt Enhancement =========== */
 async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
     if (!HAS_RIOT_KEY) return null;
-    
+
     // Resolve region from platform if needed
     let region = regionOrPlatform;
     if (SUPPORTED_PLATFORMS.has(regionOrPlatform?.toLowerCase())) {
         region = PLATFORM_TO_REGION[regionOrPlatform.toLowerCase()];
     }
-    
+
     // Validate region
     const validRegions = new Set(Object.values(PLATFORM_TO_REGION));
     if (!validRegions.has(region?.toLowerCase())) {
         console.warn("Invalid region for timeline:", regionOrPlatform);
         return null;
     }
-    
+
     const endpoint = `https://${region}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(matchId)}/timeline`;
     const to = timeoutSignal(5000); // 5 second timeout for timeline
-    
+
     try {
         const r = await fetch(endpoint, {
             headers: {
@@ -803,25 +803,25 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
             signal: to.signal
         });
         to.clear();
-        
+
         if (!r.ok) {
             console.warn("Riot timeline API error:", r.status);
             return null;
         }
-        
+
         const tl = await r.json();
         const pid = (tl?.metadata?.participants?.indexOf?.(puuid) ?? -1) + 1;
         if (pid <= 0) {
             console.warn("PUUID not found in timeline match");
             return null;
         }
-        
+
         const frames = tl?.info?.frames ?? [];
         const events = frames.flatMap((f) => f?.events ?? []);
         const frameInterval = tl?.info?.frameInterval || 60_000;
         const idxAt = (ms) => Math.max(0, Math.floor(ms / frameInterval));
         const minOf = (ms) => typeof ms === "number" && isFinite(ms) ? Math.round(ms / 60_000) : null;
-        
+
         function kdaAt(ms) {
             const sliced = events.filter((e) => (e.timestamp ?? 0) <= ms && e.type === "CHAMPION_KILL");
             const k = sliced.filter((e) => e.killerId === pid).length;
@@ -829,7 +829,7 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
             const a = sliced.reduce((sum, e) => sum + ((e.assistingParticipantIds ?? []).includes(pid) ? 1 : 0), 0);
             return { k, d, a };
         }
-        
+
         function snapAt(ms) {
             const fr = frames[idxAt(ms)];
             const pf = fr?.participantFrames?.[String(pid)];
@@ -844,14 +844,14 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
                 kda: `${k}/${d}/${a}`
             };
         }
-        
+
         const at10 = snapAt(10 * 60_000);
         const at15 = snapAt(15 * 60_000);
         const firstBackMs = events.find((e) => (e.type === "ITEM_PURCHASED" || e.type === "ITEM_UNDO") && e.participantId === pid && (e.timestamp ?? 0) > 120_000)?.timestamp ?? null;
         const firstKillMs = events.find((e) => e.type === "CHAMPION_KILL" && e.killerId === pid)?.timestamp ?? null;
         const firstDeathMs = events.find((e) => e.type === "CHAMPION_KILL" && e.victimId === pid)?.timestamp ?? null;
         const platesPre14 = events.filter((e) => e.type === "TURRET_PLATE_DESTROYED" && (e.killerId === pid || (e.assistingParticipantIds ?? []).includes(pid)) && (e.timestamp ?? 0) <= 14 * 60_000).length;
-        
+
         return {
             checkpoints: {
                 "10min": at10,
@@ -876,28 +876,28 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
 
 function formatTimelineForPrompt(data) {
     if (!data) return "";
-    
+
     const c10 = data.checkpoints?.["10min"];
     const c15 = data.checkpoints?.["15min"];
     const t = data.timings;
-    
+
     if (!c10 || !c15) return "";
-    
+
     let result = `10min: ${c10.cs} CS (${c10.kda}), ${c10.gold}g | 15min: ${c15.cs} CS (${c15.kda}), ${c15.gold}g`;
-    
+
     // Add timings if available
     const timings = [];
     if (t.firstBackMin) timings.push(`First back: ${t.firstBackMin}min`);
     if (t.firstKillMin) timings.push(`First kill: ${t.firstKillMin}min`);
     if (t.firstDeathMin) timings.push(`First death: ${t.firstDeathMin}min`);
-    
+
     if (timings.length > 0) {
         result += ` | ${timings.join(", ")}`;
     }
-    
+
     if (data.platesPre14 > 0) {
         result += ` | Turret plates: ${data.platesPre14}`;
     }
-    
+
     return result;
 }
