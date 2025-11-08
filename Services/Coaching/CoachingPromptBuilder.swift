@@ -443,23 +443,6 @@ public struct CoachingPromptBuilder {
         rank: String,
         championPool: [String]
     ) -> String {
-        // Calculate the gap
-        let gap = abs(currentValue - targetValue)
-        let gapPercentage = (gap / targetValue) * 100
-
-        // Determine if lower or higher is better
-        let isLowerBetter = kpiMetric == "deaths_per_game"
-        let needsImprovement: Bool
-        let comparisonText: String
-
-        if isLowerBetter {
-            needsImprovement = currentValue > targetValue
-            comparisonText = needsImprovement ? "above" : "at or below"
-        } else {
-            needsImprovement = currentValue < targetValue
-            comparisonText = needsImprovement ? "below" : "at or above"
-        }
-
         // Format values based on metric type
         let formattedCurrent: String
         let formattedTarget: String
