@@ -1,6 +1,14 @@
 // riot_ai.ts
 // deno-lint-ignore-file no-explicit-any
 import { OPENAI_KEY, RIOT_KEY, HAS_RIOT_KEY, HAS_OPENAI_KEY, json, badRequest, rateLimit, timeoutSignal, assertRegionOrPlatform, deriveRegionFromPlatform, parsePositiveInt, parseEpochSeconds } from "./shared.ts";
+
+// Opt-in verbose logging (set CLAIMB_DEBUG_LOGS=true in edge function env)
+const DEBUG_LOGGING = (Deno.env.get("CLAIMB_DEBUG_LOGS") ?? "").toLowerCase() === "true";
+function logDebug(message: string, ...args: unknown[]) {
+    if (DEBUG_LOGGING) {
+        console.log(message, ...args);
+    }
+}
 /* =============================== Constants =============================== */ // Claimb scope
 const SUPPORTED_PLATFORMS = new Set([
     "na1",
@@ -697,8 +705,9 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             const timelineData = await fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform);
             if (timelineData) {
                 const formatted = formatTimelineForPrompt(timelineData);
-                enhancedPrompt = prompt + "\n\n**TIMELINE:** " + formatted + "\nFocus on: Early game checkpoints, timing efficiency, resource advantages.";
-                console.log("Timeline data injected for match:", matchId);
+                enhancedPrompt =
+                    `${prompt}\n\n**EARLY GAME TIMELINE (use this to evaluate laning pace and resource setup):**\n${formatted}`;
+                logDebug("Timeline data injected for match:", matchId);
             }
         } catch (err) {
             // Log but don't fail - timeline is optional enhancement
@@ -727,8 +736,8 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
         } : {}
     };
 
-    // Debug logging for OpenAI payload
-    console.log("OpenAI Responses API payload:", JSON.stringify(payload, null, 2));
+    // Debug logging for OpenAI payload (opt-in via env flag)
+    logDebug("OpenAI Responses API payload:", JSON.stringify(payload, null, 2));
     const to = timeoutSignal(20_000);
     try {
         const init = {
@@ -883,21 +892,25 @@ function formatTimelineForPrompt(data) {
 
     if (!c10 || !c15) return "";
 
-    let result = `10min: ${c10.cs} CS (${c10.kda}), ${c10.gold}g | 15min: ${c15.cs} CS (${c15.kda}), ${c15.gold}g`;
+    const lines = [];
+    lines.push(`- 10 min — ${c10.cs} CS (${c10.kda}), ${c10.gold}g`);
+    lines.push(`- 15 min — ${c15.cs} CS (${c15.kda}), ${c15.gold}g`);
 
-    // Add timings if available
-    const timings = [];
-    if (t.firstBackMin) timings.push(`First back: ${t.firstBackMin}min`);
-    if (t.firstKillMin) timings.push(`First kill: ${t.firstKillMin}min`);
-    if (t.firstDeathMin) timings.push(`First death: ${t.firstDeathMin}min`);
-
-    if (timings.length > 0) {
-        result += ` | ${timings.join(", ")}`;
+    const timingHighlights = [];
+    if (t.firstBackMin) timingHighlights.push(`First back: ${t.firstBackMin} min`);
+    if (t.firstKillMin) timingHighlights.push(`First kill: ${t.firstKillMin} min`);
+    if (t.firstDeathMin) timingHighlights.push(`First death: ${t.firstDeathMin} min`);
+    if (timingHighlights.length > 0) {
+        lines.push(`- Timing milestones: ${timingHighlights.join(", ")}`);
     }
 
     if (data.platesPre14 > 0) {
-        result += ` | Turret plates: ${data.platesPre14}`;
+        lines.push(`- Turret plates before 14 min: ${data.platesPre14}`);
     }
 
-    return result;
+    lines.push(
+        "- Coaching usage: comment on early laning pace, recall timing, kill pressure, and how these affected mid-game setup."
+    );
+
+    return `EARLY GAME SNAPSHOT\n${lines.join("\n")}`;
 }

@@ -106,8 +106,8 @@ public struct CoachingPromptBuilder {
         if let timeline = timelineData {
             prompt += """
 
-            **TIMELINE:** \(timeline)
-            Focus on: Early game checkpoints, timing efficiency, resource advantages.
+            **EARLY GAME TIMELINE SUMMARY:**
+            \(timeline)
             """
         }
 
