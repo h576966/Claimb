@@ -655,7 +655,8 @@ public class ProxyService {
             ]
         )
 
-        let (data, resp) = try await performRequestWithRetry(req)
+        // Use fewer retries for AI coach calls to avoid excessive OpenAI API costs
+        let (data, resp) = try await performRequestWithRetry(req, maxRetries: 2)
 
         guard let httpResponse = resp as? HTTPURLResponse else {
             throw ProxyError.invalidResponse
@@ -977,12 +978,15 @@ public class ProxyService {
                             :  // 1s, 1.5s, 2.25s for connection lost
                             pow(2.0, Double(attempt))  // 1s, 2s, 4s for other errors
 
+                        // Distinguish between timeout and network errors in logging
+                        let errorType = error.code == .timedOut ? "Request timeout" : "Network error"
                         ClaimbLogger.warning(
-                            "Network error, retrying in \(backoffTime)s",
+                            "\(errorType), retrying in \(backoffTime)s",
                             service: "ProxyService",
                             metadata: [
                                 "error": error.localizedDescription,
                                 "errorCode": String(error.code.rawValue),
+                                "errorType": errorType,
                                 "attempt": String(attempt + 1),
                                 "maxRetries": String(maxRetries),
                                 "backoffTime": String(backoffTime),
@@ -1004,11 +1008,14 @@ public class ProxyService {
         }
 
         // If we get here, all retries failed
+        let errorType = (lastError as? URLError)?.code == .timedOut ? "timeout" : "network"
         ClaimbLogger.error(
             "Request failed after \(maxRetries + 1) attempts",
             service: "ProxyService",
             metadata: [
                 "maxRetries": String(maxRetries),
+                "errorType": errorType,
+                "url": request.url?.absoluteString ?? "unknown",
                 "lastError": lastError?.localizedDescription ?? "Unknown error",
             ]
         )

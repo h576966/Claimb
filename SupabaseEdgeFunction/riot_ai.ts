@@ -738,7 +738,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
 
     // Debug logging for OpenAI payload (opt-in via env flag)
     logDebug("OpenAI Responses API payload:", JSON.stringify(payload, null, 2));
-    const to = timeoutSignal(20_000);
+    const to = timeoutSignal(30_000); // 30 second timeout (timeline fetch + OpenAI processing + buffer)
     try {
         const init = {
             method: "POST",
@@ -774,10 +774,13 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             "X-RateLimit-Remaining": String(rl.remaining ?? 0)
         });
     } catch (e) {
-        if (e?.name === "AbortError") return json({
-            error: "upstream_timeout"
-        }, 504);
-        console.error("openai responses fetch error", e);
+        if (e?.name === "AbortError") {
+            console.warn("OpenAI API timeout (30s exceeded)");
+            return json({
+                error: "upstream_timeout"
+            }, 504);
+        }
+        console.error("OpenAI API fetch error:", e?.message || e);
         return json({
             error: "upstream_error"
         }, 502);
@@ -802,7 +805,7 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
     }
 
     const endpoint = `https://${region}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(matchId)}/timeline`;
-    const to = timeoutSignal(5000); // 5 second timeout for timeline
+    const to = timeoutSignal(8000); // 8 second timeout for timeline (consistent with other Riot API calls)
 
     try {
         const r = await fetch(endpoint, {
@@ -814,7 +817,7 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
         to.clear();
 
         if (!r.ok) {
-            console.warn("Riot timeline API error:", r.status);
+            console.warn("Riot timeline API error:", r.status, "for match:", matchId);
             return null;
         }
 
@@ -875,9 +878,9 @@ async function fetchTimelineLiteForPrompt(matchId, puuid, regionOrPlatform) {
         };
     } catch (err) {
         if (err?.name === "AbortError") {
-            console.warn("Timeline fetch timeout");
+            console.warn("Timeline fetch timeout (8s exceeded) for match:", matchId);
         } else {
-            console.error("Timeline fetch error:", err);
+            console.error("Timeline fetch error for match:", matchId, err?.message || err);
         }
         return null;
     }

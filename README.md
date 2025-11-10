@@ -444,7 +444,17 @@ We welcome contributions! Please follow these guidelines:
 
 This project is licensed under the MIT License.
 
-## 📊 **Recent Improvements (October 2025)**
+## 📊 **Recent Improvements (November 2025)**
+
+### **Reliability & Network Optimization**
+- **Timeout Configuration**: Increased edge function timeouts to prevent false network failures
+  - Timeline fetch: 5s → 8s (consistent with other Riot API calls)
+  - OpenAI API: 20s → 30s (accounts for timeline + reasoning + buffer)
+- **Retry Logic Optimization**: Reduced AI coach retries from 3 → 2 to minimize unnecessary OpenAI API costs
+- **Enhanced Logging**: Added timeout vs network error distinction for better debugging
+  - Separate error types in logs (timeout vs network failure)
+  - Match ID tracking in timeline fetch errors
+  - Request context preserved in all retry attempts
 
 ### **Code Quality & Architecture**
 - **File Structure Optimization**: Split CoachingView.swift (1164→788 lines) with extracted CoachingViewModel for better maintainability
