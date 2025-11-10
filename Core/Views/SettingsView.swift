@@ -39,26 +39,6 @@ struct SettingsView: View {
                             .font(DesignSystem.Typography.caption)
                     }
                     
-                    // Developer Tools Section (DEBUG only)
-                    #if DEBUG
-                    Section {
-                        NavigationLink {
-                            DualPromptTestView()
-                        } label: {
-                            HStack {
-                                Image(systemName: "testtube.2")
-                                    .foregroundColor(DesignSystem.Colors.accent)
-                                Text("Test Dual Prompt")
-                            }
-                        }
-                    } header: {
-                        Text("Developer Tools")
-                    } footer: {
-                        Text("Test the new AI coaching prompt structure before implementing.")
-                            .font(DesignSystem.Typography.caption)
-                    }
-                    #endif
-                    
                     // Account Section
                     Section {
                         Button(role: .destructive) {
