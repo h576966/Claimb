@@ -37,7 +37,7 @@ public class MatchDataViewModel {
     private let kpiPersistPrefix = AppConstants.UserDefaultsKeys.kpiCachePrefix
 
     // Baseline cache to eliminate RunLoop blocking pattern
-    private var baselineCache: [String: Baseline] = [:]
+    public var baselineCache: [String: Baseline] = [:]
     private var baselinesLoaded = false
 
     private func kpiCacheKey(matches: [Match], role: String) -> String {

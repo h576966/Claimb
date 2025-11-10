@@ -20,6 +20,9 @@ class CoachingViewModel {
     private let summoner: Summoner
     private let primaryRole: String
     private let userSession: UserSession?
+    
+    // Match data view model for accessing baseline cache
+    var matchDataViewModel: MatchDataViewModel?
 
     // MARK: - State
     var isAnalyzing = false
@@ -52,6 +55,11 @@ class CoachingViewModel {
         self.kpiService = KPICalculationService(dataManager: dataManager)
         self.primaryRole = primaryRole
         self.userSession = userSession
+        self.matchDataViewModel = MatchDataViewModel(
+            dataManager: dataManager,
+            summoner: summoner,
+            userSession: userSession
+        )
     }
 
     // MARK: - Public Methods

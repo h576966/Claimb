@@ -30,6 +30,7 @@ struct CoachingView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CoachingViewModel?
     @State private var refreshTrigger = 0
+    @State private var isLastMatchExpanded = false
 
     var body: some View {
         ZStack {
@@ -145,25 +146,48 @@ struct CoachingView: View {
     }
 
     private func lastGameSummaryCard(matches: [Match]) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+        VStack(alignment: .leading, spacing: 0) {
             if matches.isEmpty {
                 Text("No games played yet")
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .padding(DesignSystem.Spacing.lg)
             } else {
                 let lastMatch = matches[0]
                 if let participant = lastMatch.participants.first(where: {
                     $0.puuid == summoner.puuid
                 }) {
-                    lastGameSummaryContent(match: lastMatch, participant: participant)
+                    // Main card content (always visible) - entire card is clickable
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isLastMatchExpanded.toggle()
+                        }
+                    }) {
+                        HStack(spacing: DesignSystem.Spacing.md) {
+                            lastGameSummaryContent(match: lastMatch, participant: participant)
+                            
+                            // Expand/Collapse indicator
+                            Image(systemName: isLastMatchExpanded ? "chevron.up" : "chevron.down")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                        }
+                        .padding(DesignSystem.Spacing.lg)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    // Expanded content (animated)
+                    if isLastMatchExpanded {
+                        expandedMatchKPISection(match: lastMatch, participant: participant)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 } else {
                     Text("Unable to load last game data")
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .padding(DesignSystem.Spacing.lg)
                 }
             }
         }
-        .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.cardBackground)
         .cornerRadius(DesignSystem.CornerRadius.medium)
         .overlay(
@@ -763,6 +787,255 @@ struct CoachingView: View {
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
             }
+        }
+    }
+    
+    // MARK: - Expandable Match KPI Section
+    
+    private func expandedMatchKPISection(match: Match, participant: Participant) -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Divider()
+                .background(DesignSystem.Colors.cardBorder)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+            
+            VStack(spacing: DesignSystem.Spacing.sm) {
+                // Section title
+                HStack {
+                    Text("Match Performance")
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                    Spacer()
+                }
+                
+                // KPI Grid
+                let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+                let kpis = getMatchKPIs(for: participant, match: match, role: role)
+                
+                if kpis.isEmpty {
+                    Text("No KPI data available for this match")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .padding(.vertical, DesignSystem.Spacing.sm)
+                } else {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                        ], spacing: DesignSystem.Spacing.sm
+                    ) {
+                        ForEach(kpis, id: \.metric) { kpi in
+                            let isFocused = userSession.focusedKPI == kpi.metric
+                            VStack(spacing: DesignSystem.Spacing.xs) {
+                                Text(kpi.value)
+                                    .font(DesignSystem.Typography.bodyBold)
+                                    .foregroundColor(kpi.color)
+                                
+                                Text(kpi.displayName)
+                                    .font(DesignSystem.Typography.caption)
+                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, DesignSystem.Spacing.xs)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                isFocused
+                                    ? DesignSystem.Colors.accent.opacity(0.1)
+                                    : Color.clear
+                            )
+                            .cornerRadius(DesignSystem.CornerRadius.small)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                    .stroke(
+                                        isFocused ? DesignSystem.Colors.accent : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.bottom, DesignSystem.Spacing.md)
+        }
+    }
+    
+    private func getMatchKPIs(for participant: Participant, match: Match, role: String) -> [ChampionKPIDisplay] {
+        // Get role-specific key metrics
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        let keyMetrics = AppConstants.ChampionKPIs.keyMetricsByRole[baselineRole] ?? []
+        
+        // Get baseline cache from view model
+        guard let baselineCache = viewModel?.matchDataViewModel?.baselineCache else {
+            return []
+        }
+        
+        return keyMetrics.compactMap { metric in
+            // Calculate raw value for this single match
+            let value = calculateSingleMatchMetricValue(
+                metric: metric,
+                participant: participant,
+                match: match
+            )
+            
+            // Get baseline
+            let championClass = participant.champion?.championClass ?? "ALL"
+            let baseline = getBaselineFromCache(
+                role: baselineRole,
+                classTag: championClass,
+                metric: metric,
+                cache: baselineCache
+            ) ?? getBaselineFromCache(
+                role: baselineRole,
+                classTag: "ALL",
+                metric: metric,
+                cache: baselineCache
+            )
+            
+            // Get performance level and color
+            let (performanceLevel, color) = getPerformanceLevelWithBaseline(
+                value: value,
+                metric: metric,
+                baseline: baseline
+            )
+            
+            // Format value
+            let formattedValue = KPIDisplayService.formatValue(value, for: metric)
+            
+            return ChampionKPIDisplay(
+                metric: metric,
+                value: formattedValue,
+                performanceLevel: performanceLevel,
+                color: color
+            )
+        }
+    }
+    
+    private func calculateSingleMatchMetricValue(
+        metric: String,
+        participant: Participant,
+        match: Match
+    ) -> Double {
+        let gameDurationMinutes = Double(match.gameDuration) / 60.0
+        
+        switch metric {
+        case "cs_per_min":
+            return gameDurationMinutes > 0
+                ? Double(participant.totalMinionsKilled) / gameDurationMinutes
+                : 0.0
+            
+        case "deaths_per_game":
+            return Double(participant.deaths)
+            
+        case "kill_participation_pct":
+            let teamKills = match.participants
+                .filter { $0.teamId == participant.teamId }
+                .reduce(0) { $0 + $1.kills }
+            return teamKills > 0
+                ? Double(participant.kills + participant.assists) / Double(teamKills)
+                : 0.0
+            
+        case "vision_score_per_min":
+            return participant.visionScorePerMinute
+            
+        case "team_damage_pct":
+            if participant.teamDamagePercentage > 0 {
+                return participant.teamDamagePercentage
+            } else {
+                let teamParticipants = match.participants.filter { $0.teamId == participant.teamId }
+                let teamTotalDamage = teamParticipants.reduce(0) { $0 + $1.totalDamageDealtToChampions }
+                return teamTotalDamage > 0
+                    ? Double(participant.totalDamageDealtToChampions) / Double(teamTotalDamage)
+                    : 0.0
+            }
+            
+        case "objective_participation_pct":
+            return participant.objectiveParticipationPercentage
+            
+        case "damage_taken_share_pct":
+            return participant.damageTakenSharePercentage
+            
+        default:
+            return 0.0
+        }
+    }
+    
+    private func getBaselineFromCache(
+        role: String,
+        classTag: String,
+        metric: String,
+        cache: [String: Baseline]
+    ) -> Baseline? {
+        let key = "\(role)_\(classTag)_\(metric)"
+        return cache[key]
+    }
+    
+    private func getPerformanceLevelWithBaseline(
+        value: Double,
+        metric: String,
+        baseline: Baseline?
+    ) -> (Baseline.PerformanceLevel, Color) {
+        if let baseline = baseline {
+            // Special handling for Deaths per Game - lower is better
+            if metric == "deaths_per_game" {
+                if value <= baseline.p40 * 0.9 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value <= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value <= baseline.p60 * 1.2 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
+            } else {
+                // Standard logic for other metrics - higher is better
+                if value >= baseline.p60 * 1.1 {
+                    return (.excellent, DesignSystem.Colors.accent)
+                } else if value >= baseline.p60 {
+                    return (.good, DesignSystem.Colors.white)
+                } else if value >= baseline.p40 {
+                    return (.needsImprovement, DesignSystem.Colors.warning)
+                } else {
+                    return (.poor, DesignSystem.Colors.secondary)
+                }
+            }
+        } else {
+            // Fallback to basic performance levels
+            return getBasicPerformanceLevel(value: value, metric: metric)
+        }
+    }
+    
+    private func getBasicPerformanceLevel(value: Double, metric: String) -> (
+        Baseline.PerformanceLevel, Color
+    ) {
+        switch metric {
+        case "deaths_per_game":
+            if value <= 3.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value <= 5.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        case "kill_participation_pct", "objective_participation_pct", "team_damage_pct",
+            "damage_taken_share_pct":
+            if value >= 0.7 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 0.5 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        case "cs_per_min", "vision_score_per_min":
+            if value >= 8.0 {
+                return (.excellent, DesignSystem.Colors.accent)
+            } else if value >= 6.0 {
+                return (.good, DesignSystem.Colors.white)
+            } else {
+                return (.needsImprovement, DesignSystem.Colors.warning)
+            }
+        default:
+            return (.needsImprovement, DesignSystem.Colors.warning)
         }
     }
 
