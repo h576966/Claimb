@@ -180,7 +180,8 @@ class CoachingViewModel {
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
                 summoner: summoner,
-                kpiService: kpiService
+                kpiService: kpiService,
+                userSession: userSession
             )
 
             // Cache the response
@@ -224,7 +225,8 @@ class CoachingViewModel {
             let analysis = try await openAIService.generatePostGameAnalysis(
                 match: match,
                 summoner: summoner,
-                kpiService: kpiService
+                kpiService: kpiService,
+                userSession: userSession
             )
 
             // Cache the response

@@ -23,7 +23,8 @@ public struct CoachingPromptBuilder {
         laneOpponent: String?,
         teamContext: String,
         relativePerformanceContext: String? = nil,
-        baselineContext: String? = nil
+        baselineContext: String? = nil,
+        focusedKPIContext: String? = nil
     ) -> String {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
@@ -83,13 +84,23 @@ public struct CoachingPromptBuilder {
             """
         }
 
-        // Add baseline context if available (simple, focused comparison)
+        // Add baseline context if available (uses performance level labels)
         if let baseline = baselineContext {
             prompt += """
 
                 **BASELINE COMPARISON:**
                 \(baseline)
-                Note: Use these targets as context for improvement areas, not as strict goals to mention.
+                Note: Use these performance levels as context for improvement areas.
+                """
+        }
+        
+        // Add focused KPI if player has one
+        if let focusedKPI = focusedKPIContext {
+            prompt += """
+
+                **PLAYER'S IMPROVEMENT FOCUS:**
+                \(focusedKPI)
+                Use this as the primary target for "Next Game Focus" recommendations.
                 """
         }
 
@@ -113,18 +124,31 @@ public struct CoachingPromptBuilder {
 
         prompt += """
 
+            **COACHING APPROACH:**
+            - Base all analysis on the provided data only - avoid speculation
+            - Explain what was good and what was bad, don't just summarize the match
+            - Focus on actionable advice the player can apply in their next game
+            - Use the timeline data to identify specific moments that impacted the outcome
+            
             **OUTPUT (JSON, max 110 words):**
             {
               "keyTakeaways": ["3 actionable insights, avoid stats and parentheses"],
               "championSpecificAdvice": "2 sentences: what worked, what didn't",
-              "nextGameFocus": ["1 specific goal", "1 measurable target"]
+              "nextGameFocus": ["1 specific goal - MUST target the Player's Improvement Focus if provided, otherwise target a metric marked 'Poor' or 'Needs Improvement'", "1 measurable target - NEVER suggest improving metrics already marked 'Good' or 'Excellent'"]
             }
 
             CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
             Focus on actionable advice, avoid technical stats and parentheses.
             Ensure all required fields are present and properly formatted.
 
-            IMPORTANT: If this was a strong performance (Victory with good KDA or impressive stats), START your keyTakeaways with positive recognition and praise. Examples: "Excellent performance - you dominated your lane", "Great job securing the win with strong map awareness", "Well played - your champion mastery really showed".
+            IMPORTANT TONE GUIDANCE:
+            - If Victory with strong performance: START keyTakeaways with positive recognition. Examples: "Excellent performance - you dominated", "Great job securing the win", "Well played - your mastery showed"
+            - If Defeat: Include ONE clear, constructive reason in keyTakeaways:
+              • Player underperformed (Poor/Needs Improvement metrics): "Your [specific area] needs work - focus on [actionable fix]"
+              • Player performed well (Good/Excellent metrics): "Despite your solid [strength], the team struggled with [issue]"
+              • Close game: "This was winnable - the key turning point was [specific moment from timeline]"
+              • Stomp: "The team fell behind early - in similar situations, focus on [recovery strategy]"
+            Keep all feedback constructive, specific, and forward-looking.
             """
 
         return prompt

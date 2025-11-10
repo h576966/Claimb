@@ -833,6 +833,22 @@ public struct KPIMetric {
         default: return metric
         }
     }
+    
+    /// Static helper to get display name from metric string
+    public static func displayName(for metric: String) -> String {
+        switch metric {
+        case "deaths_per_game": return "Deaths per Game"
+        case "vision_score_per_min": return "Vision Score/min"
+        case "kill_participation_pct": return "Kill Participation"
+        case "cs_per_min": return "CS per Minute"
+        case "objective_participation_pct": return "Objective Participation"
+        case "team_damage_pct": return "Damage Share"
+        case "damage_taken_share_pct": return "Damage Taken Share"
+        case "primary_role_consistency": return "Role Consistency"
+        case "champion_pool_size": return "Champion Pool Size"
+        default: return metric
+        }
+    }
 
     public var formattedValue: String {
         return value

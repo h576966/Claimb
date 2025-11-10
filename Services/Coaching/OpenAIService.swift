@@ -28,7 +28,8 @@ public class OpenAIService {
     public func generatePostGameAnalysis(
         match: Match,
         summoner: Summoner,
-        kpiService: KPICalculationService
+        kpiService: KPICalculationService,
+        userSession: UserSession? = nil
     ) async throws -> PostGameAnalysis {
 
         // Validate proxy service availability
@@ -62,12 +63,21 @@ public class OpenAIService {
             service: "OpenAIService"
         )
 
-        // Get baseline context for key metrics (simple approach - no complex formatting)
+        // Get baseline context for key metrics (uses performance level labels)
         let baselineContext = await fetchBaselineContext(
             for: participant,
             role: role,
             dataManager: kpiService.dataManager
         )
+        
+        // Get focused KPI context if player has one
+        let focusedKPIContext: String? = {
+            guard let focusedKPI = userSession?.focusedKPI else {
+                return nil
+            }
+            let displayName = KPIMetric.displayName(for: focusedKPI)
+            return displayName
+        }()
 
         // Create prompt using PromptBuilder
         let prompt = CoachingPromptBuilder.createPostGamePrompt(
@@ -80,7 +90,8 @@ public class OpenAIService {
             laneOpponent: laneOpponent,
             teamContext: teamContext,
             relativePerformanceContext: relativePerformanceContext,
-            baselineContext: baselineContext
+            baselineContext: baselineContext,
+            focusedKPIContext: focusedKPIContext
         )
 
         // Use the single prompt from CoachingPromptBuilder
@@ -121,10 +132,10 @@ public class OpenAIService {
                 "matchId": match.matchId,
                 "puuid": summoner.puuid,
                 "region": summoner.region,
-                "championName": championName
+                "championName": championName,
             ]
         )
-        
+
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
@@ -135,13 +146,13 @@ public class OpenAIService {
             puuid: summoner.puuid,
             region: summoner.region  // Edge function will map platform/region to routing region
         )
-        
+
         ClaimbLogger.debug(
             "Received AI response",
             service: "OpenAIService",
             metadata: [
                 "responseLength": String(responseText.count),
-                "containsTimeline": responseText.lowercased().contains("10min") ? "YES" : "NO"
+                "containsTimeline": responseText.lowercased().contains("10min") ? "YES" : "NO",
             ]
         )
 
@@ -548,7 +559,7 @@ public class OpenAIService {
     }
 
     /// Fetches baseline context for key performance metrics
-    /// Keeps it simple - only CS, Deaths, Vision for post-game focus
+    /// Uses performance level labels for better LLM comprehension
     private func fetchBaselineContext(
         for participant: Participant,
         role: String,
@@ -568,10 +579,10 @@ public class OpenAIService {
             ) {
                 hasAnyBaseline = true
                 let playerCS = participant.csPerMinute
-                let target = csBaseline.p60
-                let status = playerCS >= target ? "above target" : "below target"
+                let performanceLevel = csBaseline.getPerformanceLevel(playerCS)
+                let levelLabel = performanceLevel.rawValue
                 context +=
-                    "CS/min: \(String(format: "%.1f", playerCS)) (\(status), target: \(String(format: "%.1f", target))) | "
+                    "CS/min: \(String(format: "%.1f", playerCS)) (\(levelLabel)) | "
             }
         }
 
@@ -581,10 +592,20 @@ public class OpenAIService {
         ) {
             hasAnyBaseline = true
             let playerDeaths = Double(participant.deaths)
-            let target = deathsBaseline.p40  // Lower is better, so p40 is the good target
-            let status = playerDeaths <= target ? "good" : "high"
+            // For deaths, we need to invert the logic since lower is better
+            let performanceLevel: Baseline.PerformanceLevel
+            if playerDeaths <= deathsBaseline.p40 * 0.9 {
+                performanceLevel = .excellent
+            } else if playerDeaths <= deathsBaseline.p40 {
+                performanceLevel = .good
+            } else if playerDeaths <= deathsBaseline.p60 {
+                performanceLevel = .needsImprovement
+            } else {
+                performanceLevel = .poor
+            }
+            let levelLabel = performanceLevel.rawValue
             context +=
-                "Deaths: \(Int(playerDeaths)) (\(status), target: ≤\(String(format: "%.1f", target))) | "
+                "Deaths: \(Int(playerDeaths)) (\(levelLabel)) | "
         }
 
         // Vision baseline
@@ -593,10 +614,10 @@ public class OpenAIService {
         ) {
             hasAnyBaseline = true
             let playerVision = participant.visionScorePerMinute
-            let target = visionBaseline.p60
-            let status = playerVision >= target ? "above target" : "below target"
+            let performanceLevel = visionBaseline.getPerformanceLevel(playerVision)
+            let levelLabel = performanceLevel.rawValue
             context +=
-                "Vision/min: \(String(format: "%.1f", playerVision)) (\(status), target: \(String(format: "%.1f", target)))"
+                "Vision/min: \(String(format: "%.1f", playerVision)) (\(levelLabel))"
         }
 
         return hasAnyBaseline ? context : nil
