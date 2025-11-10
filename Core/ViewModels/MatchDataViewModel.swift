@@ -343,18 +343,28 @@ public class MatchDataViewModel {
                 color: DesignSystem.Colors.accent
             ))
 
-        kpis.append(
-            KPIMetric(
-                metric: "cs_per_min",
-                value: csPerMin.oneDecimal,
-                baseline: baseline,
-                performanceLevel: .good,
-                color: DesignSystem.Colors.accent
-            ))
+        // Only include CS per minute for roles where it's relevant (exclude Support)
+        if shouldIncludeCSPerMinute(for: role) {
+            kpis.append(
+                KPIMetric(
+                    metric: "cs_per_min",
+                    value: csPerMin.oneDecimal,
+                    baseline: baseline,
+                    performanceLevel: .good,
+                    color: DesignSystem.Colors.accent
+                ))
+        }
 
         return kpis
     }
 
+    /// Determines if CS per minute should be included for the given role
+    private func shouldIncludeCSPerMinute(for role: String) -> Bool {
+        let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        return csEligibleRoles.contains(baselineRole)
+    }
+    
     /// Gets baseline data for a specific role
     private func getBaselineForRole(_ role: String) async -> Baseline? {
         guard let dataManager = dataManager else { return nil }
