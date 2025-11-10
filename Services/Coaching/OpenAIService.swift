@@ -79,8 +79,8 @@ public class OpenAIService {
             return displayName
         }()
 
-        // Create prompt using PromptBuilder
-        let prompt = CoachingPromptBuilder.createPostGamePrompt(
+        // Create dual prompt using PromptBuilder
+        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPostGamePrompt(
             match: match,
             participant: participant,
             summoner: summoner,
@@ -93,8 +93,6 @@ public class OpenAIService {
             baselineContext: baselineContext,
             focusedKPIContext: focusedKPIContext
         )
-
-        // Use the single prompt from CoachingPromptBuilder
 
         // Note: JSON schema enforcement is handled by the edge function
         let _: [String: Any] = [
@@ -122,13 +120,16 @@ public class OpenAIService {
             ],
         ]
 
-        // Make API request through proxy with combined prompt
+        // Make API request through proxy with dual prompt structure
         // Note: Using lower token limit for concise responses
         // Pass match metadata so edge function can fetch and inject timeline data
-        ClaimbLogger.debug(
-            "Requesting post-game analysis with timeline metadata",
+        ClaimbLogger.info(
+            "Using dual prompt structure for post-game analysis",
             service: "OpenAIService",
             metadata: [
+                "promptType": "postGame",
+                "systemPromptLength": String(systemPrompt.count),
+                "userPromptLength": String(userPrompt.count),
                 "matchId": match.matchId,
                 "puuid": summoner.puuid,
                 "region": summoner.region,
@@ -138,7 +139,8 @@ public class OpenAIService {
 
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: prompt,
+            prompt: userPrompt,
+            systemInstructions: systemPrompt,  // Pass system prompt separately
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             reasoningEffort: "low",  // Use "low" reasoning to reduce token usage
@@ -221,8 +223,8 @@ public class OpenAIService {
             ]
         )
 
-        // Create prompt using PromptBuilder
-        let prompt = CoachingPromptBuilder.createPerformanceSummaryPrompt(
+        // Create dual prompt using PromptBuilder
+        let (systemPrompt, userPrompt) = CoachingPromptBuilder.createPerformanceSummaryPrompt(
             matches: matches,
             summoner: summoner,
             primaryRole: primaryRole,
@@ -269,11 +271,24 @@ public class OpenAIService {
             ],
         ]
 
-        // Make API request through proxy with combined prompt
+        // Make API request through proxy with dual prompt structure
         // Note: Using lower token limit for concise responses
+        ClaimbLogger.info(
+            "Using dual prompt structure for performance summary",
+            service: "OpenAIService",
+            metadata: [
+                "promptType": "performanceSummary",
+                "systemPromptLength": String(systemPrompt.count),
+                "userPromptLength": String(userPrompt.count),
+                "summoner": summoner.gameName,
+                "primaryRole": primaryRole,
+            ]
+        )
+        
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
-            prompt: prompt,
+            prompt: userPrompt,
+            systemInstructions: systemPrompt,  // Pass system prompt separately
             model: "gpt-5-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage

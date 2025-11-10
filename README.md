@@ -464,6 +464,14 @@ This project is licensed under the MIT License.
 - **Design System Compliance**: Fixed hardcoded color violations and removed duplicate development rules
 - **Documentation Cleanup**: Removed outdated App Store submission files and system files (.DS_Store) from repository
 
+### **AI Coaching Enhancement**
+- **Dual Prompt Architecture**: Implemented system + user prompt structure for improved AI coaching consistency
+  - Centralized system prompts in `CoachingSystemPrompts` for maintainable coaching instructions
+  - Separated coaching rules from match data for cleaner prompt engineering
+  - Enhanced prompt clarity with explicit tone guidance and focus priorities
+  - Improved LLM understanding through structured instruction separation
+- **Enhanced Telemetry**: Added minimal logging for dual prompt usage tracking and debugging
+
 ### **Performance & UX**
 - **Match Fetching Optimization**: Smart 90-180 day time windows ensuring sufficient data for all player types
 - **Loading Progress Enhancement**: Smooth 3-phase animation system (Account Setup → Data Loading → Finalization)

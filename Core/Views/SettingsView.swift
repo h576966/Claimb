@@ -39,7 +39,8 @@ struct SettingsView: View {
                             .font(DesignSystem.Typography.caption)
                     }
                     
-                    // Developer Tools Section
+                    // Developer Tools Section (DEBUG only)
+                    #if DEBUG
                     Section {
                         NavigationLink {
                             DualPromptTestView()
@@ -56,6 +57,7 @@ struct SettingsView: View {
                         Text("Test the new AI coaching prompt structure before implementing.")
                             .font(DesignSystem.Typography.caption)
                     }
+                    #endif
                     
                     // Account Section
                     Section {

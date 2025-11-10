@@ -7,6 +7,97 @@
 
 import Foundation
 
+/// Centralized system prompts for AI coaching
+public struct CoachingSystemPrompts {
+    
+    /// System prompt for post-game analysis
+    public static let postGameSystemPrompt = """
+    You are an expert League of Legends coach helping players improve their ranked performance through actionable, data-driven advice.
+
+    COACHING APPROACH:
+    • Casual but knowledgeable tone - like a skilled friend giving advice
+    • Praise great performance over pure wins/losses
+    • Be direct about mistakes but constructive with solutions
+    • Focus only on what the player can control and improve
+
+    ANALYSIS RULES:
+    • Base analysis ONLY on provided match data - never speculate
+    • Never mention teammates by name (roles like "your ADC" are acceptable)
+    • Explain what was good AND what was bad - don't just summarize
+    • Use timeline data to identify key moments that impacted the outcome
+    • Keep all advice actionable for the next game
+    • Assess if player carried, got carried, or underperformed relative to their team
+    • Adjust tone based on their relative contribution (encourage effort vs focus on improvement)
+
+    PERFORMANCE INTERPRETATION:
+    • "Excellent" = significantly above average → praise and maintain
+    • "Good" = above average → acknowledge briefly, don't suggest improvement
+    • "Needs Improvement" = below average → suggest specific practice focus
+    • "Poor" = significantly below average → make this the top priority
+
+    FOCUS PRIORITY for nextGameFocus:
+    1. Player's Improvement Focus (if provided) - ALWAYS address this first
+    2. Metrics marked "Poor" - highest priority
+    3. Metrics marked "Needs Improvement" - secondary priority
+    4. NEVER suggest improving metrics marked "Good" or "Excellent"
+
+    RESPONSE FORMAT:
+    Your response must be EXACTLY this JSON structure with no deviations:
+    {
+      "keyTakeaways": ["insight 1", "insight 2", "insight 3"],
+      "championSpecificAdvice": "Two sentences about what worked and what didn't.",
+      "nextGameFocus": ["specific goal", "measurable target"]
+    }
+    
+    Maximum 110 words total across ALL fields. No text before or after JSON. No markdown formatting.
+    """
+    
+    /// System prompt for performance summary (trend analysis)
+    public static let performanceSummarySystemPrompt = """
+    You are an expert League of Legends coach analyzing performance trends to help players climb in ranked.
+
+    COACHING APPROACH:
+    • Focus on patterns and trends over individual games
+    • Identify the biggest improvement opportunities for climbing
+    • Casual but insightful - like a coach reviewing game film
+    • Praise consistency and improvement, address declining areas directly
+
+    ANALYSIS RULES:
+    • Base analysis on provided trend data and statistics only
+    • Never mention specific teammates (roles are acceptable)
+    • Focus on actionable patterns the player can change
+    • Highlight both strengths to maintain and weaknesses to improve
+
+    TREND INTERPRETATION:
+    • Improving trends: Acknowledge progress and encourage continuation
+    • Declining trends: Identify root causes and suggest corrections
+    • Inconsistent performance: Focus on champion pool and role consistency
+    • Strong areas: Reinforce what's working well
+
+    FOCUS PRIORITY:
+    1. Player's focused KPI (if provided) - acknowledge progress or suggest focus
+    2. Most impactful areas for climbing (deaths, CS, vision)
+    3. Champion pool optimization for consistency
+    4. Role consistency for better matchmaking
+
+    RESPONSE FORMAT:
+    Your response must be EXACTLY this JSON structure with no deviations:
+    {
+      "keyTrends": ["trend 1", "trend 2"],
+      "roleConsistency": "One sentence about role focus.",
+      "championPoolAnalysis": "Two sentences about champion selection.",
+      "areasOfImprovement": ["area 1", "area 2"],
+      "strengthsToMaintain": ["strength 1", "strength 2"],
+      "climbingAdvice": "Two sentences about consistency with proven champions."
+    }
+    
+    Maximum 110 words total across ALL fields. No text before or after JSON. No markdown formatting.
+    """
+}
+
+/// Typealias for dual prompt structure
+public typealias DualPrompt = (system: String, user: String)
+
 /// Builds AI coaching prompts for different analysis types
 public struct CoachingPromptBuilder {
 
@@ -25,7 +116,7 @@ public struct CoachingPromptBuilder {
         relativePerformanceContext: String? = nil,
         baselineContext: String? = nil,
         focusedKPIContext: String? = nil
-    ) -> String {
+    ) -> DualPrompt {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
         let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
@@ -47,13 +138,8 @@ public struct CoachingPromptBuilder {
             match.isRanked
             ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
 
-        // Build simple system context
-        let systemContext =
-            "You are a League of Legends coach analyzing a single game for immediate improvement."
-
-        var prompt = """
-            \(systemContext)
-
+        // Build user prompt with match data
+        var userPrompt = """
             **GAME CONTEXT:**
             Player: \(summoner.gameName) | Champion: \(championName) | Role: \(role)
             Result: \(gameResult) | KDA: \(kda) | Duration: \(gameDuration)min\(queueContext)\(rankContext)
@@ -68,45 +154,36 @@ public struct CoachingPromptBuilder {
             - Objective Participation: \(objectiveParticipation)
             """
 
-        // Add relative performance context prominently if available
+        // Add relative performance context if available
         if let relativeContext = relativePerformanceContext {
-            prompt += """
+            userPrompt += """
 
-
-            **RELATIVE PERFORMANCE ANALYSIS:**
+            **RELATIVE PERFORMANCE:**
             \(relativeContext)
-
-            IMPORTANT: Use this context to assess if the player carried, got carried, or underperformed relative to their team.
-            - If performed above team average despite loss or faced fed enemies → be encouraging and acknowledge their effort
-            - If underperformed compared to teammates → focus on constructive improvement areas
-            - If carried the team → acknowledge their strong performance and leadership
-            Adjust your tone and focus based on their relative contribution.
             """
         }
 
         // Add baseline context if available (uses performance level labels)
         if let baseline = baselineContext {
-            prompt += """
+            userPrompt += """
 
-                **BASELINE COMPARISON:**
-                \(baseline)
-                Note: Use these performance levels as context for improvement areas.
-                """
+            **BASELINE COMPARISON:**
+            \(baseline)
+            """
         }
         
         // Add focused KPI if player has one
         if let focusedKPI = focusedKPIContext {
-            prompt += """
+            userPrompt += """
 
-                **PLAYER'S IMPROVEMENT FOCUS:**
-                \(focusedKPI)
-                Use this as the primary target for "Next Game Focus" recommendations.
-                """
+            **PLAYER'S IMPROVEMENT FOCUS:**
+            \(focusedKPI)
+            """
         }
 
         // Add lane opponent information if available
         if let opponent = laneOpponent {
-            prompt += """
+            userPrompt += """
 
                 **LANE MATCHUP:**
                 \(championName) (\(role)) vs \(opponent)
@@ -115,43 +192,19 @@ public struct CoachingPromptBuilder {
 
         // Add timeline data if available (injected by edge function)
         if let timeline = timelineData {
-            prompt += """
+            userPrompt += """
 
             **EARLY GAME TIMELINE SUMMARY:**
             \(timeline)
             """
         }
 
-        prompt += """
+        // No explicit JSON template needed - system prompt handles format requirements
 
-            **COACHING APPROACH:**
-            - Base all analysis on the provided data only - avoid speculation
-            - Explain what was good and what was bad, don't just summarize the match
-            - Focus on actionable advice the player can apply in their next game
-            - Use the timeline data to identify specific moments that impacted the outcome
-            
-            **OUTPUT (JSON, max 110 words):**
-            {
-              "keyTakeaways": ["3 actionable insights, avoid stats and parentheses"],
-              "championSpecificAdvice": "2 sentences: what worked, what didn't",
-              "nextGameFocus": ["1 specific goal - MUST target the Player's Improvement Focus if provided, otherwise target a metric marked 'Poor' or 'Needs Improvement'", "1 measurable target - NEVER suggest improving metrics already marked 'Good' or 'Excellent'"]
-            }
-
-            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
-            Focus on actionable advice, avoid technical stats and parentheses.
-            Ensure all required fields are present and properly formatted.
-
-            IMPORTANT TONE GUIDANCE:
-            - If Victory with strong performance: START keyTakeaways with positive recognition. Examples: "Excellent performance - you dominated", "Great job securing the win", "Well played - your mastery showed"
-            - If Defeat: Include ONE clear, constructive reason in keyTakeaways:
-              • Player underperformed (Poor/Needs Improvement metrics): "Your [specific area] needs work - focus on [actionable fix]"
-              • Player performed well (Good/Excellent metrics): "Despite your solid [strength], the team struggled with [issue]"
-              • Close game: "This was winnable - the key turning point was [specific moment from timeline]"
-              • Stomp: "The team fell behind early - in similar situations, focus on [recovery strategy]"
-            Keep all feedback constructive, specific, and forward-looking.
-            """
-
-        return prompt
+        return (
+            system: CoachingSystemPrompts.postGameSystemPrompt,
+            user: userPrompt
+        )
     }
 
     // MARK: - Performance Summary Prompts
@@ -185,7 +238,7 @@ public struct CoachingPromptBuilder {
         streakData: StreakData?,
         focusedKPI: String? = nil,
         focusedKPITrend: KPITrend? = nil
-    ) -> String {
+    ) -> DualPrompt {
         let recentMatches = Array(matches.prefix(10))
         let wins = recentMatches.compactMap { match in
             match.participants.first(where: { $0.puuid == summoner.puuid })?.win
@@ -203,28 +256,16 @@ public struct CoachingPromptBuilder {
         let focusedKPIContext = createFocusedKPIContext(
             focusedKPI: focusedKPI, focusedKPITrend: focusedKPITrend)
 
-        return """
-            You are a League of Legends coach analyzing performance trends to help the player climb in ranked.
-
+        let userPrompt = """
             **Player:** \(summoner.gameName) | **Primary Role:** \(RoleUtils.displayName(for: primaryRole)) | **Overall Record:** \(wins)W-\(recentMatches.count - wins)L (\(String(format: "%.0f", winRate * 100))%)\(rankContext)\(streakContext)
 
             \(detailedContext)\(championPoolContext)\(focusedKPIContext)
-
-
-            **OUTPUT (JSON, max 120 words):**
-            {
-              "keyTrends": ["2 trends, avoid stats and parentheses"],
-              "roleConsistency": "1 sentence about role focus",
-              "championPoolAnalysis": "Focus on top 3 from BEST PERFORMING list. 2 sentences.",
-              "areasOfImprovement": ["2 areas, concise and actionable"],
-              "strengthsToMaintain": ["2 strengths, concise"],
-              "climbingAdvice": "2 sentences - consistency with proven champions"
-            }
-
-            CRITICAL: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after.
-            Focus on actionable advice, avoid technical stats and parentheses.
-            Ensure all required fields are present and properly formatted.
             """
+
+        return (
+            system: CoachingSystemPrompts.performanceSummarySystemPrompt,
+            user: userPrompt
+        )
     }
 
     // MARK: - Context Builders

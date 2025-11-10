@@ -576,6 +576,7 @@ public class ProxyService {
     /// Generates AI coaching insights with enhanced parameters
     public func aiCoach(
         prompt: String,
+        systemInstructions: String? = nil,  // Optional system prompt for dual prompt structure
         model: String = "gpt-4o-mini",
         maxOutputTokens: Int = 1000,
         reasoningEffort: String? = nil,  // "minimal", "medium", or "heavy" for gpt-5 models
@@ -607,6 +608,11 @@ public class ProxyService {
             requestBody["reasoning"] = ["effort": effort]  // Nested format as backup
         }
         
+        // Add system instructions for dual prompt structure (if provided)
+        if let system = systemInstructions {
+            requestBody["system"] = system
+        }
+        
         // Add match metadata for timeline enhancement (if provided)
         if let matchId = matchId {
             requestBody["matchId"] = matchId
@@ -628,6 +634,7 @@ public class ProxyService {
                 let bodyDict = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
             {
                 let promptText = bodyDict["prompt"] as? String ?? ""
+                let systemText = bodyDict["system"] as? String ?? ""
                 ClaimbLogger.debug(
                     "AI Coach request body (parsed back)", service: "ProxyService",
                     metadata: [
@@ -639,6 +646,8 @@ public class ProxyService {
                         "reasoning": String(describing: bodyDict["reasoning"] ?? "missing"),
                         "hasPrompt": String(!promptText.isEmpty),
                         "promptLength": String(promptText.count),
+                        "hasSystemPrompt": String(!systemText.isEmpty),
+                        "systemPromptLength": systemText.isEmpty ? "0" : String(systemText.count),
                         "bodyKeys": bodyDict.keys.sorted().joined(separator: ", "),
                     ]
                 )
