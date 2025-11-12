@@ -718,7 +718,7 @@ public class ProxyService {
         }
 
         do {
-            // First try Responses API format (for gpt-5-mini)
+            // First try modern format (for gpt-4o-mini)
             if let responsesAPI = try? JSONDecoder().decode(ResponsesAPIFormat.self, from: data) {
                 // Try direct output_text field first
                 if let outputText = responsesAPI.output_text, !outputText.isEmpty {
@@ -831,7 +831,7 @@ public class ProxyService {
             AppConfig.addAuthHeaders(&testRequest)
 
             let testBody: [String: Any] = [
-                "prompt": "test", "model": "gpt-5-mini", "max_output_tokens": 10,
+                "prompt": "test", "model": "gpt-4o-mini", "max_output_tokens": 10,
             ]
             testRequest.httpBody = try JSONSerialization.data(withJSONObject: testBody)
 

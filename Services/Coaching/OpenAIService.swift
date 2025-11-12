@@ -141,7 +141,7 @@ public class OpenAIService {
         let responseText = try await proxyService.aiCoach(
             prompt: userPrompt,
             systemInstructions: systemPrompt,  // Pass system prompt separately
-            model: "gpt-5-mini",
+            model: "gpt-4o-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             reasoningEffort: "low",  // Use "low" reasoning to reduce token usage
             matchId: match.matchId,
@@ -289,7 +289,7 @@ public class OpenAIService {
         let responseText = try await proxyService.aiCoach(
             prompt: userPrompt,
             systemInstructions: systemPrompt,  // Pass system prompt separately
-            model: "gpt-5-mini",
+            model: "gpt-4o-mini",
             maxOutputTokens: 800,  // Lower limit for concise responses
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
@@ -371,7 +371,7 @@ public class OpenAIService {
         let proxyService = ProxyService()
         let responseText = try await proxyService.aiCoach(
             prompt: prompt,
-            model: "gpt-5-mini",
+            model: "gpt-4o-mini",
             maxOutputTokens: 200,  // Reduced for more concise tips (2 sentences, ~35 words)
             reasoningEffort: "minimal",  // Simple task, reduce cost
             textFormat: "text"  // Plain text response, not JSON

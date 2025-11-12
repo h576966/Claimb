@@ -36,7 +36,9 @@ const SUPPORTED_TYPES = new Set([
 ]);
 // Models we allow
 const ALLOWED_MODELS = new Set([
-    "gpt-5-mini"
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4-turbo"
 ]);
 /* =============================== Helpers =============================== */ // Minimal retry for transient OpenAI errors / 429s
 async function postWithRetry(url, init, tries = 2) {
@@ -669,7 +671,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     if (!prompt) return json({
         error: "prompt required"
     }, 400);
-    const model = (typeof body?.model === "string" ? body.model : "gpt-5-mini").trim();
+    const model = (typeof body?.model === "string" ? body.model : "gpt-4o-mini").trim();
     if (!ALLOWED_MODELS.has(model)) return json({
         error: "model not allowed"
     }, 400);
@@ -690,50 +692,26 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     // temperature [0..2]
     const tNum = body?.temperature === undefined ? undefined : Number(body.temperature);
     const temperature = tNum === undefined || !Number.isFinite(tNum) ? undefined : Math.max(0, Math.min(2, tNum));
-    // Reasoning: accept minimal/low/medium/high; default "low" (broad compatibility)
-    const effortFromBody = typeof body?.reasoning?.effort === "string" ? body.reasoning.effort : typeof body?.reasoning_effort === "string" ? body.reasoning_effort : undefined;
-    const validEfforts = new Set([
-        "minimal",
-        "low",
-        "medium",
-        "high"
-    ]);
-    const reasoning = {
-        effort: validEfforts.has((effortFromBody ?? "").toLowerCase()) ? effortFromBody : "low"
-    };
-    // TEXT format for Responses API (corrected for GPT-5-mini)
-    let text = undefined;
+    // Response format for OpenAI Chat API
+    let response_format = undefined;
     const fmt = typeof body?.text_format === "string" ? body.text_format.trim().toLowerCase() : undefined;
 
     if (fmt === "json") {
-        text = {
-            format: {
-                type: "json_object"
-            }
-        };
-    } else if (fmt === "text" || fmt === "plain") {
-        text = {
-            format: {
-                type: "text"
-            }
-        };
+        response_format = { type: "json_object" };
     }
 
     // JSON Schema support for structured responses
-    if (!text && body?.json_schema) {
+    if (body?.json_schema) {
         const schema = body.json_schema.schema ? body.json_schema.schema : body.json_schema;
-        text = {
-            format: {
-                type: "json_schema",
-                json_schema: {
-                    name: body.json_schema.name ?? "claimb_schema",
-                    strict: body.json_schema.strict ?? true,
-                    schema: schema
-                }
+        response_format = {
+            type: "json_schema",
+            json_schema: {
+                name: body.json_schema.name ?? "claimb_schema",
+                strict: body.json_schema.strict ?? true,
+                schema: schema
             }
         };
     }
-    const metadata = body?.metadata && typeof body.metadata === "object" ? body.metadata : undefined;
 
     // Fetch and inject timeline data if match metadata is provided (optimized processor)
     let enhancedPrompt = prompt;
@@ -762,29 +740,33 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     // Log timeline inclusion rate for monitoring
     console.log(`Timeline inclusion: ${timelineIncluded ? 'SUCCESS' : 'FAILED'} for match: ${matchId || 'N/A'}`);
 
-    const payload = {
+    // Build messages array for OpenAI Chat Completions API
+    const messages: any[] = [];
+    
+    // Add system message if instructions provided (dual prompt structure)
+    if (instructions) {
+        messages.push({
+            role: "system",
+            content: instructions
+        });
+    }
+    
+    // Add user message with the (possibly enhanced) prompt
+    messages.push({
+        role: "user", 
+        content: enhancedPrompt
+    });
+
+    const payload: any = {
         model,
-        input: enhancedPrompt,
-        max_output_tokens,
-        ...instructions ? {
-            instructions
-        } : {},
-        ...temperature !== undefined ? {
-            temperature
-        } : {},
-        ...reasoning ? {
-            reasoning
-        } : {},
-        ...text ? {
-            text
-        } : {},
-        ...metadata ? {
-            metadata
-        } : {}
+        messages,
+        max_tokens: max_output_tokens,  // Note: chat completions uses max_tokens, not max_output_tokens
+        ...(temperature !== undefined ? { temperature } : {}),
+        ...(response_format ? { response_format } : {})
     };
 
     // Debug logging for OpenAI payload (opt-in via env flag)
-    logDebug("OpenAI Responses API payload:", JSON.stringify(payload, null, 2));
+    logDebug("OpenAI Chat Completions API payload:", JSON.stringify(payload, null, 2));
     const to = timeoutSignal(30_000); // 30 second timeout (timeline fetch + OpenAI processing + buffer)
     try {
         const init = {
@@ -796,11 +778,11 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             body: JSON.stringify(payload),
             signal: to.signal
         };
-        const r = await postWithRetry("https://api.openai.com/v1/responses", init, 2);
+        const r = await postWithRetry("https://api.openai.com/v1/chat/completions", init, 2);
         to.clear();
         if (!r.ok) {
             const errText = await r.text().catch(() => "");
-            console.warn("openai responses error", r.status, errText);
+            console.warn("openai chat completions error", r.status, errText);
             return json({
                 error: "openai_error",
                 status: r.status,
@@ -808,16 +790,22 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             }, r.status);
         }
         const data = await r.json();
-        const { text: outText, parsed } = extractOpenAIResult(data);
-        return json(parsed !== undefined ? {
-            text: outText,
-            model,
-            parsed
-        } : {
-            text: outText,
+        
+        // Extract content from chat completions response
+        const content = data?.choices?.[0]?.message?.content || "";
+        if (!content) {
+            console.warn("No content in OpenAI response");
+            return json({
+                error: "empty_response"
+            }, 500);
+        }
+        
+        // Return response in format expected by Swift app
+        return json({
+            text: content,
             model
         }, 200, {
-            "X-Claimb-Shape": parsed !== undefined ? "coach-text+parsed" : "coach-text",
+            "X-Claimb-Shape": "coach-text",
             "X-RateLimit-Remaining": String(rl.remaining ?? 0)
         });
     } catch (e) {
