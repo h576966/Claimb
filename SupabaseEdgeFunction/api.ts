@@ -1,4 +1,4 @@
-// riot_ai.ts
+// api.ts
 // deno-lint-ignore-file no-explicit-any
 import { OPENAI_KEY, RIOT_KEY, HAS_RIOT_KEY, HAS_OPENAI_KEY, json, badRequest, rateLimit, timeoutSignal, assertRegionOrPlatform, deriveRegionFromPlatform, parsePositiveInt, parseEpochSeconds } from "./shared.ts";
 
@@ -100,6 +100,62 @@ function resolveRegionOrBadRequest(params) {
     return {
         region,
         platform: plat ?? null
+    };
+}
+
+function parseRiotErrorBody(text) {
+    if (!text) return {
+        message: null,
+        code: null
+    };
+    const trimmed = text.trim();
+    if (!trimmed) return {
+        message: null,
+        code: null
+    };
+    try {
+        const parsed = JSON.parse(trimmed);
+        const status = parsed?.status ?? parsed;
+        const message = typeof status?.message === "string" ? status.message : typeof parsed?.message === "string" ? parsed.message : trimmed;
+        const code = Number.isFinite(status?.status_code) ? status.status_code : Number.isFinite(status?.code) ? status.code : null;
+        return {
+            message,
+            code
+        };
+    } catch {
+        return {
+            message: trimmed,
+            code: null
+        };
+    }
+}
+
+function buildRiotError(status, platform, endpoint, rawText) {
+    const { message, code } = parseRiotErrorBody(rawText);
+    const kind = status === 403 ? "riot_forbidden" : "riot_error";
+    const payload = {
+        error: kind,
+        status,
+        endpoint,
+        ...(platform ? { platform } : {}),
+        ...(message ? { message } : {}),
+        ...(code != null ? { riotStatusCode: code } : {}),
+        ...(status === 403 ? {
+            hint: "Riot API returned 403 Forbidden. Verify RIOT_API_KEY scope, allow list, and development/production entitlement."
+        } : {})
+    };
+
+    return {
+        payload,
+        header: kind,
+        logDetails: {
+            status,
+            platform,
+            endpoint,
+            riotStatusCode: code,
+            riotMessage: message,
+            raw: rawText?.slice(0, 200) ?? null
+        }
     };
 }
 /* ======================= RIOT: matches by PUUID ======================= */ export async function handleRiotMatches(req, deviceId) {
@@ -557,8 +613,10 @@ export async function handleRiotLeagueEntries(req, deviceId) {
         to.clear();
 
         if (!r.ok) {
-            console.warn("riot league entries error", await r.text().catch(() => ""));
-            return json({ error: "riot_error", status: r.status }, r.status);
+            const raw = await r.text().catch(() => "");
+            const errorInfo = buildRiotError(r.status, plat, "league-entries", raw);
+            console.warn("riot league entries error", errorInfo.logDetails);
+            return json(errorInfo.payload, r.status, { "X-Claimb-Why": errorInfo.header });
         }
 
         const entries = await r.json();
@@ -610,8 +668,10 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
         });
 
         if (!summonerRes.ok) {
-            console.warn("riot summoner for league lookup error", await summonerRes.text().catch(() => ""));
-            return json({ error: "riot_error", status: summonerRes.status }, summonerRes.status);
+            const raw = await summonerRes.text().catch(() => "");
+            const errorInfo = buildRiotError(summonerRes.status, plat, "summoner-by-puuid", raw);
+            console.warn("riot summoner for league lookup error", errorInfo.logDetails);
+            return json(errorInfo.payload, summonerRes.status, { "X-Claimb-Why": errorInfo.header });
         }
 
         const summoner = await summonerRes.json();
@@ -627,8 +687,10 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
         to.clear();
 
         if (!leagueRes.ok) {
-            console.warn("riot league entries by puuid error", await leagueRes.text().catch(() => ""));
-            return json({ error: "riot_error", status: leagueRes.status }, leagueRes.status);
+            const raw = await leagueRes.text().catch(() => "");
+            const errorInfo = buildRiotError(leagueRes.status, plat, "league-entries-by-summoner", raw);
+            console.warn("riot league entries by puuid error", errorInfo.logDetails);
+            return json(errorInfo.payload, leagueRes.status, { "X-Claimb-Why": errorInfo.header });
         }
 
         const entries = await leagueRes.json();
@@ -683,7 +745,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     const regionOrPlatform = typeof body?.region === "string" ? body.region.trim() : null;
 
     // Optional system/dev prompt (Responses uses `instructions`)
-    const instructions = typeof body?.system === "string" ? body.system : typeof body?.instructions === "string" ? body.instructions : undefined;
+    const rawInstructions = typeof body?.system === "string" ? body.system : typeof body?.instructions === "string" ? body.instructions : undefined;
     // max_output_tokens: 1..2000
     const motRaw = Number(body?.max_output_tokens);
     const max_output_tokens = Number.isFinite(motRaw) ? Math.min(Math.max(1, Math.floor(motRaw)), 2000) : 512;
@@ -747,24 +809,34 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
                 enhancedPrompt =
                     `${prompt}\n\n**EARLY GAME TIMELINE (use this to evaluate laning pace and resource setup):**\n${formatted}`;
                 timelineIncluded = true;
-                logDebug("✅ Timeline data successfully injected for match:", matchId);
+                logDebug("Timeline data successfully injected for match:", matchId);
             } else {
-                console.warn("⚠️ Timeline processor returned null for match:", matchId);
+                console.warn("Timeline processor returned null for match:", matchId);
             }
         } catch (err) {
             // Log but don't fail - timeline is optional enhancement
-            console.warn("❌ Timeline fetch failed for match:", matchId, "Error:", err?.message || err);
+            console.warn("Timeline fetch failed for match:", matchId, "Error:", err?.message || err);
         }
     } else {
-        logDebug("ℹ️ No match metadata provided - timeline not attempted");
+        logDebug("No match metadata provided - timeline not attempted");
     }
 
     // Log timeline inclusion rate for monitoring
     console.log(`Timeline inclusion: ${timelineIncluded ? 'SUCCESS' : 'FAILED'} for match: ${matchId || 'N/A'}`);
 
+    const JSON_NOTE = "IMPORTANT: Output must be valid json.";
+    let instructions = rawInstructions;
+    if (text?.format?.type === "json_object" && instructions && !/json/i.test(instructions)) {
+        instructions = `${instructions}\n\n${JSON_NOTE}`;
+    }
+    let finalPrompt = enhancedPrompt;
+    if (text?.format?.type === "json_object" && !/json/i.test(finalPrompt)) {
+        finalPrompt = `${enhancedPrompt}\n\n${JSON_NOTE}`;
+    }
+
     const payload = {
         model,
-        input: enhancedPrompt,
+        input: finalPrompt,
         max_output_tokens,
         ...instructions ? {
             instructions

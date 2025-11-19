@@ -156,18 +156,27 @@ public class MatchParser {
         _ = participantJson["firstBloodKill"] as? Bool ?? false
         _ = participantJson["firstTowerKill"] as? Bool ?? false
 
-        // Parse challenges (optional) - extract objective data
+        // Parse challenges (optional) - extract objective data and challenge-based metrics
         var dragonTakedowns = 0
         var riftHeraldTakedowns = 0
         var baronTakedowns = 0
         var hordeTakedowns = 0
         var atakhanTakedowns = 0
+        
+        // Challenge-based metrics (stored separately after participant creation)
+        var killParticipationValue: Double? = nil
+        var teamDamagePercentageValue: Double? = nil
+        var damageTakenSharePercentageValue: Double? = nil
 
         if let challenges = participantJson["challenges"] as? [String: Any] {
+            // Parse challenge-based metrics (stored as optional properties)
+            killParticipationValue = challenges["killParticipation"] as? Double
+            teamDamagePercentageValue = challenges["teamDamagePercentage"] as? Double
+            damageTakenSharePercentageValue = challenges["damageTakenSharePercentage"] as? Double
+            
+            // Parse unused challenge fields to avoid warnings
             _ = challenges["kda"] as? Double ?? 0.0
-            _ = challenges["killParticipation"] as? Double ?? 0.0
             _ = challenges["soloKills"] as? Int ?? 0
-            _ = challenges["teamDamagePercentage"] as? Double ?? 0.0
 
             // Extract objective data from challenges
             dragonTakedowns = challenges["dragonTakedowns"] as? Int ?? 0
@@ -207,6 +216,11 @@ public class MatchParser {
         )
 
         participant.match = match
+        
+        // Store challenge-based metrics (must be set after participant creation)
+        participant.killParticipationFromChallenges = killParticipationValue
+        participant.teamDamagePercentageFromChallenges = teamDamagePercentageValue
+        participant.damageTakenSharePercentageFromChallenges = damageTakenSharePercentageValue
 
         // Load champion data for this participant
         await loadChampionForParticipant(participant)

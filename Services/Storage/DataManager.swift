@@ -38,7 +38,6 @@ public class DataManager {
 
     // MARK: - Cache Configuration
     private let maxMatchesPerSummoner = 100
-    private let maxGameAgeInDays = 365
 
     // MARK: - Request Deduplication
     private var activeRequests: Set<String> = []
@@ -433,21 +432,6 @@ public class DataManager {
         }
     }
 
-    /// Gets match statistics
-    public func getMatchStatistics(for summoner: Summoner) async throws -> MatchStatistics {
-        return try await matchRepository.getMatchStatistics(for: summoner)
-    }
-
-    /// Gets match statistics with age filtering
-    public func getMatchStatisticsWithAgeFilter(for summoner: Summoner) async throws
-        -> MatchStatisticsWithAge
-    {
-        return try await matchRepository.getMatchStatisticsWithAgeFilter(
-            for: summoner,
-            maxGameAgeInDays: maxGameAgeInDays
-        )
-    }
-
     // MARK: - Champion Operations (Delegated to ChampionDataLoader)
 
     /// Loads champions with deduplication
@@ -624,44 +608,6 @@ public class DataManager {
         }
     }
 
-    /// Clears URL cache only
-    public func clearURLCache() {
-        ClaimbLogger.info("Clearing URL cache...", service: "DataManager")
-        URLCache.shared.removeAllCachedResponses()
-        ClaimbLogger.info("URL cache cleared", service: "DataManager")
-    }
-
-    /// Cancels all pending requests
-    public func cancelAllRequests() {
-        for task in requestTasks.values {
-            if let cancellableTask = task as? Task<Any, Never> {
-                cancellableTask.cancel()
-            }
-        }
-        requestTasks.removeAll()
-        activeRequests.removeAll()
-
-        ClaimbLogger.info("Cancelled all pending requests", service: "DataManager")
-    }
-}
-
-// MARK: - Supporting Types
-
-public struct MatchStatistics {
-    public let totalMatches: Int
-    public let wins: Int
-    public let losses: Int
-    public let winRate: Double
-}
-
-public struct MatchStatisticsWithAge {
-    public let totalMatches: Int
-    public let wins: Int
-    public let losses: Int
-    public let winRate: Double
-    public let oldMatchesFiltered: Int
-    public let oldestMatchDate: Int?
-    public let newestMatchDate: Int?
 }
 
 // MARK: - DataManager Errors

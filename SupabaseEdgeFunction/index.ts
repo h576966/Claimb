@@ -1,6 +1,6 @@
 // index.ts
 import { cors, json, normalizePath, isAuthorized, HAS_RIOT_KEY, HAS_OPENAI_KEY } from "./shared.ts";
-import { handleRiotMatches, handleRiotMatch, handleRiotAccount, handleRiotSummoner, handleRiotTimelineLite, handleAICoach, handleRiotLeagueEntries, handleRiotLeagueEntriesByPUUID } from "./riot_ai.ts";
+import { handleRiotMatches, handleRiotMatch, handleRiotAccount, handleRiotSummoner, handleRiotTimelineLite, handleAICoach, handleRiotLeagueEntries, handleRiotLeagueEntriesByPUUID } from "./api.ts";
 function cleanPath(p) {
     let out = normalizePath(p);
     if (out.length > 1 && out.endsWith("/")) out = out.slice(0, -1);

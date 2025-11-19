@@ -57,6 +57,7 @@ public struct CoachingSystemPrompts {
       "championSpecificAdvice": "Two sentences about what worked and what didn't.",
       "nextGameFocus": ["specific goal", "measurable target"]
     }
+    IMPORTANT: Output must be valid json. No markdown, no commentary.
     
     Maximum 110 words total across ALL fields. No text before or after JSON. No markdown formatting.
     """
@@ -93,15 +94,16 @@ public struct CoachingSystemPrompts {
     RESPONSE FORMAT:
     Your response must be EXACTLY this JSON structure with no deviations:
     {
-      "keyTrends": ["trend 1", "trend 2"],
-      "roleConsistency": "One sentence about role focus.",
-      "championPoolAnalysis": "Two sentences about champion selection.",
-      "areasOfImprovement": ["area 1", "area 2"],
-      "strengthsToMaintain": ["strength 1", "strength 2"],
-      "climbingAdvice": "Two sentences about consistency with proven champions."
+      "keyTrends": ["trend insight", "trend insight"],
+      "roleConsistency": "Two sentences on role performance consistency.",
+      "championPoolAnalysis": "Two sentences on champion pool strengths and risks.",
+      "areasOfImprovement": ["area", "area"],
+      "strengthsToMaintain": ["strength", "strength"],
+      "climbingAdvice": ["tip", "tip"]
     }
+    IMPORTANT: Output must be valid json. No markdown, no commentary.
     
-    Maximum 110 words total across ALL fields. No text before or after JSON. No markdown formatting.
+    Maximum 140 words total across ALL fields. No text before or after JSON. No markdown formatting.
     """
 }
 
@@ -125,7 +127,10 @@ public struct CoachingPromptBuilder {
         teamContext: String,
         relativePerformanceContext: String? = nil,
         baselineContext: String? = nil,
-        focusedKPIContext: String? = nil
+        focusedKPIContext: String? = nil,
+        killParticipationBaseline: Baseline? = nil,
+        objectiveParticipationBaseline: Baseline? = nil,
+        teamDamageBaseline: Baseline? = nil
     ) -> DualPrompt {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
@@ -134,14 +139,28 @@ public struct CoachingPromptBuilder {
 
         let rankContext = createRankContext(summoner: summoner)
 
-        // Add critical performance metrics
+        // Add critical performance metrics with descriptive labels (preferred over raw stats)
         let csPerMin = participant.csPerMinute.oneDecimal
         let visionPerMin = participant.visionScorePerMinute.oneDecimal
-        let killParticipation = participant.killParticipation.asPercentage
-        let teamDamage = participant.teamDamagePercentage.asPercentage
+        let killParticipationLabel = formatParticipationLabel(
+            value: participant.killParticipation,
+            metric: "kill_participation_pct",
+            baseline: killParticipationBaseline,
+            labelPrefix: "Kill Participation"
+        )
+        let teamDamageLabel = formatParticipationLabel(
+            value: participant.teamDamagePercentage,
+            metric: "team_damage_pct",
+            baseline: teamDamageBaseline,
+            labelPrefix: "Damage Share"
+        )
         let goldPerMin = participant.goldPerMinute.asWholeNumber
-        let objectiveParticipation = String(
-            format: "%.0f%%", participant.objectiveParticipationPercentage)
+        let objectiveParticipationLabel = formatParticipationLabel(
+            value: participant.objectiveParticipationPercentage,
+            metric: "objective_participation_pct",
+            baseline: objectiveParticipationBaseline,
+            labelPrefix: "Objective Participation"
+        )
 
         // Add queue context for coaching relevance
         let queueContext =
@@ -158,10 +177,10 @@ public struct CoachingPromptBuilder {
             **PERFORMANCE METRICS:**
             - CS: \(cs) total (\(csPerMin)/min)
             - Vision: \(visionPerMin)/min
-            - Kill Participation: \(killParticipation)
-            - Team Damage: \(teamDamage)
+            - Kill Participation: \(killParticipationLabel)
+            - Team Damage: \(teamDamageLabel)
             - Gold/min: \(goldPerMin)
-            - Objective Participation: \(objectiveParticipation)
+            - Objective Participation: \(objectiveParticipationLabel)
             """
 
         // Add relative performance context if available
@@ -558,6 +577,53 @@ public struct CoachingPromptBuilder {
     }
 
     // MARK: - Helper Methods
+    
+    /// Formats participation metrics as descriptive labels using baseline-based logic
+    /// Uses the same logic as KPIDisplayService for consistency
+    /// Falls back to basic thresholds if baseline is unavailable
+    private static func formatParticipationLabel(
+        value: Double,
+        metric: String,
+        baseline: Baseline?,
+        labelPrefix: String
+    ) -> String {
+        let performanceLevel: Baseline.PerformanceLevel
+        
+        if let baseline = baseline {
+            // Use baseline-based logic (same as KPIDisplayService)
+            // Standard logic for participation metrics - higher is better
+            if value >= baseline.p60 * 1.1 {
+                performanceLevel = .excellent
+            } else if value >= baseline.p60 {
+                performanceLevel = .good
+            } else if value >= baseline.p40 {
+                performanceLevel = .needsImprovement
+            } else {
+                performanceLevel = .poor
+            }
+        } else {
+            // Fallback to basic performance levels (same as KPIDisplayService.getBasicPerformanceLevel)
+            if value >= 0.7 {
+                performanceLevel = .excellent
+            } else if value >= 0.5 {
+                performanceLevel = .good
+            } else {
+                performanceLevel = .needsImprovement
+            }
+        }
+        
+        // Convert performance level to descriptive label
+        switch performanceLevel {
+        case .excellent:
+            return "Excellent \(labelPrefix)"
+        case .good:
+            return "Good \(labelPrefix)"
+        case .needsImprovement:
+            return "Low \(labelPrefix)"
+        case .poor:
+            return "Very Low \(labelPrefix)"
+        }
+    }
 
     private static func calculateAverageCS(matches: [Match], summoner: Summoner) -> Double {
         let values = matches.compactMap { match -> Double? in

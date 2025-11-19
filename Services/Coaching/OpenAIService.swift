@@ -70,6 +70,18 @@ public class OpenAIService {
             dataManager: kpiService.dataManager
         )
         
+        // Get baselines for participation metrics (used for descriptive labels in prompt)
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        let killParticipationBaseline = try? await kpiService.dataManager.getBaseline(
+            role: baselineRole, classTag: "ALL", metric: "kill_participation_pct"
+        )
+        let objectiveParticipationBaseline = try? await kpiService.dataManager.getBaseline(
+            role: baselineRole, classTag: "ALL", metric: "objective_participation_pct"
+        )
+        let teamDamageBaseline = try? await kpiService.dataManager.getBaseline(
+            role: baselineRole, classTag: "ALL", metric: "team_damage_pct"
+        )
+        
         // Get focused KPI context if player has one
         let focusedKPIContext: String? = {
             guard let focusedKPI = userSession?.focusedKPI else {
@@ -91,7 +103,10 @@ public class OpenAIService {
             teamContext: teamContext,
             relativePerformanceContext: relativePerformanceContext,
             baselineContext: baselineContext,
-            focusedKPIContext: focusedKPIContext
+            focusedKPIContext: focusedKPIContext,
+            killParticipationBaseline: killParticipationBaseline,
+            objectiveParticipationBaseline: objectiveParticipationBaseline,
+            teamDamageBaseline: teamDamageBaseline
         )
 
         // Note: JSON schema enforcement is handled by the edge function

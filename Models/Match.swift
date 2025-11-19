@@ -98,16 +98,23 @@ public class Match {
 
     // Helper method to calculate team objectives
     // Returns the count of unique objectives taken by the team (not summing all player takedowns)
+    // Each player's takedown count represents the number of unique objectives they participated in
+    // The max across all players gives the total objectives taken by the team
     public func getTeamObjectives(teamId: Int) -> Int {
         let teamParticipants = participants.filter { $0.teamId == teamId }
+        guard !teamParticipants.isEmpty else { return 0 }
         
-        // For each objective type, check if ANY player on the team participated
-        // If yes, count it as 1 objective (not sum of all players' takedowns)
-        let dragonKills = teamParticipants.contains(where: { $0.dragonTakedowns > 0 }) ? teamParticipants.map { $0.dragonTakedowns }.max() ?? 0 : 0
-        let riftHeraldKills = teamParticipants.contains(where: { $0.riftHeraldTakedowns > 0 }) ? teamParticipants.map { $0.riftHeraldTakedowns }.max() ?? 0 : 0
-        let baronKills = teamParticipants.contains(where: { $0.baronTakedowns > 0 }) ? teamParticipants.map { $0.baronTakedowns }.max() ?? 0 : 0
-        let hordeKills = teamParticipants.contains(where: { $0.hordeTakedowns > 0 }) ? teamParticipants.map { $0.hordeTakedowns }.max() ?? 0 : 0
-        let atakhanKills = teamParticipants.contains(where: { $0.atakhanTakedowns > 0 }) ? teamParticipants.map { $0.atakhanTakedowns }.max() ?? 0 : 0
+        // Helper to get max takedowns for an objective type (avoids code duplication)
+        func maxTakedowns(_ extractor: (Participant) -> Int) -> Int {
+            guard teamParticipants.contains(where: { extractor($0) > 0 }) else { return 0 }
+            return teamParticipants.map(extractor).max() ?? 0
+        }
+        
+        let dragonKills = maxTakedowns { $0.dragonTakedowns }
+        let riftHeraldKills = maxTakedowns { $0.riftHeraldTakedowns }
+        let baronKills = maxTakedowns { $0.baronTakedowns }
+        let hordeKills = maxTakedowns { $0.hordeTakedowns }
+        let atakhanKills = maxTakedowns { $0.atakhanTakedowns }
 
         return dragonKills + riftHeraldKills + baronKills + hordeKills + atakhanKills
     }
