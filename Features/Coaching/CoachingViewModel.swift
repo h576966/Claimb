@@ -27,6 +27,7 @@ class CoachingViewModel {
     // MARK: - State
     var isAnalyzing = false
     var matchState: UIState<[Match]> = .idle
+    var isLoadingMatches = false
 
     // MARK: - Dual-Focused Coaching State
     var postGameAnalysis: PostGameAnalysis?
@@ -49,6 +50,8 @@ class CoachingViewModel {
 
     // MARK: - Performance Summary Update Logic
     private let performanceSummaryUpdateInterval = 5  // Update every 5 games
+    private var loadMatchesTask: Task<Void, Never>?
+    private var loadRequestID = 0
 
     init(
         dataManager: DataManager, summoner: Summoner, primaryRole: String,
@@ -69,8 +72,46 @@ class CoachingViewModel {
 
     // MARK: - Public Methods
 
-    func loadMatches() async {
+    func startInitialLoadIfNeeded() {
+        if matchState.isLoaded { return }
+        _ = startLoadTask()
+    }
+
+    func refreshMatchesFromUser() async {
+        if isLoadingMatches {
+            if let task = loadMatchesTask {
+                await task.value
+            }
+            return
+        }
+
+        if let task = startLoadTask() {
+            await task.value
+        }
+    }
+
+    @discardableResult
+    private func startLoadTask() -> Task<Void, Never>? {
+        if isLoadingMatches {
+            return loadMatchesTask
+        }
+
+        loadRequestID += 1
+        let requestID = loadRequestID
+        isLoadingMatches = true
+
+        let task = Task.detached { [weak self] in
+            await self?.performLoadMatches(requestID: requestID)
+        }
+        loadMatchesTask = task
+        return task
+    }
+
+    @MainActor
+    private func performLoadMatches(requestID: Int) async {
         matchState = .loading
+
+        defer { completeLoad(requestID: requestID) }
 
         do {
             let matches = try await dataManager.getMatches(for: summoner)
@@ -83,10 +124,8 @@ class CoachingViewModel {
                     "matchCount": String(matches.count),
                 ])
 
-            // Clean up expired coaching responses periodically
             await cleanupExpiredResponses()
 
-            // Load cached data for immediate display (no auto-generation)
             if !matches.isEmpty {
                 await loadCachedPostGameAnalysis(for: matches[0])
                 await loadCachedPerformanceSummary(matches: matches)
@@ -97,6 +136,13 @@ class CoachingViewModel {
             ClaimbLogger.error(
                 "Failed to load matches for coaching", service: "CoachingViewModel",
                 error: error)
+        }
+    }
+
+    private func completeLoad(requestID: Int) {
+        if requestID == loadRequestID {
+            isLoadingMatches = false
+            loadMatchesTask = nil
         }
     }
 

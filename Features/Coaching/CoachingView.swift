@@ -29,7 +29,6 @@ struct CoachingView: View {
     @Bindable var userSession: UserSession
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CoachingViewModel?
-    @State private var refreshTrigger = 0
 
     var body: some View {
         ZStack {
@@ -49,7 +48,9 @@ struct CoachingView: View {
                         loadingMessage: "Loading coaching data...",
                         emptyMessage: "No matches found for analysis",
                         retryAction: {
-                            refreshTrigger += 1
+                            Task {
+                                await viewModel?.refreshMatchesFromUser()
+                            }
                         }
                     ) { matches in
                         coachingContentView(matches: matches)
@@ -94,10 +95,7 @@ struct CoachingView: View {
             if viewModel == nil {
                 initializeViewModel()
             }
-        }
-        .task(id: refreshTrigger) {
-            // This runs on first appear AND whenever refreshTrigger changes
-            await viewModel?.loadMatches()
+            viewModel?.startInitialLoadIfNeeded()
         }
     }
 
@@ -108,10 +106,12 @@ struct CoachingView: View {
                 title: "Refresh",
                 icon: "arrow.clockwise",
                 action: {
-                    refreshTrigger += 1
+                    Task {
+                        await viewModel?.refreshMatchesFromUser()
+                    }
                 },
-                isLoading: viewModel?.isAnalyzing ?? false,
-                isDisabled: viewModel?.isAnalyzing ?? false
+                isLoading: viewModel?.isLoadingMatches ?? false,
+                isDisabled: viewModel?.isLoadingMatches ?? false
             ),
             userSession: userSession
         )
@@ -171,7 +171,7 @@ struct CoachingView: View {
                 .padding(.bottom, DesignSystem.Spacing.xl)
             }
             .refreshable {
-                await viewModel?.loadMatches()
+                await viewModel?.refreshMatchesFromUser()
                 
                 // Trigger analysis generation on pull-to-refresh
                 if let matches = viewModel?.matchState.data, !matches.isEmpty {
