@@ -33,6 +33,7 @@
 		F3430E102ECF481F00A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3430F842ECF4E8000A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F34310FF2ECF55B500A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F34315B12ECF5FA600A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F34AF0832EC222FD0025B4FA /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35022E72EA2036E003C4354 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -72,20 +73,12 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		F3CDD1FF2E8B336300CB00F8 /* Exceptions for "." folder in "Claimb" target */ = {
+		F3F0A1B12EB4A65300A54E91 /* Exceptions for "." folder in "Claimb" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				.gitignore,
 				"Claimb-Info.plist",
 				README.md,
-				".gitignore",
-			);
-			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
-		};
-		F3F0A1B12EB4A65300A54E91 /* Test folders excluded from app target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				ClaimbTests,
-				ClaimbUITests,
 			);
 			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
 		};
@@ -95,8 +88,7 @@
 		F35E2E732E6E0C0B009DDF39 /* . */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				F3CDD1FF2E8B336300CB00F8 /* Exceptions for "." folder in "Claimb" target */,
-				F3F0A1B12EB4A65300A54E91 /* Test folders excluded from app target */,
+				F3F0A1B12EB4A65300A54E91 /* Exceptions for "." folder in "Claimb" target */,
 			);
 			path = .;
 			sourceTree = "<group>";
@@ -173,6 +165,11 @@
 			sourceTree = "<group>";
 		};
 		F34311042ECF55B500A3086B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F34315B62ECF5FA600A3086B /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -522,6 +519,10 @@
 					ProjectRef = F3430E102ECF481F00A3086B /* Claimb.xcodeproj */;
 				},
 				{
+					ProductGroup = F34315B62ECF5FA600A3086B /* Products */;
+					ProjectRef = F34315B12ECF5FA600A3086B /* Claimb.xcodeproj */;
+				},
+				{
 					ProductGroup = F3B89FD12E8DD0E6007AAF06 /* Products */;
 					ProjectRef = F3B89FC82E8DD0E6007AAF06 /* Claimb.xcodeproj */;
 				},
@@ -811,6 +812,10 @@
 				CURRENT_PROJECT_VERSION = 20251120;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"ClaimbTests/**",
+					"ClaimbUITests/**",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Claimb-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
@@ -820,12 +825,11 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				EXCLUDED_SOURCE_FILE_NAMES = "ClaimbTests/** ClaimbUITests/**";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.4;
+				MARKETING_VERSION = 0.2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -849,6 +853,10 @@
 				CURRENT_PROJECT_VERSION = 20251120;
 				DEVELOPMENT_TEAM = D34YV95673;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"ClaimbTests/**",
+					"ClaimbUITests/**",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Claimb-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
@@ -858,12 +866,11 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				EXCLUDED_SOURCE_FILE_NAMES = "ClaimbTests/** ClaimbUITests/**";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.4;
+				MARKETING_VERSION = 0.2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

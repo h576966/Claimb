@@ -200,17 +200,18 @@ struct CoachingView: View {
                 if let participant = lastMatch.participants.first(where: {
                     $0.puuid == summoner.puuid
                 }) {
-                    VStack(spacing: 0) {
+                    VStack(spacing: DesignSystem.Spacing.md) {
                         lastGameSummaryContent(match: lastMatch, participant: participant)
-                            .padding(DesignSystem.Spacing.lg)
+                            .padding(.horizontal, DesignSystem.Spacing.md)
+                            .padding(.top, DesignSystem.Spacing.md)
 
                         Divider()
-                            .padding(.horizontal, DesignSystem.Spacing.lg)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
+                            .padding(.horizontal, DesignSystem.Spacing.md)
+                            .padding(.vertical, DesignSystem.Spacing.xs)
 
                         expandedMatchKPISection(match: lastMatch, participant: participant)
-                            .padding(.horizontal, DesignSystem.Spacing.lg)
-                            .padding(.bottom, DesignSystem.Spacing.lg)
+                            .padding(.horizontal, DesignSystem.Spacing.md)
+                            .padding(.bottom, DesignSystem.Spacing.md)
                     }
                 } else {
                     Text("Unable to load last game data")
@@ -788,70 +789,62 @@ struct CoachingView: View {
     // MARK: - Expandable Match KPI Section
     
     private func expandedMatchKPISection(match: Match, participant: Participant) -> some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            Divider()
-                .background(DesignSystem.Colors.cardBorder)
-                .padding(.horizontal, DesignSystem.Spacing.md)
+        VStack(spacing: DesignSystem.Spacing.sm) {
+            // Section title
+            HStack {
+                Text("Match Performance")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                Spacer()
+            }
             
-            VStack(spacing: DesignSystem.Spacing.sm) {
-                // Section title
-                HStack {
-                    Text("Match Performance")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                    Spacer()
-                }
-                
-                // KPI Grid
-                let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
-                let kpis = getMatchKPIs(for: participant, match: match, role: role)
-                
-                if kpis.isEmpty {
-                    Text("No KPI data available for this match")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        .padding(.vertical, DesignSystem.Spacing.sm)
-                } else {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible()),
-                            GridItem(.flexible()),
-                        ], spacing: DesignSystem.Spacing.sm
-                    ) {
-                        ForEach(kpis, id: \.metric) { kpi in
-                            let isFocused = userSession.focusedKPI == kpi.metric
-                            VStack(spacing: DesignSystem.Spacing.xs) {
-                                Text(kpi.value)
-                                    .font(DesignSystem.Typography.bodyBold)
-                                    .foregroundColor(kpi.color)
-                                
-                                Text(kpi.displayName)
-                                    .font(DesignSystem.Typography.caption)
-                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.vertical, DesignSystem.Spacing.xs)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                isFocused
-                                    ? DesignSystem.Colors.accent.opacity(0.1)
-                                    : Color.clear
-                            )
-                            .cornerRadius(DesignSystem.CornerRadius.small)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
-                                    .stroke(
-                                        isFocused ? DesignSystem.Colors.accent : Color.clear,
-                                        lineWidth: 1
-                                    )
-                            )
+            // KPI Grid
+            let role = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            let kpis = getMatchKPIs(for: participant, match: match, role: role)
+            
+            if kpis.isEmpty {
+                Text("No KPI data available for this match")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+            } else {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                    ], spacing: DesignSystem.Spacing.xs
+                ) {
+                    ForEach(kpis, id: \.metric) { kpi in
+                        let isFocused = userSession.focusedKPI == kpi.metric
+                        VStack(spacing: DesignSystem.Spacing.xs) {
+                            Text(kpi.value)
+                                .font(DesignSystem.Typography.bodyBold)
+                                .foregroundColor(kpi.color)
+                            
+                            Text(kpi.displayName)
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                                .multilineTextAlignment(.center)
                         }
+                        .padding(.vertical, DesignSystem.Spacing.xs)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            isFocused
+                                ? DesignSystem.Colors.accent.opacity(0.1)
+                                : Color.clear
+                        )
+                        .cornerRadius(DesignSystem.CornerRadius.small)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small)
+                                .stroke(
+                                    isFocused ? DesignSystem.Colors.accent : Color.clear,
+                                    lineWidth: 1
+                                )
+                        )
                     }
                 }
             }
-            .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.bottom, DesignSystem.Spacing.md)
         }
     }
     
