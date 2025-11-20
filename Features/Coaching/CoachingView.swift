@@ -30,7 +30,6 @@ struct CoachingView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: CoachingViewModel?
     @State private var refreshTrigger = 0
-    @State private var isLastMatchExpanded = false
 
     var body: some View {
         ZStack {
@@ -201,28 +200,17 @@ struct CoachingView: View {
                 if let participant = lastMatch.participants.first(where: {
                     $0.puuid == summoner.puuid
                 }) {
-                    // Main card content (always visible) - entire card is clickable
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isLastMatchExpanded.toggle()
-                        }
-                    }) {
-                        HStack(spacing: DesignSystem.Spacing.md) {
-                            lastGameSummaryContent(match: lastMatch, participant: participant)
-                            
-                            // Expand/Collapse indicator
-                            Image(systemName: isLastMatchExpanded ? "chevron.up" : "chevron.down")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                        }
-                        .padding(DesignSystem.Spacing.lg)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Expanded content (animated)
-                    if isLastMatchExpanded {
+                    VStack(spacing: 0) {
+                        lastGameSummaryContent(match: lastMatch, participant: participant)
+                            .padding(DesignSystem.Spacing.lg)
+
+                        Divider()
+                            .padding(.horizontal, DesignSystem.Spacing.lg)
+                            .padding(.vertical, DesignSystem.Spacing.sm)
+
                         expandedMatchKPISection(match: lastMatch, participant: participant)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .padding(.horizontal, DesignSystem.Spacing.lg)
+                            .padding(.bottom, DesignSystem.Spacing.lg)
                     }
                 } else {
                     Text("Unable to load last game data")

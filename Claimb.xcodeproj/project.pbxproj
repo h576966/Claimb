@@ -76,6 +76,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Claimb-Info.plist",
+				README.md,
+				".gitignore",
 			);
 			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
 		};
