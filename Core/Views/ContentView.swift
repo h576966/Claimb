@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var healthMonitor: AppHealthMonitor
     @State private var userSession: UserSession?
     @State private var refreshTrigger = 0
 
@@ -62,11 +63,21 @@ struct ContentView: View {
             ClaimbLogger.debug("Received UserSessionDidChange notification", service: "ContentView")
             refreshTrigger += 1
         }
+        .alert(item: $healthMonitor.launchIssue) { issue in
+            Alert(
+                title: Text(issue.title),
+                message: Text(issue.message),
+                dismissButton: .default(Text("OK")) {
+                    healthMonitor.clearIssue()
+                }
+            )
+        }
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AppHealthMonitor())
         .modelContainer(for: [
             Summoner.self, Match.self, Participant.self, Champion.self, Baseline.self,
         ])

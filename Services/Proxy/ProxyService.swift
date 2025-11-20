@@ -484,15 +484,16 @@ public class ProxyService {
             // Try to parse as JSON first to see what we're getting
             do {
                 let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+                var metadata: [String: String] = [
+                    "puuid": puuid,
+                    "jsonType": String(describing: type(of: jsonObject)),
+                ]
+                if let dictionary = jsonObject as? [String: Any] {
+                    metadata["jsonKeys"] = dictionary.keys.sorted().joined(separator: ",")
+                }
                 ClaimbLogger.debug(
                     "Proxy: Successfully parsed JSON object", service: "ProxyService",
-                    metadata: [
-                        "puuid": puuid,
-                        "jsonType": String(describing: type(of: jsonObject)),
-                        "jsonKeys": jsonObject is [String: Any]
-                            ? Array((jsonObject as! [String: Any]).keys).joined(separator: ",") : ""
-                            ,
-                    ]
+                    metadata: metadata
                 )
             } catch {
                 ClaimbLogger.error(

@@ -6,7 +6,7 @@
   **Your personal performance analytics coach**
   
   [![iOS](https://img.shields.io/badge/iOS-18.0+-blue.svg)](https://developer.apple.com/ios/)
-  [![Swift](https://img.shields.io/badge/Swift-6.1+-orange.svg)](https://swift.org/)
+  [![Swift](https://img.shields.io/badge/Swift-5.0+-orange.svg)](https://swift.org/)
   [![SwiftUI](https://img.shields.io/badge/SwiftUI-6.0-green.svg)](https://developer.apple.com/xcode/swiftui/)
   [![SwiftData](https://img.shields.io/badge/SwiftData-1.0-purple.svg)](https://developer.apple.com/documentation/swiftdata/)
 </div>
@@ -28,11 +28,29 @@ Claimb is a **local-first** performance analytics app designed for competitive g
 
 ### **Technology Stack**
 - **Platform**: iOS 18+ (iPhone only)
-- **Language**: Swift 6.1+
+- **Language**: Swift 5.0+
 - **UI Framework**: SwiftUI 6.0
 - **Data Persistence**: SwiftData
 - **Networking**: URLSession with async/await
 - **APIs**: Supabase Edge Functions (Riot Games API, Data Dragon API, OpenAI API)
+
+### **iOS Compatibility**
+
+**Minimum Requirements:**
+- **iOS Version**: iOS 18.0 or later
+- **Devices**: iPhone with iOS 18 support (iPhone XS and later)
+- **Note**: App requires iOS 18.0+ and will not install on devices running iOS 17 or earlier
+
+**Supported Devices:**
+- ✅ iPhone XS / XS Max / XR (iOS 18.0+)
+- ✅ iPhone 11 / 11 Pro / 11 Pro Max (iOS 18.0+)
+- ✅ iPhone 12 / 12 mini / 12 Pro / 12 Pro Max (iOS 18.0+)
+- ✅ iPhone 13 / 13 mini / 13 Pro / 13 Pro Max (iOS 18.0+)
+- ✅ iPhone 14 / 14 Plus / 14 Pro / 14 Pro Max (iOS 18.0+)
+- ✅ iPhone 15 / 15 Plus / 15 Pro / 15 Pro Max (iOS 18.0+)
+- ✅ iPhone 16 series and later (iOS 18.0+)
+
+**Important:** Even if your device supports iOS 18, you must have iOS 18.0 or later installed. Devices running iOS 16 or iOS 17 cannot install or run Claimb, even if they are iPhone 14 or newer.
 
 ### **Design Principles**
 - **Local-First**: All data stored locally, no backend required
@@ -118,6 +136,11 @@ We recently completed a comprehensive production-readiness initiative to ensure 
 - **App Transport Security**: Verified secure HTTPS configuration for all APIs
 - **Network permissions**: User-friendly network usage description
 - **Ready for submission**: All required Info.plist keys present
+
+### 🔁 **Release Checklist**
+1. Update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in Xcode (Target → General → Identity). Build numbers follow calendar versioning (e.g. `20251120`) and must increase for every App Store upload.
+2. Verify the Supabase function URL (`ClaimbFunctionBaseURL`), anon key, and app token build settings before archiving.
+3. Run the automated test suite (Unit + UI tests) and verify no launch issues remain in `Settings → Privacy & Security → Analytics`.
 
 ### **✅ Security Hardening**
 - **No hardcoded keys**: Verified no API keys in source code
@@ -437,7 +460,7 @@ We welcome contributions! Please follow these guidelines:
 - Include comprehensive error handling
 - Use structured logging with ClaimbLogger
 - Follow dependency injection patterns
-- Use @Observable for view models (Swift 6)
+- Use @Observable for view models (Swift 5.9+)
 - Implement proper async/await patterns
 
 ## 📄 **License**

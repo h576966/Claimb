@@ -123,7 +123,7 @@ class CoachingViewModel {
             if match.id != lastNotifiedMatchId {
                 lastNotifiedMatchId = match.id
                 showPostGameAnalysisToast = true
-                autoDismissToast(&showPostGameAnalysisToast)
+                autoDismissToast { self.showPostGameAnalysisToast = $0 }
             }
         }
     }
@@ -143,17 +143,17 @@ class CoachingViewModel {
             if matchCount != lastNotifiedSummaryMatchCount && matchCount % performanceSummaryUpdateInterval == 0 {
                 lastNotifiedSummaryMatchCount = matchCount
                 showPerformanceSummaryToast = true
-                autoDismissToast(&showPerformanceSummaryToast)
+                autoDismissToast { self.showPerformanceSummaryToast = $0 }
             }
         }
     }
 
     /// Auto-dismisses toast after 3 seconds
-    private func autoDismissToast(_ showToast: inout Bool) {
+    private func autoDismissToast(showToast: @escaping (Bool) -> Void) {
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             await MainActor.run {
-                showToast = false
+                showToast(false)
             }
         }
     }
@@ -203,7 +203,7 @@ class CoachingViewModel {
             if match.id != lastNotifiedMatchId {
                 lastNotifiedMatchId = match.id
                 showPostGameAnalysisToast = true
-                autoDismissToast(&showPostGameAnalysisToast)
+                autoDismissToast { self.showPostGameAnalysisToast = $0 }
             }
 
             ClaimbLogger.info(
@@ -296,7 +296,7 @@ class CoachingViewModel {
             if matchCount != lastNotifiedSummaryMatchCount && matchCount % performanceSummaryUpdateInterval == 0 {
                 lastNotifiedSummaryMatchCount = matchCount
                 showPerformanceSummaryToast = true
-                autoDismissToast(&showPerformanceSummaryToast)
+                autoDismissToast { self.showPerformanceSummaryToast = $0 }
             }
 
             ClaimbLogger.info(

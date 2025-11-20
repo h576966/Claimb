@@ -11,8 +11,10 @@ import SwiftUI
 
 @main
 struct ClaimbApp: App {
+    private let sharedModelContainer: ModelContainer
+    @StateObject private var healthMonitor: AppHealthMonitor
 
-    var sharedModelContainer: ModelContainer = {
+    init() {
         let schema = Schema([
             Summoner.self,
             Match.self,
@@ -22,7 +24,12 @@ struct ClaimbApp: App {
             CoachingResponseCache.self,
         ])
 
-        // Check if we need to clear the database due to model changes
+        ClaimbApp.prepareDataStoreMetadata()
+        sharedModelContainer = ClaimbApp.createModelContainer(with: schema)
+        _healthMonitor = StateObject(wrappedValue: AppHealthMonitor.shared)
+    }
+
+    private static func prepareDataStoreMetadata() {
         let currentVersion = "2.0"  // Increment when making breaking model changes
         let lastVersion = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.dataVersion)
 
@@ -36,42 +43,58 @@ struct ClaimbApp: App {
         if lastVersion != currentVersion {
             ClaimbLogger.warning(
                 "Version mismatch detected, performing selective migration", service: "ClaimbApp")
-            // Check if we have existing data before clearing
-            let hasExistingData = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.summonerName) != nil
+            let hasExistingData = UserDefaults.standard.string(
+                forKey: AppConstants.UserDefaultsKeys.summonerName) != nil
             if hasExistingData {
                 ClaimbLogger.warning(
                     "Migrating database with existing user data", service: "ClaimbApp")
             }
-            // Perform selective migration instead of nuclear clearing
             ClaimbApp.performSelectiveMigration()
             UserDefaults.standard.set(currentVersion, forKey: AppConstants.UserDefaultsKeys.dataVersion)
+        } else if lastVersion == nil {
+            UserDefaults.standard.set(currentVersion, forKey: AppConstants.UserDefaultsKeys.dataVersion)
+            ClaimbLogger.info(
+                "Set initial database version", service: "ClaimbApp",
+                metadata: [
+                    "version": currentVersion
+                ])
         } else {
             ClaimbLogger.debug("Database version matches, no clearing needed", service: "ClaimbApp")
-            // Set the version if it doesn't exist (first run)
-            if lastVersion == nil {
-                UserDefaults.standard.set(currentVersion, forKey: AppConstants.UserDefaultsKeys.dataVersion)
-                ClaimbLogger.info(
-                    "Set initial database version", service: "ClaimbApp",
-                    metadata: [
-                        "version": currentVersion
-                    ])
-            }
         }
+    }
 
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    private static func createModelContainer(with schema: Schema) -> ModelContainer {
+        let persistentConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(for: schema, configurations: [persistentConfig])
         } catch {
-            // If still failing, try clearing and recreating
+            ClaimbLogger.error(
+                "Failed to create persistent ModelContainer", service: "ClaimbApp", error: error)
             clearDatabase()
             do {
-                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+                return try ModelContainer(for: schema, configurations: [persistentConfig])
             } catch {
-                fatalError("Could not create ModelContainer: \(error)")
+                ClaimbLogger.error(
+                    "Failed to recreate persistent ModelContainer after clearing database",
+                    service: "ClaimbApp", error: error)
+                AppHealthReporter.report(
+                    LaunchIssue(
+                        title: "Data Storage Unavailable",
+                        message:
+                            "Claimb could not access its local database. Your cached data will be unavailable in this session.",
+                        severity: .critical))
+
+                let memoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                if let fallback = try? ModelContainer(for: schema, configurations: [memoryConfig]) {
+                    return fallback
+                }
+
+                // As a last resort, crash with context rather than silently failing
+                fatalError("Could not create any ModelContainer instance")
             }
         }
-    }()
+    }
 
     private static func clearDatabase() {
         ClaimbLogger.info("Starting database clear", service: "ClaimbApp")
@@ -90,11 +113,14 @@ struct ClaimbApp: App {
             ])
 
         // Clear all UserDefaults first
-        let domain = Bundle.main.bundleIdentifier!
-        UserDefaults.standard.removePersistentDomain(forName: domain)
-        UserDefaults.standard.synchronize()
-
-        ClaimbLogger.info("UserDefaults cleared", service: "ClaimbApp")
+        if let domain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+            UserDefaults.standard.synchronize()
+            ClaimbLogger.info("UserDefaults cleared", service: "ClaimbApp")
+        } else {
+            ClaimbLogger.warning(
+                "Unable to determine bundle identifier while clearing database", service: "ClaimbApp")
+        }
 
         // Restore login credentials after clearing
         if let gameName = savedGameName {
@@ -114,24 +140,29 @@ struct ClaimbApp: App {
         }
 
         // Remove the database file to force recreation
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            .first!
-        let storeURL = documentsPath.appendingPathComponent("default.store")
+        if let documentsPath = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask).first {
+            let storeURL = documentsPath.appendingPathComponent("default.store")
+            try? FileManager.default.removeItem(at: storeURL)
+            try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("wal"))
+            try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("shm"))
+        } else {
+            ClaimbLogger.warning(
+                "Unable to find documents directory when clearing database", service: "ClaimbApp")
+        }
 
-        // Remove all possible database files
-        try? FileManager.default.removeItem(at: storeURL)
-        try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("wal"))
-        try? FileManager.default.removeItem(at: storeURL.appendingPathExtension("shm"))
-
-        // Also clear from Application Support directory (where SwiftData actually stores files)
-        let appSupportPath = FileManager.default.urls(
+        if let appSupportPath = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let appSupportStoreURL = appSupportPath.appendingPathComponent("default.store")
-
-        try? FileManager.default.removeItem(at: appSupportStoreURL)
-        try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("wal"))
-        try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("shm"))
+        ).first {
+            let appSupportStoreURL = appSupportPath.appendingPathComponent("default.store")
+            try? FileManager.default.removeItem(at: appSupportStoreURL)
+            try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("wal"))
+            try? FileManager.default.removeItem(at: appSupportStoreURL.appendingPathExtension("shm"))
+        } else {
+            ClaimbLogger.warning(
+                "Unable to find application support directory when clearing database",
+                service: "ClaimbApp")
+        }
 
         ClaimbLogger.info(
             "Database cleared for migration, login credentials preserved", service: "ClaimbApp")
@@ -154,6 +185,7 @@ struct ClaimbApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(healthMonitor)
         }
         .modelContainer(sharedModelContainer)
     }
