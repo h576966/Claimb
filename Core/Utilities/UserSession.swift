@@ -132,6 +132,7 @@ public class UserSession {
                     // Already on MainActor (@MainActor class)
                     self.currentSummoner = summoner
                     self.isLoggedIn = true
+                    self.applyStoredPrimaryRole(for: summoner)
                 } else {
                     // Summoner not found in database, but we have credentials
                     // Try to recreate the summoner from stored credentials
@@ -190,6 +191,7 @@ public class UserSession {
         // Already on MainActor (@MainActor class)
         self.currentSummoner = summoner
         self.isLoggedIn = true
+        self.applyStoredPrimaryRole(for: summoner)
 
         ClaimbLogger.info(
             "Successfully recreated summoner from stored credentials", service: "UserSession")
@@ -226,6 +228,7 @@ public class UserSession {
         // Update session state
         self.currentSummoner = summoner
         self.isLoggedIn = true
+        applyStoredPrimaryRole(for: summoner)
 
         ClaimbLogger.info(
             "Login completed", service: "UserSession",
@@ -301,6 +304,7 @@ public class UserSession {
 
         // Clear stored credentials
         clearStoredCredentials()
+        selectedPrimaryRole = "TOP"
 
         // Update session state
         self.currentSummoner = nil
@@ -372,6 +376,39 @@ public class UserSession {
         }
     }
     
+    private func primaryRoleStorageKey(for summoner: Summoner?) -> String {
+        guard let summoner else {
+            return AppConstants.UserDefaultsKeys.selectedPrimaryRole
+        }
+        return "\(AppConstants.UserDefaultsKeys.selectedPrimaryRole)_\(summoner.puuid)"
+    }
+    
+    private func applyStoredPrimaryRole(for summoner: Summoner) {
+        let key = primaryRoleStorageKey(for: summoner)
+        if let storedRole = UserDefaults.standard.string(forKey: key) {
+            selectedPrimaryRole = storedRole
+            return
+        }
+        
+        // Migrate legacy global role if present
+        if let legacyRole = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole) {
+            selectedPrimaryRole = legacyRole
+            UserDefaults.standard.set(legacyRole, forKey: key)
+            UserDefaults.standard.removeObject(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole)
+            return
+        }
+        
+        selectedPrimaryRole = "TOP"
+    }
+    
+    private func hasStoredPrimaryRole(for summoner: Summoner) -> Bool {
+        if UserDefaults.standard.string(forKey: primaryRoleStorageKey(for: summoner)) != nil {
+            return true
+        }
+        // Legacy fallback
+        return UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole) != nil
+    }
+    
     /// Loads the stored game type filter from UserDefaults
     private func loadStoredGameTypeFilter() {
         if let storedFilter = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.rankedOnlyFilter),
@@ -431,7 +468,8 @@ public class UserSession {
     /// Updates the primary role and persists it
     public func updatePrimaryRole(_ role: String) {
         selectedPrimaryRole = role
-        UserDefaults.standard.set(role, forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole)
+        let key = primaryRoleStorageKey(for: currentSummoner)
+        UserDefaults.standard.set(role, forKey: key)
         ClaimbLogger.info("Primary role updated", service: "UserSession", metadata: ["role": role])
     }
 
@@ -445,11 +483,13 @@ public class UserSession {
     /// Sets the primary role based on most played role from match data
     /// Only auto-selects if no role has been manually selected before (not stored in UserDefaults)
     public func setPrimaryRoleFromMatchData(roleStats: [RoleStats]) {
-        // Check if a role has been manually set by user (stored in UserDefaults)
-        let hasManuallySelectedRole = UserDefaults.standard.string(forKey: AppConstants.UserDefaultsKeys.selectedPrimaryRole) != nil
+        guard let currentSummoner = currentSummoner else {
+            ClaimbLogger.debug("No current summoner for auto-selection", service: "UserSession")
+            return
+        }
         
-        // Only auto-select if user hasn't manually selected a role yet
-        guard !hasManuallySelectedRole else {
+        // Check if a role has been manually set by user for this summoner
+        if hasStoredPrimaryRole(for: currentSummoner) {
             ClaimbLogger.debug(
                 "Role already manually selected, skipping auto-selection",
                 service: "UserSession",
