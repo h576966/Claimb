@@ -32,6 +32,7 @@
 		F32ED8042EB748FF00219A5C /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3430E102ECF481F00A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3430F842ECF4E8000A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F34310FF2ECF55B500A3086B /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F34AF0832EC222FD0025B4FA /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F35022E72EA2036E003C4354 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3539F7E2E895ED80073B155 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
@@ -78,6 +79,14 @@
 			);
 			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
 		};
+		F3F0A1B12EB4A65300A54E91 /* Test folders excluded from app target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ClaimbTests,
+				ClaimbUITests,
+			);
+			target = F35E2E702E6E0C0B009DDF39 /* Claimb */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,6 +94,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				F3CDD1FF2E8B336300CB00F8 /* Exceptions for "." folder in "Claimb" target */,
+				F3F0A1B12EB4A65300A54E91 /* Test folders excluded from app target */,
 			);
 			path = .;
 			sourceTree = "<group>";
@@ -92,6 +102,11 @@
 		F35E2E832E6E0C0C009DDF39 /* ClaimbTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ClaimbTests;
+			sourceTree = "<group>";
+		};
+		F3F0A1B02EB4A5F100A54E91 /* ClaimbUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ClaimbUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -155,6 +170,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F34311042ECF55B500A3086B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F34AF0882EC222FD0025B4FA /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -192,6 +212,7 @@
 				F3911DE72E8958C600B33B6A /* Claimb-Info.plist */,
 				F35E2E732E6E0C0B009DDF39 /* . */,
 				F35E2E832E6E0C0C009DDF39 /* ClaimbTests */,
+				F3F0A1B02EB4A5F100A54E91 /* ClaimbUITests */,
 				F35E2E722E6E0C0B009DDF39 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -386,6 +407,9 @@
 			dependencies = (
 				F35E2E8C2E6E0C0C009DDF39 /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				F3F0A1B02EB4A5F100A54E91 /* ClaimbUITests */,
+			);
 			name = ClaimbUITests;
 			productName = ClaimbUITests;
 			productReference = F35E2E8A2E6E0C0C009DDF39 /* ClaimbUITests.xctest */;
@@ -554,6 +578,10 @@
 				{
 					ProductGroup = F3A419522E98603E00E0475B /* Products */;
 					ProjectRef = F3A4194E2E98603E00E0475B /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F34311042ECF55B500A3086B /* Products */;
+					ProjectRef = F34310FF2ECF55B500A3086B /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F363677C2E986F640055041E /* Products */;
@@ -790,6 +818,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				EXCLUDED_SOURCE_FILE_NAMES = "ClaimbTests/** ClaimbUITests/**";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -827,6 +856,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				EXCLUDED_SOURCE_FILE_NAMES = "ClaimbTests/** ClaimbUITests/**";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
