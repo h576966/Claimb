@@ -59,6 +59,37 @@ struct CoachingView: View {
                     ClaimbLoadingView(message: "Initializing...")
                 }
             }
+            
+            // Toast notifications overlay
+            VStack {
+                if viewModel?.showPostGameAnalysisToast == true {
+                    ClaimbToast(
+                        message: "New post-game analysis available!",
+                        systemImage: "brain.head.profile",
+                        isPresented: Binding(
+                            get: { viewModel?.showPostGameAnalysisToast ?? false },
+                            set: { viewModel?.showPostGameAnalysisToast = $0 }
+                        )
+                    )
+                    .padding(.top, DesignSystem.Spacing.lg)
+                }
+                
+                if viewModel?.showPerformanceSummaryToast == true {
+                    ClaimbToast(
+                        message: "New performance summary available!",
+                        systemImage: "chart.bar.fill",
+                        isPresented: Binding(
+                            get: { viewModel?.showPerformanceSummaryToast ?? false },
+                            set: { viewModel?.showPerformanceSummaryToast = $0 }
+                        )
+                    )
+                    .padding(.top, viewModel?.showPostGameAnalysisToast == true ? 60 : DesignSystem.Spacing.lg)
+                }
+                
+                Spacer()
+            }
+            .animation(.easeInOut(duration: 0.3), value: viewModel?.showPostGameAnalysisToast)
+            .animation(.easeInOut(duration: 0.3), value: viewModel?.showPerformanceSummaryToast)
         }
         .onAppear {
             if viewModel == nil {
@@ -80,10 +111,8 @@ struct CoachingView: View {
                 action: {
                     refreshTrigger += 1
                 },
-                isLoading: (viewModel?.isAnalyzing ?? false)
-                    || (viewModel?.isRefreshingInBackground ?? false),
-                isDisabled: (viewModel?.isAnalyzing ?? false)
-                    || (viewModel?.isRefreshingInBackground ?? false)
+                isLoading: viewModel?.isAnalyzing ?? false,
+                isDisabled: viewModel?.isAnalyzing ?? false
             ),
             userSession: userSession
         )
@@ -141,6 +170,21 @@ struct CoachingView: View {
                 }
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.bottom, DesignSystem.Spacing.xl)
+            }
+            .refreshable {
+                await viewModel?.loadMatches()
+                
+                // Trigger analysis generation on pull-to-refresh
+                if let matches = viewModel?.matchState.data, !matches.isEmpty {
+                    let mostRecentMatch = matches[0]
+                    await viewModel?.generatePostGameAnalysis(for: mostRecentMatch)
+                    
+                    // Check if performance summary should update
+                    let recentMatches = Array(matches.prefix(10))
+                    if recentMatches.count % 5 == 0 {
+                        await viewModel?.generatePerformanceSummary(matches: recentMatches)
+                    }
+                }
             }
         }
     }
@@ -298,8 +342,6 @@ struct CoachingView: View {
                 postGameErrorContent(error: error)
             } else if viewModel?.isAnalyzing == true {
                 postGameLoadingContent()
-            } else if viewModel?.isRefreshingInBackground == true {
-                postGameRefreshingContent()
             } else {
                 postGameEmptyContent()
             }
@@ -404,20 +446,6 @@ struct CoachingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func postGameRefreshingContent() -> some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            HStack(spacing: DesignSystem.Spacing.sm) {
-                ClaimbSpinner()
-                    .frame(width: 16, height: 16)
-
-                Text("Refreshing analysis...")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     private func postGameEmptyContent() -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "gamecontroller")
@@ -447,8 +475,6 @@ struct CoachingView: View {
                 summaryErrorContent(error: error)
             } else if viewModel?.isGeneratingPerformanceSummary == true {
                 summaryLoadingContent()
-            } else if viewModel?.isRefreshingInBackground == true {
-                summaryRefreshingContent()
             } else {
                 summaryEmptyContent()
             }
@@ -611,25 +637,6 @@ struct CoachingView: View {
 
             Text("Generating performance analysis...")
                 .font(DesignSystem.Typography.callout)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func summaryRefreshingContent() -> some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            HStack(spacing: DesignSystem.Spacing.sm) {
-                ClaimbSpinner()
-                    .frame(width: 16, height: 16)
-
-                Text("Refreshing analysis...")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-            }
-
-            Text("Updating with your latest matches")
-                .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .multilineTextAlignment(.center)
         }

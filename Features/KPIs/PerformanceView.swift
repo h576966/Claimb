@@ -681,6 +681,11 @@ struct PerformanceView: View {
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
+        .refreshable {
+            refreshTrigger += 1
+            await matchDataViewModel?.refreshMatches()
+            await matchDataViewModel?.calculateKPIsForCurrentRole()
+        }
         .onAppear {
             // Auto-select worst performing KPI if no focus set (not manual)
             if userSession.focusedKPI == nil,

@@ -211,6 +211,14 @@ struct ChampionView: View {
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
+        .refreshable {
+            refreshTrigger += 1
+            await matchDataViewModel?.refreshMatches()
+            await matchDataViewModel?.loadChampionStats(
+                role: userSession.selectedPrimaryRole,
+                filter: selectedFilter
+            )
+        }
     }
 
     private func toggleExpansion(for championId: Int) {
