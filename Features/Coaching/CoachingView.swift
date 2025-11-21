@@ -49,7 +49,7 @@ struct CoachingView: View {
                         emptyMessage: "No matches found for analysis",
                         retryAction: {
                             Task {
-                                await viewModel?.refreshMatchesFromUser()
+                                await viewModel.refreshMatchesFromUser()
                             }
                         }
                     ) { matches in

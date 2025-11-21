@@ -92,16 +92,15 @@ class CoachingViewModel {
 
     @discardableResult
     private func startLoadTask() -> Task<Void, Never>? {
-        if isLoadingMatches {
-            return loadMatchesTask
-        }
+        if isLoadingMatches { return loadMatchesTask }
 
         loadRequestID += 1
         let requestID = loadRequestID
         isLoadingMatches = true
 
-        let task = Task.detached { [weak self] in
-            await self?.performLoadMatches(requestID: requestID)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performLoadMatches(requestID: requestID)
         }
         loadMatchesTask = task
         return task
@@ -144,6 +143,10 @@ class CoachingViewModel {
             isLoadingMatches = false
             loadMatchesTask = nil
         }
+    }
+
+    deinit {
+        loadMatchesTask?.cancel()
     }
 
     var hasMatches: Bool {
