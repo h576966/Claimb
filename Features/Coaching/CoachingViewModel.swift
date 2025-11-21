@@ -265,15 +265,23 @@ class CoachingViewModel {
                 ])
 
         } catch {
-            postGameError = ErrorHandler.userFriendlyMessage(for: error)
+            // Always set error message and clear loading state
+            let errorMessage = ErrorHandler.userFriendlyMessage(for: error)
+            postGameError = errorMessage
+            postGameAnalysis = nil  // Clear any partial data
+            
             ClaimbLogger.error(
                 "Post-game analysis failed", service: "CoachingViewModel",
                 error: error,
                 metadata: [
-                    "errorType": String(describing: type(of: error))
+                    "errorType": String(describing: type(of: error)),
+                    "errorMessage": errorMessage,
+                    "matchId": matchId,
+                    "summoner": summoner.gameName,
                 ])
         }
 
+        // Always reset analyzing state, even on error
         isAnalyzing = false
     }
 

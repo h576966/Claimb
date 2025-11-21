@@ -243,6 +243,7 @@ public class UserSession {
 
     /// Refreshes rank data if it's stale (older than 5 minutes)
     /// This consolidates rank refresh logic and prevents unnecessary API calls
+    /// Note: Request deduplication is handled by DataManager.refreshSummonerRanks
     public func refreshRanksIfNeeded() async {
         guard let summoner = currentSummoner else {
             ClaimbLogger.debug("No summoner to refresh ranks for", service: "UserSession")

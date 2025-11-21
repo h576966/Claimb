@@ -660,25 +660,8 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
     const to = timeoutSignal(8000);
 
     try {
-        // First get summoner to get summonerId
-        const summonerEndpoint = `https://${plat}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`;
-        const summonerRes = await fetch(summonerEndpoint, {
-            headers: { "X-Riot-Token": RIOT_KEY },
-            signal: to.signal
-        });
-
-        if (!summonerRes.ok) {
-            const raw = await summonerRes.text().catch(() => "");
-            const errorInfo = buildRiotError(summonerRes.status, plat, "summoner-by-puuid", raw);
-            console.warn("riot summoner for league lookup error", errorInfo.logDetails);
-            return json(errorInfo.payload, summonerRes.status, { "X-Claimb-Why": errorInfo.header });
-        }
-
-        const summoner = await summonerRes.json();
-        const summonerId = summoner.id;
-
-        // Then get league entries
-        const leagueEndpoint = `https://${plat}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encodeURIComponent(summonerId)}`;
+        // Use direct PUUID endpoint - no need to lookup summoner ID first
+        const leagueEndpoint = `https://${plat}.api.riotgames.com/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`;
         const leagueRes = await fetch(leagueEndpoint, {
             headers: { "X-Riot-Token": RIOT_KEY },
             signal: to.signal
@@ -688,7 +671,7 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
 
         if (!leagueRes.ok) {
             const raw = await leagueRes.text().catch(() => "");
-            const errorInfo = buildRiotError(leagueRes.status, plat, "league-entries-by-summoner", raw);
+            const errorInfo = buildRiotError(leagueRes.status, plat, "league-entries-by-puuid", raw);
             console.warn("riot league entries by puuid error", errorInfo.logDetails);
             return json(errorInfo.payload, leagueRes.status, { "X-Claimb-Why": errorInfo.header });
         }

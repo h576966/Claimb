@@ -964,8 +964,36 @@ public class ProxyService {
                             try await Task.sleep(nanoseconds: UInt64(backoffTime * 1_000_000_000))
                             continue
                         }
+                    case 401, 403:
+                        // Authentication/Authorization errors - don't retry, log clearly
+                        // Try to parse error response for additional context
+                        var errorDetails = ""
+                        if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            if let error = errorData["error"] as? String {
+                                errorDetails = " - Error: \(error)"
+                            }
+                            if let hint = errorData["hint"] as? String {
+                                errorDetails += " - Hint: \(hint)"
+                            }
+                            if let endpoint = errorData["endpoint"] as? String {
+                                errorDetails += " - Endpoint: \(endpoint)"
+                            }
+                        }
+                        
+                        ClaimbLogger.error(
+                            "Authentication/Authorization error \(httpResponse.statusCode)",
+                            service: "ProxyService",
+                            metadata: [
+                                "statusCode": String(httpResponse.statusCode),
+                                "url": request.url?.absoluteString ?? "unknown",
+                                "note": httpResponse.statusCode == 403 
+                                    ? "403 Forbidden - Riot API key may be expired/invalid or missing permissions. Check Supabase RIOT_API_KEY."
+                                    : "401 Unauthorized - check authentication",
+                                "errorDetails": errorDetails.isEmpty ? "none" : errorDetails,
+                            ])
+                        return (data, response)
                     default:
-                        // Client errors (4xx) - don't retry
+                        // Other client errors (4xx) - don't retry
                         return (data, response)
                     }
                 } else {
