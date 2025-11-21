@@ -128,6 +128,21 @@ class CoachingViewModel {
             if !matches.isEmpty {
                 await loadCachedPostGameAnalysis(for: matches[0])
                 await loadCachedPerformanceSummary(matches: matches)
+                
+                // Auto-generate analysis if no cache exists (minimal fix for production)
+                if postGameAnalysis == nil {
+                    Task {
+                        await generatePostGameAnalysis(for: matches[0])
+                    }
+                }
+                
+                // Auto-generate summary if no cache exists and we have enough matches
+                let recentMatches = Array(matches.prefix(10))
+                if performanceSummary == nil && recentMatches.count >= 5 {
+                    Task {
+                        await generatePerformanceSummary(matches: recentMatches)
+                    }
+                }
             }
 
         } catch {

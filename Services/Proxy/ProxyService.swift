@@ -695,87 +695,48 @@ public class ProxyService {
             throw ProxyError.httpError(httpResponse.statusCode)
         }
 
-        // Support both legacy format and Responses API format
-        struct LegacyResponse: Decodable {
+        // Edge function wraps OpenAI Responses API in a consistent format: { text, model, parsed? }
+        // Note: The edge function uses OpenAI's Responses API internally but always returns this wrapped format
+        struct EdgeFunctionResponse: Decodable {
             let text: String
             let model: String
+            // parsed is optional and ignored during decoding
         }
 
-        struct ResponsesAPIOutput: Decodable {
-            let type: String
-            let content: [ResponsesAPIContent]?
-            let text: String?  // For reasoning items
+        // Log raw response structure for debugging
+        if let rawResponseDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            ClaimbLogger.debug(
+                "Proxy: AI coaching response structure", service: "ProxyService",
+                metadata: [
+                    "keys": rawResponseDict.keys.joined(separator: ", "),
+                    "hasText": String(rawResponseDict["text"] != nil),
+                    "hasModel": String(rawResponseDict["model"] != nil),
+                    "hasParsed": String(rawResponseDict["parsed"] != nil),
+                ])
         }
-
-        struct ResponsesAPIContent: Decodable {
-            let type: String
-            let text: String
-        }
-
-        struct ResponsesAPIFormat: Decodable {
-            let output: [ResponsesAPIOutput]?
-            let output_text: String?  // Direct text field for Responses API
-            let model: String
-        }
-
+        
         do {
-            // First try Responses API format (for gpt-5-mini)
-            if let responsesAPI = try? JSONDecoder().decode(ResponsesAPIFormat.self, from: data) {
-                // Try direct output_text field first
-                if let outputText = responsesAPI.output_text, !outputText.isEmpty {
-                    ClaimbLogger.info(
-                        "Proxy: Retrieved AI coaching response (Responses API - output_text)",
-                        service: "ProxyService",
-                        metadata: [
-                            "responseLength": String(outputText.count), "model": responsesAPI.model,
-                        ])
-                    return outputText
-                }
-
-                // Fall back to parsing output array
-                if let outputs = responsesAPI.output {
-                    // Find message items and concatenate their content
-                    var fullText = ""
-                    for output in outputs {
-                        if output.type == "message", let contents = output.content {
-                            for content in contents where content.type == "text" {
-                                fullText += content.text
-                            }
-                        }
-                    }
-
-                    if !fullText.isEmpty {
-                        ClaimbLogger.info(
-                            "Proxy: Retrieved AI coaching response (Responses API - output array)",
-                            service: "ProxyService",
-                            metadata: [
-                                "responseLength": String(fullText.count),
-                                "model": responsesAPI.model,
-                            ])
-                        return fullText
-                    }
-                }
-
-                ClaimbLogger.warning(
-                    "Proxy: Responses API format detected but no text found",
-                    service: "ProxyService",
-                    metadata: ["model": responsesAPI.model])
-            }
-
-            // Fall back to legacy format (for gpt-4o-mini)
-            let response = try JSONDecoder().decode(LegacyResponse.self, from: data)
+            // Decode edge function's wrapped format (current format)
+            let response = try JSONDecoder().decode(EdgeFunctionResponse.self, from: data)
             ClaimbLogger.info(
-                "Proxy: Retrieved AI coaching response (Legacy format)", service: "ProxyService",
+                "Proxy: Retrieved AI coaching response", service: "ProxyService",
                 metadata: ["responseLength": String(response.text.count), "model": response.model])
             return response.text
         } catch {
-            // Log the raw response for debugging
-            if let rawResponse = String(data: data, encoding: .utf8) {
-                ClaimbLogger.error(
-                    "Proxy: Failed to decode AI coaching response", service: "ProxyService",
-                    error: error,
-                    metadata: ["rawResponse": String(rawResponse.prefix(500))])
-            }
+            // Log the raw response for debugging (full response, not truncated)
+            let rawResponse = String(data: data, encoding: .utf8) ?? "Unable to decode as UTF-8"
+            let responseLength = data.count
+            let truncated = rawResponse.count > 1000 ? String(rawResponse.prefix(1000)) + "..." : rawResponse
+            
+            ClaimbLogger.error(
+                "Proxy: Failed to decode AI coaching response", service: "ProxyService",
+                error: error,
+                metadata: [
+                    "errorType": String(describing: type(of: error)),
+                    "errorDescription": error.localizedDescription,
+                    "responseLength": String(responseLength),
+                    "rawResponse": truncated,
+                ])
             throw ProxyError.decodingError(error)
         }
     }

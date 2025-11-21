@@ -51,24 +51,66 @@ async function postWithRetry(url, init, tries = 2) {
     return last;
 }
 // Deterministic extractor for Responses API
+/**
+ * Extracts text and parsed data from OpenAI Responses API response.
+ * The Responses API can return data in multiple formats:
+ * 1. Structured output: { output_parsed: {...}, output_text: "..." }
+ * 2. Text output: { output_text: "..." }
+ * 3. Output array: { output: [{ type: "message", content: [{ type: "output_text", text: {...} }] }] }
+ */
 function extractOpenAIResult(data) {
+    // Check for structured output (when json_schema is used)
     if (data?.output_parsed !== undefined) {
         const parsed = data.output_parsed;
         const t = typeof data?.output_text === "string" && data.output_text.trim();
+        logDebug("Extracting from output_parsed format");
         return {
             text: t || JSON.stringify(parsed),
             parsed
         };
     }
+
+    // Check for direct output_text field
     const t = typeof data?.output_text === "string" ? data.output_text.trim() : "";
-    if (t) return {
-        text: t
-    };
-    const msg = Array.isArray(data?.output) ? data.output.find((x) => x?.type === "message") : null;
-    const c = Array.isArray(msg?.content) ? msg.content.find((c) => c?.type === "output_text") : null;
-    const textValue = c?.text?.value ?? c?.text ?? "";
+    if (t) {
+        logDebug("Extracting from output_text field");
+        return {
+            text: t
+        };
+    }
+
+    // Check for output array format (message-based response)
+    if (Array.isArray(data?.output)) {
+        const msg = data.output.find((x) => x?.type === "message");
+        if (msg) {
+            if (Array.isArray(msg?.content)) {
+                const c = msg.content.find((c) => c?.type === "output_text");
+                if (c) {
+                    const textValue = c?.text?.value ?? c?.text ?? "";
+                    if (typeof textValue === "string" && textValue.trim()) {
+                        logDebug("Extracting from output array message content");
+                        return {
+                            text: textValue.trim()
+                        };
+                    }
+                }
+            }
+            // Fallback: check for direct text in message
+            if (msg?.text && typeof msg.text === "string" && msg.text.trim()) {
+                logDebug("Extracting from message.text field");
+                return {
+                    text: msg.text.trim()
+                };
+            }
+        }
+    }
+
+    // Log warning if no expected format found
+    console.warn("OpenAI Responses API response format not recognized. Available keys:", Object.keys(data || {}));
+    logDebug("OpenAI response data structure:", JSON.stringify(data, null, 2).substring(0, 500));
+
     return {
-        text: typeof textValue === "string" ? textValue : ""
+        text: ""
     };
 }
 // Validate + resolve region from region/platform, locked to supported set
@@ -863,7 +905,24 @@ export async function handleRiotLeagueEntriesByPUUID(req, deviceId) {
             }, r.status);
         }
         const data = await r.json();
+
+        // Log actual OpenAI Responses API structure for verification
+        logDebug("OpenAI Responses API raw response keys:", Object.keys(data || {}));
+        if (data?.output_parsed !== undefined) {
+            logDebug("OpenAI response has output_parsed:", typeof data.output_parsed);
+        }
+        if (data?.output_text !== undefined) {
+            logDebug("OpenAI response has output_text:", typeof data.output_text, "length:", String(data.output_text?.length || 0));
+        }
+        if (Array.isArray(data?.output)) {
+            logDebug("OpenAI response has output array, length:", String(data.output.length));
+        }
+
         const { text: outText, parsed } = extractOpenAIResult(data);
+
+        // Log extraction result
+        logDebug("Extracted text length:", String(outText?.length || 0), "hasParsed:", String(parsed !== undefined));
+
         return json(parsed !== undefined ? {
             text: outText,
             model,

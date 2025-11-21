@@ -170,22 +170,36 @@ public class OpenAIService {
             metadata: [
                 "responseLength": String(responseText.count),
                 "containsTimeline": responseText.lowercased().contains("10min") ? "YES" : "NO",
+                "firstChars": String(responseText.prefix(200)),
             ]
         )
 
         // Parse response using JSONResponseParser
-        let analysis: PostGameAnalysis = try JSONResponseParser.parse(responseText)
-
-        ClaimbLogger.debug(
-            "Post-game analysis completed",
-            service: "OpenAIService",
-            metadata: [
-                "championName": championName,
-                "gameResult": participant.win ? "Victory" : "Defeat",
-            ]
-        )
-
-        return analysis
+        do {
+            let analysis: PostGameAnalysis = try JSONResponseParser.parse(responseText)
+            ClaimbLogger.debug(
+                "Successfully parsed PostGameAnalysis",
+                service: "OpenAIService",
+                metadata: [
+                    "takeawaysCount": String(analysis.keyTakeaways.count),
+                    "hasChampionAdvice": String(!analysis.championSpecificAdvice.isEmpty),
+                    "focusCount": String(analysis.nextGameFocus.count),
+                ]
+            )
+            return analysis
+        } catch {
+            ClaimbLogger.error(
+                "Failed to parse AI response as PostGameAnalysis",
+                service: "OpenAIService",
+                error: error,
+                metadata: [
+                    "responseLength": String(responseText.count),
+                    "responsePreview": String(responseText.prefix(500)),
+                    "errorType": String(describing: type(of: error)),
+                ]
+            )
+            throw error
+        }
     }
 
     /// Generates performance summary focused on role-based trends
