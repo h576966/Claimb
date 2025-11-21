@@ -94,7 +94,7 @@ public class RiotProxyClient: RiotClient {
         return RiotLeagueEntriesResponse(
             entries: riotEntries,
             claimbPlatform: response.claimbPlatform,
-            claimbRegion: response.claimbRegion,
+            claimbRegion: response.claimbRegion ?? "unknown",
             claimbPUUID: response.claimbPUUID
         )
     }

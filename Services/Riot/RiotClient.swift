@@ -70,12 +70,8 @@ public struct RiotLeagueEntriesResponse: Codable {
     public let claimbRegion: String
     public let claimbPUUID: String
 
-    enum CodingKeys: String, CodingKey {
-        case entries
-        case claimbPlatform = "claimb_platform"
-        case claimbRegion = "claimb_region"
-        case claimbPUUID = "claimb_puuid"
-    }
+    // Edge function returns camelCase, matching Swift property names
+    // No CodingKeys needed - defaults match
 }
 
 public struct RiotLeagueEntry: Codable {

@@ -99,7 +99,7 @@ public struct CoachingSystemPrompts {
       "championPoolAnalysis": "Two sentences on champion pool strengths and risks.",
       "areasOfImprovement": ["area", "area"],
       "strengthsToMaintain": ["strength", "strength"],
-      "climbingAdvice": ["tip", "tip"]
+      "climbingAdvice": "Two actionable sentences on how to improve rank."
     }
     IMPORTANT: Output must be valid json. No markdown, no commentary.
     

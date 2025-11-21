@@ -30,13 +30,21 @@ public struct JSONResponseParser {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
+            // Log the cleaned text to help diagnose parsing issues
+            let cleanedPreview = cleanText.count > 1000 ? String(cleanText.prefix(1000)) + "..." : cleanText
+            let lastChars = cleanText.count > 100 ? String(cleanText.suffix(100)) : cleanText
+            
             ClaimbLogger.error(
                 "Failed to parse JSON response",
                 service: "JSONResponseParser",
                 metadata: [
                     "error": error.localizedDescription,
                     "responseLength": String(responseText.count),
+                    "cleanedLength": String(cleanText.count),
                     "expectedType": String(describing: T.self),
+                    "firstChars": String(cleanText.prefix(200)),
+                    "lastChars": lastChars,
+                    "fullCleanedPreview": cleanedPreview,
                 ]
             )
             throw OpenAIError.invalidResponse

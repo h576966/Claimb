@@ -16,15 +16,11 @@ import Foundation
 public struct LeagueEntriesResponse: Codable {
     public let entries: [LeagueEntry]
     public let claimbPlatform: String
-    public let claimbRegion: String
+    public let claimbRegion: String?  // Can be null from edge function
     public let claimbPUUID: String
 
-    enum CodingKeys: String, CodingKey {
-        case entries
-        case claimbPlatform = "claimb_platform"
-        case claimbRegion = "claimb_region"
-        case claimbPUUID = "claimb_puuid"
-    }
+    // Edge function returns camelCase (claimbPlatform, claimbPUUID, claimbRegion)
+    // matching Swift property names - no CodingKeys needed
 }
 
 /// Individual league entry (rank information)
