@@ -313,6 +313,10 @@ class CoachingViewModel {
         isGeneratingPerformanceSummary = true
         performanceSummaryError = ""  // Clear any previous errors
 
+        // Use current primary role from userSession, fallback to most played role from matches, 
+        // then stored primaryRole. This ensures we avoid hardcoded defaults like "TOP".
+        let currentPrimaryRole = userSession?.selectedPrimaryRole ?? calculateMostPlayedRole(from: recentMatches) ?? primaryRole
+
         // Check cache first - show immediately if available
         if let cachedSummary = try? await dataManager.getCachedPerformanceSummary(
             for: summoner,
@@ -347,7 +351,7 @@ class CoachingViewModel {
             let summary = try await openAIService.generatePerformanceSummary(
                 matches: recentMatches,
                 summoner: summoner,
-                primaryRole: primaryRole,
+                primaryRole: currentPrimaryRole,
                 kpiService: kpiService,
                 focusedKPI: userSession?.focusedKPI,
                 focusedKPITrend: focusedKPITrend
@@ -396,13 +400,17 @@ class CoachingViewModel {
         since: Date,
         matches: [Match]
     ) -> KPITrend? {
+        // Use current primary role from userSession, fallback to most played role from matches,
+        // then stored primaryRole. This ensures we avoid hardcoded defaults.
+        let currentPrimaryRole = userSession?.selectedPrimaryRole ?? calculateMostPlayedRole(from: matches) ?? primaryRole
+        
         // Filter matches by role
         let roleMatches = matches.filter { match in
             guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
             else {
                 return false
             }
-            return RoleUtils.normalizeRole(teamPosition: participant.teamPosition) == primaryRole
+            return RoleUtils.normalizeRole(teamPosition: participant.teamPosition) == currentPrimaryRole
         }
 
         guard !roleMatches.isEmpty else { return nil }
@@ -507,5 +515,42 @@ class CoachingViewModel {
                 metadata: ["error": error.localizedDescription]
             )
         }
+    }
+    
+    /// Calculates the most played role from match history
+    /// Returns nil if no matches or roles are available
+    private func calculateMostPlayedRole(from matches: [Match]) -> String? {
+        guard !matches.isEmpty else { return nil }
+        
+        var roleStats: [String: Int] = [:]
+        
+        for match in matches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+            
+            let normalizedRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            // Skip unknown roles
+            guard normalizedRole != "UNKNOWN" else { continue }
+            
+            roleStats[normalizedRole, default: 0] += 1
+        }
+        
+        // Return the role with the most games
+        guard let mostPlayedRole = roleStats.max(by: { $0.value < $1.value })?.key else {
+            return nil
+        }
+        
+        ClaimbLogger.debug(
+            "Calculated most played role from matches",
+            service: "CoachingViewModel",
+            metadata: [
+                "role": mostPlayedRole,
+                "games": String(roleStats[mostPlayedRole] ?? 0),
+                "totalMatches": String(matches.count)
+            ])
+        
+        return mostPlayedRole
     }
 }

@@ -323,19 +323,44 @@ public class OpenAIService {
             reasoningEffort: "low"  // Use "low" reasoning to reduce token usage
         )
 
-        // Parse response using JSONResponseParser
-        let summary: PerformanceSummary = try JSONResponseParser.parse(responseText)
-
         ClaimbLogger.debug(
-            "Performance summary completed",
+            "Received AI response for performance summary",
             service: "OpenAIService",
             metadata: [
-                "trendsCount": String(summary.keyTrends.count),
-                "improvementsCount": String(summary.areasOfImprovement.count),
+                "responseLength": String(responseText.count),
+                "firstChars": String(responseText.prefix(200)),
             ]
         )
 
-        return summary
+        // Parse response using JSONResponseParser
+        do {
+            let summary: PerformanceSummary = try JSONResponseParser.parse(responseText)
+            ClaimbLogger.debug(
+                "Successfully parsed PerformanceSummary",
+                service: "OpenAIService",
+                metadata: [
+                    "trendsCount": String(summary.keyTrends.count),
+                    "improvementsCount": String(summary.areasOfImprovement.count),
+                    "strengthsCount": String(summary.strengthsToMaintain.count),
+                    "hasRoleConsistency": String(!summary.roleConsistency.isEmpty),
+                    "hasChampionAnalysis": String(!summary.championPoolAnalysis.isEmpty),
+                    "hasClimbingAdvice": String(!summary.climbingAdvice.isEmpty),
+                ]
+            )
+            return summary
+        } catch {
+            ClaimbLogger.error(
+                "Failed to parse AI response as PerformanceSummary",
+                service: "OpenAIService",
+                error: error,
+                metadata: [
+                    "responseLength": String(responseText.count),
+                    "responsePreview": String(responseText.prefix(500)),
+                    "errorType": String(describing: type(of: error)),
+                ]
+            )
+            throw error
+        }
     }
 
     /// Generates KPI improvement tips for a focused KPI

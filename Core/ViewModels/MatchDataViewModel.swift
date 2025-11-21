@@ -533,6 +533,30 @@ public class MatchDataViewModel {
             return RoleStats(role: role, winRate: winRate, totalGames: stats.total)
         }.sorted { $0.totalGames > $1.totalGames }  // Sort by most played
     }
+    
+    /// Calculates the most played role from match history
+    /// Returns nil if no matches or roles are available
+    private func calculateMostPlayedRole(from matches: [Match]) -> String? {
+        guard !matches.isEmpty else { return nil }
+        
+        var roleStats: [String: Int] = [:]
+        
+        for match in matches {
+            guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid })
+            else {
+                continue
+            }
+            
+            let normalizedRole = RoleUtils.normalizeRole(teamPosition: participant.teamPosition)
+            // Skip unknown roles
+            guard normalizedRole != "UNKNOWN" else { continue }
+            
+            roleStats[normalizedRole, default: 0] += 1
+        }
+        
+        // Return the role with the most games
+        return roleStats.max(by: { $0.value < $1.value })?.key
+    }
 
     /// Calculates champion statistics from matches and champions (delegates to ChampionStatsCalculator)
     private func calculateChampionStats(
@@ -572,8 +596,13 @@ public class MatchDataViewModel {
         // Get filtered matches
         let filteredMatches = filterMatchesByGameType(matches)
         
-        // Filter matches by role if userSession is available
-        let role = userSession?.selectedPrimaryRole ?? "TOP"
+        // Use current primary role from userSession, fallback to most played role from matches
+        // This avoids hardcoded defaults like "TOP"
+        let role = userSession?.selectedPrimaryRole ?? calculateMostPlayedRole(from: filteredMatches)
+        
+        // If still no role found, return nil (no trend can be calculated)
+        guard let role = role else { return nil }
+        
         let roleMatches = filteredMatches.filter { match in
             guard let participant = match.participants.first(where: { $0.puuid == summoner.puuid }) else {
                 return false
