@@ -145,11 +145,9 @@ public struct KPIDisplayService {
 
         switch metric {
         case "cs_per_min":
+            // Use participant.csPerMinute which includes both lane minions and jungle minions
             return participants.map { participant in
-                let match = matches.first { $0.participants.contains(participant) }
-                let gameDurationMinutes = Double(match?.gameDuration ?? 1800) / 60.0
-                return gameDurationMinutes > 0
-                    ? Double(participant.totalMinionsKilled) / gameDurationMinutes : 0.0
+                return participant.csPerMinute
             }.reduce(0, +) / Double(participants.count)
 
         case "deaths_per_game":

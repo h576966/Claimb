@@ -904,13 +904,10 @@ struct CoachingView: View {
         participant: Participant,
         match: Match
     ) -> Double {
-        let gameDurationMinutes = Double(match.gameDuration) / 60.0
-        
         switch metric {
         case "cs_per_min":
-            return gameDurationMinutes > 0
-                ? Double(participant.totalMinionsKilled) / gameDurationMinutes
-                : 0.0
+            // Use participant.csPerMinute which includes both lane minions and jungle minions
+            return participant.csPerMinute
             
         case "deaths_per_game":
             return Double(participant.deaths)
