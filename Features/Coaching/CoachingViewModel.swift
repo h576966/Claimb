@@ -174,6 +174,7 @@ class CoachingViewModel {
     // MARK: - Cached Data Loading
 
     /// Loads cached post-game analysis if available
+    /// Note: Does not show toast notifications when loading from cache - toasts are only shown when new content is generated
     private func loadCachedPostGameAnalysis(for match: Match) async {
         let matchId = match.matchId
         
@@ -182,17 +183,13 @@ class CoachingViewModel {
             matchId: matchId
         ) {
             postGameAnalysis = cachedAnalysis
-            
-            // Show notification if this is a new match
-            if match.id != lastNotifiedMatchId {
-                lastNotifiedMatchId = match.id
-                showPostGameAnalysisToast = true
-                autoDismissToast { self.showPostGameAnalysisToast = $0 }
-            }
+            // Update tracking but don't show toast for cached content
+            lastNotifiedMatchId = match.id
         }
     }
 
     /// Loads cached performance summary if available
+    /// Note: Does not show toast notifications when loading from cache - toasts are only shown when new content is generated
     private func loadCachedPerformanceSummary(matches: [Match]) async {
         let recentMatches = Array(matches.prefix(10))
         let matchCount = recentMatches.count
@@ -202,12 +199,9 @@ class CoachingViewModel {
             matchCount: matchCount
         ) {
             performanceSummary = cachedSummary
-            
-            // Show notification if this is a new summary
-            if matchCount != lastNotifiedSummaryMatchCount && matchCount % performanceSummaryUpdateInterval == 0 {
+            // Update tracking but don't show toast for cached content
+            if matchCount % performanceSummaryUpdateInterval == 0 {
                 lastNotifiedSummaryMatchCount = matchCount
-                showPerformanceSummaryToast = true
-                autoDismissToast { self.showPerformanceSummaryToast = $0 }
             }
         }
     }
