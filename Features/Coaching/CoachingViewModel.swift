@@ -145,7 +145,7 @@ class CoachingViewModel {
         }
     }
 
-    deinit {
+    isolated deinit {
         loadMatchesTask?.cancel()
     }
 
