@@ -313,12 +313,12 @@ public class MatchDataViewModel {
         let visionScorePerMin =
             totalGameTime > 0 ? Double(totalVisionScore) / (Double(totalGameTime) / 60.0) : 0.0
 
-        // Calculate CS per minute
+        // Calculate CS per minute (includes both lane and jungle minions)
         let totalCS = championMatches.compactMap { match in
             match.participants.first {
                 $0.championId == championStat.champion.id && $0.puuid == summoner.puuid
             }
-        }.reduce(0) { $0 + $1.totalMinionsKilled }
+        }.reduce(0) { $0 + $1.totalMinionsKilled + $1.neutralMinionsKilled }
         let csPerMin = totalGameTime > 0 ? Double(totalCS) / (Double(totalGameTime) / 60.0) : 0.0
 
         // Get baseline data for this role

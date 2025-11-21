@@ -41,7 +41,7 @@ public struct MatchStatsCalculator {
             // Only include champions from primary role
             guard role == primaryRole else { continue }
 
-            let cs = participant.totalMinionsKilled + participant.neutralMinionsKilled
+            let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
             let kda =
                 (Double(participant.kills) + Double(participant.assists))
                 / max(Double(participant.deaths), 1.0)

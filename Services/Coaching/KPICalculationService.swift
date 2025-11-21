@@ -132,7 +132,17 @@ public class KPICalculationService {
     private func calculateKillParticipation(participants: [Participant], matches: [Match]) -> Double
     {
         guard !participants.isEmpty else { return 0.0 }
+        // Note: Participant.killParticipation uses challenge data when available (more accurate).
+        // When challenges are missing, it returns 0.0, so we calculate manually as fallback.
+        // This ensures accurate kill participation even when challenge data isn't available.
         let killParticipations = participants.map { participant in
+            // Use challenge-based value if available, otherwise calculate manually
+            let challengeValue = participant.killParticipation
+            if challengeValue > 0 {
+                return challengeValue
+            }
+            
+            // Fallback: calculate from raw stats
             let match = matches.first { $0.participants.contains(participant) }
             let teamKills =
                 match?.participants
@@ -162,22 +172,8 @@ public class KPICalculationService {
         -> Double
     {
         guard !participants.isEmpty else { return 0.0 }
-        let objectiveParticipations = participants.map { participant in
-            let match = matches.first { $0.participants.contains(participant) }
-            let teamObjectives = match?.getTeamObjectives(teamId: participant.teamId) ?? 0
-
-            if teamObjectives == 0 {
-                return 0.0
-            }
-
-            let totalParticipated =
-                participant.dragonTakedowns + participant.riftHeraldTakedowns
-                + participant.baronTakedowns + participant.hordeTakedowns
-                + participant.atakhanTakedowns
-
-            let participation = Double(totalParticipated) / Double(teamObjectives)
-            return participation.isNaN ? 0.0 : participation
-        }
+        // Use Participant's computed property which handles all edge cases
+        let objectiveParticipations = participants.map { $0.objectiveParticipationPercentage }
         let result = objectiveParticipations.reduce(0, +) / Double(participants.count)
         return result.isNaN ? 0.0 : result
     }
