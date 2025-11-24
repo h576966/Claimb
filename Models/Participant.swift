@@ -138,11 +138,38 @@ public class Participant {
 
     // Challenge-based metrics with fallbacks
     public var killParticipation: Double {
-        return killParticipationFromChallenges ?? 0.0
+        // Use challenge data if available (more accurate)
+        if let challengeValue = killParticipationFromChallenges, challengeValue > 0 {
+            return challengeValue
+        }
+        
+        // Fallback: calculate from raw stats
+        guard let match = match else { return 0.0 }
+        let teamKills = match.participants
+            .filter { $0.teamId == teamId }
+            .reduce(0) { $0 + $1.kills }
+        
+        guard teamKills > 0 else { return 0.0 }
+        let participation = Double(kills + assists) / Double(teamKills)
+        return participation.isNaN ? 0.0 : participation
     }
 
     public var teamDamagePercentage: Double {
-        return teamDamagePercentageFromChallenges ?? 0.0
+        // Use challenge data if available (more accurate)
+        if let challengeValue = teamDamagePercentageFromChallenges, challengeValue > 0 {
+            return challengeValue
+        }
+        
+        // Fallback: calculate from raw stats
+        guard let match = match else { return 0.0 }
+        let teamParticipants = match.participants.filter { $0.teamId == teamId }
+        let teamTotalDamage = teamParticipants.reduce(0) {
+            $0 + $1.totalDamageDealtToChampions
+        }
+        
+        guard teamTotalDamage > 0 else { return 0.0 }
+        let damageShare = Double(totalDamageDealtToChampions) / Double(teamTotalDamage)
+        return damageShare.isNaN ? 0.0 : damageShare
     }
 
     public var damageTakenSharePercentage: Double {

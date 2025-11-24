@@ -102,17 +102,7 @@ struct CoachingView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            actionButton: SharedHeaderView.ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: {
-                    Task {
-                        await viewModel?.refreshMatchesFromUser()
-                    }
-                },
-                isLoading: viewModel?.isLoadingMatches ?? false,
-                isDisabled: viewModel?.isLoadingMatches ?? false
-            ),
+            actionButton: nil,
             userSession: userSession
         )
     }
@@ -173,15 +163,19 @@ struct CoachingView: View {
             .refreshable {
                 await viewModel?.refreshMatchesFromUser()
                 
-                // Trigger analysis generation on pull-to-refresh
+                // Trigger analysis generation in background (don't await)
                 if let matches = viewModel?.matchState.data, !matches.isEmpty {
                     let mostRecentMatch = matches[0]
-                    await viewModel?.generatePostGameAnalysis(for: mostRecentMatch)
+                    Task {
+                        await viewModel?.generatePostGameAnalysis(for: mostRecentMatch)
+                    }
                     
                     // Check if performance summary should update
                     let recentMatches = Array(matches.prefix(10))
                     if recentMatches.count % 5 == 0 {
-                        await viewModel?.generatePerformanceSummary(matches: recentMatches)
+                        Task {
+                            await viewModel?.generatePerformanceSummary(matches: recentMatches)
+                        }
                     }
                 }
             }
@@ -323,13 +317,35 @@ struct CoachingView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
 
                 Spacer()
+                
+                // Show subtle loading indicator if generating new analysis
+                if viewModel?.isAnalyzing == true && viewModel?.postGameAnalysis != nil {
+                    ClaimbSpinner(size: 16)
+                }
             }
 
             if let analysis = viewModel?.postGameAnalysis {
+                // Show existing analysis (even if generating new one)
                 postGameAnalysisContent(analysis: analysis)
-            } else if let error = viewModel?.postGameError, !error.isEmpty {
+                
+                // Show subtle "Updating..." message if generating for different match
+                if viewModel?.isAnalyzing == true,
+                   let currentMatchId = viewModel?.currentAnalysisMatchId,
+                   let pendingMatchId = viewModel?.pendingAnalysisMatchId,
+                   currentMatchId != pendingMatchId {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        ClaimbSpinner(size: 12)
+                        Text("Updating analysis...")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                    .padding(.top, DesignSystem.Spacing.sm)
+                }
+            } else if let error = viewModel?.postGameError, !error.isEmpty, viewModel?.currentAnalysisMatchId == nil {
+                // Only show error if we have no analysis at all
                 postGameErrorContent(error: error)
             } else if viewModel?.isAnalyzing == true {
+                // Only show full loading if we have no analysis
                 postGameLoadingContent()
             } else {
                 postGameEmptyContent()
@@ -424,8 +440,7 @@ struct CoachingView: View {
 
     private func postGameLoadingContent() -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
-            ClaimbSpinner()
-                .frame(width: 24, height: 24)
+            ClaimbSpinner(size: 24)
 
             Text("Generating post-game analysis...")
                 .font(DesignSystem.Typography.callout)

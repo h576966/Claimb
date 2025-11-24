@@ -43,21 +43,30 @@ public class KPICalculationService {
         let visionScore = calculateVisionScore(participants: participants)
         let killParticipation = calculateKillParticipation(
             participants: participants, matches: matches)
-        let csPerMinute = calculateCSPerMinute(participants: participants, matches: matches)
+        
+        // Only calculate CS per minute for relevant roles (exclude Support)
+        let shouldIncludeCS = shouldIncludeCSPerMinute(for: role)
+        let csPerMinute = shouldIncludeCS 
+            ? calculateCSPerMinute(participants: participants, matches: matches)
+            : 0.0
+        
         let objectiveParticipation = calculateObjectiveParticipation(
             participants: participants, matches: matches)
 
         // Debug logging for KPI calculations
+        var debugMetadata: [String: String] = [
+            "deathsPerGame": deathsPerGame.twoDecimals,
+            "visionScore": visionScore.twoDecimals,
+            "killParticipation": killParticipation.twoDecimals,
+            "objectiveParticipation": objectiveParticipation.twoDecimals,
+            "participantCount": String(participants.count),
+        ]
+        if shouldIncludeCS {
+            debugMetadata["csPerMinute"] = csPerMinute.twoDecimals
+        }
         ClaimbLogger.debug(
             "KPI Calculations for \(role)", service: "KPICalculationService",
-            metadata: [
-                "deathsPerGame": deathsPerGame.twoDecimals,
-                "visionScore": visionScore.twoDecimals,
-                "killParticipation": killParticipation.twoDecimals,
-                "csPerMinute": csPerMinute.twoDecimals,
-                "objectiveParticipation": objectiveParticipation.twoDecimals,
-                "participantCount": String(participants.count),
-            ])
+            metadata: debugMetadata)
 
         var kpis: [KPIMetric] = []
 
@@ -87,7 +96,6 @@ public class KPICalculationService {
             ))
 
         // Add CS per minute for relevant roles
-        let shouldIncludeCS = shouldIncludeCSPerMinute(for: role)
         if shouldIncludeCS {
             kpis.append(
                 await createKPIMetric(
@@ -132,27 +140,10 @@ public class KPICalculationService {
     private func calculateKillParticipation(participants: [Participant], matches: [Match]) -> Double
     {
         guard !participants.isEmpty else { return 0.0 }
-        // Note: Participant.killParticipation uses challenge data when available (more accurate).
-        // When challenges are missing, it returns 0.0, so we calculate manually as fallback.
-        // This ensures accurate kill participation even when challenge data isn't available.
-        let killParticipations = participants.map { participant in
-            // Use challenge-based value if available, otherwise calculate manually
-            let challengeValue = participant.killParticipation
-            if challengeValue > 0 {
-                return challengeValue
-            }
-            
-            // Fallback: calculate from raw stats
-            let match = matches.first { $0.participants.contains(participant) }
-            let teamKills =
-                match?.participants
-                .filter { $0.teamId == participant.teamId }
-                .reduce(0) { $0 + $1.kills } ?? 0
-            let participation =
-                teamKills > 0
-                ? Double(participant.kills + participant.assists) / Double(teamKills) : 0.0
-            return participation.isNaN ? 0.0 : participation
-        }
+        // Note: Participant.killParticipation now handles fallback calculation automatically.
+        // It uses challenge data when available (more accurate), otherwise calculates from raw stats.
+        // We can directly use participant.killParticipation for all participants.
+        let killParticipations = participants.map { $0.killParticipation }
         let result = killParticipations.reduce(0, +) / Double(participants.count)
         return result.isNaN ? 0.0 : result
     }

@@ -404,7 +404,6 @@ struct PerformanceView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var matchDataViewModel: MatchDataViewModel?
     @State private var showRoleSelection = false
-    @State private var refreshTrigger = 0
 
     var body: some View {
         ZStack {
@@ -458,7 +457,10 @@ struct PerformanceView: View {
                         loadingMessage: "Loading performance data...",
                         emptyMessage: "No matches found for analysis",
                         retryAction: {
-                            refreshTrigger += 1
+                            Task {
+                                await matchDataViewModel?.refreshMatches()
+                                await userSession.refreshRanksIfNeeded()
+                            }
                         }
                     ) { matches in
                         kpiListView(matches: matches)
@@ -471,11 +473,11 @@ struct PerformanceView: View {
         .onAppear {
             if matchDataViewModel == nil {
                 initializeViewModel()
+                Task {
+                    await matchDataViewModel?.loadAllData()
+                    await userSession.refreshRanksIfNeeded()
+                }
             }
-        }
-        .task(id: refreshTrigger) {
-            await matchDataViewModel?.loadAllData()
-            await userSession.refreshRanksIfNeeded()
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
@@ -513,15 +515,7 @@ struct PerformanceView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            actionButton: SharedHeaderView.ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: {
-                    refreshTrigger += 1
-                },
-                isLoading: matchDataViewModel?.isRefreshing ?? false,
-                isDisabled: matchDataViewModel?.isRefreshing ?? false
-            ),
+            actionButton: nil,
             userSession: userSession
         )
     }
@@ -682,9 +676,8 @@ struct PerformanceView: View {
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
         .refreshable {
-            refreshTrigger += 1
             await matchDataViewModel?.refreshMatches()
-            await matchDataViewModel?.calculateKPIsForCurrentRole()
+            await userSession.refreshRanksIfNeeded()
         }
         .onAppear {
             // Auto-select worst performing KPI if no focus set (not manual)

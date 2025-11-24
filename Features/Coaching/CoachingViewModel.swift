@@ -39,6 +39,10 @@ class CoachingViewModel {
     var selectedCoachingTab: CoachingTab = .postGame
 
     var isGeneratingPerformanceSummary = false
+    
+    // MARK: - Match ID Tracking for UX
+    var currentAnalysisMatchId: String?  // Track which match the current analysis is for
+    var pendingAnalysisMatchId: String?  // Track which match we're generating for
 
     // MARK: - Toast Notification State
     var showPostGameAnalysisToast = false
@@ -183,6 +187,7 @@ class CoachingViewModel {
             matchId: matchId
         ) {
             postGameAnalysis = cachedAnalysis
+            currentAnalysisMatchId = matchId  // Track which match this analysis is for
             // Update tracking but don't show toast for cached content
             lastNotifiedMatchId = match.id
         }
@@ -226,6 +231,7 @@ class CoachingViewModel {
             matchId: matchId
         ) {
             postGameAnalysis = cachedAnalysis
+            currentAnalysisMatchId = matchId
             ClaimbLogger.info(
                 "Showing cached post-game analysis", service: "CoachingViewModel",
                 metadata: [
@@ -235,9 +241,14 @@ class CoachingViewModel {
             return
         }
 
-        // No cache available - try with fast timeout first
-        isAnalyzing = true
-        postGameError = ""
+        // If this is the same match we already have analysis for, keep showing it
+        // Only set loading state if we don't have analysis for this match
+        if currentAnalysisMatchId != matchId {
+            // This is a new match - show loading, but don't clear old analysis yet
+            pendingAnalysisMatchId = matchId
+            isAnalyzing = true
+            postGameError = ""  // Clear error, but don't clear analysis
+        }
 
         do {
             // Generate new analysis with fast timeout (OpenAI call)
@@ -248,50 +259,66 @@ class CoachingViewModel {
                 userSession: userSession
             )
 
-            // Cache the response
-            try await dataManager.cachePostGameAnalysis(
-                analysis,
-                for: summoner,
-                matchId: matchId
-            )
+            // Only update if this is still the match we're analyzing
+            if pendingAnalysisMatchId == matchId {
+                // Cache the response
+                try await dataManager.cachePostGameAnalysis(
+                    analysis,
+                    for: summoner,
+                    matchId: matchId
+                )
 
-            postGameAnalysis = analysis
+                // Replace old analysis with new one
+                postGameAnalysis = analysis
+                currentAnalysisMatchId = matchId
+                isAnalyzing = false
+                postGameError = ""
 
-            // Show notification if this is a new match
-            if match.id != lastNotifiedMatchId {
-                lastNotifiedMatchId = match.id
-                showPostGameAnalysisToast = true
-                autoDismissToast { self.showPostGameAnalysisToast = $0 }
+                // Show notification if this is a new match
+                if match.id != lastNotifiedMatchId {
+                    lastNotifiedMatchId = match.id
+                    showPostGameAnalysisToast = true
+                    autoDismissToast { self.showPostGameAnalysisToast = $0 }
+                }
+
+                ClaimbLogger.info(
+                    "Post-game analysis completed", service: "CoachingViewModel",
+                    metadata: [
+                        "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                            .champion?.name ?? "Unknown",
+                        "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?
+                            .win == true ? "Victory" : "Defeat",
+                    ])
             }
 
-            ClaimbLogger.info(
-                "Post-game analysis completed", service: "CoachingViewModel",
-                metadata: [
-                    "championName": match.participants.first(where: { $0.puuid == summoner.puuid })?
-                        .champion?.name ?? "Unknown",
-                    "gameResult": match.participants.first(where: { $0.puuid == summoner.puuid })?
-                        .win == true ? "Victory" : "Defeat",
-                ])
-
         } catch {
-            // Always set error message and clear loading state
-            let errorMessage = ErrorHandler.userFriendlyMessage(for: error)
-            postGameError = errorMessage
-            postGameAnalysis = nil  // Clear any partial data
-            
-            ClaimbLogger.error(
-                "Post-game analysis failed", service: "CoachingViewModel",
-                error: error,
-                metadata: [
-                    "errorType": String(describing: type(of: error)),
-                    "errorMessage": errorMessage,
-                    "matchId": matchId,
-                    "summoner": summoner.gameName,
-                ])
+            // Only show error if this is still the match we're analyzing
+            if pendingAnalysisMatchId == matchId {
+                let errorMessage = ErrorHandler.userFriendlyMessage(for: error)
+                postGameError = errorMessage
+                isAnalyzing = false
+                // DON'T clear postGameAnalysis - keep showing old one
+                // Only clear if we have no analysis at all
+                if currentAnalysisMatchId == nil {
+                    postGameAnalysis = nil
+                }
+                
+                ClaimbLogger.error(
+                    "Post-game analysis failed", service: "CoachingViewModel",
+                    error: error,
+                    metadata: [
+                        "errorType": String(describing: type(of: error)),
+                        "errorMessage": errorMessage,
+                        "matchId": matchId,
+                        "summoner": summoner.gameName,
+                    ])
+            }
         }
 
-        // Always reset analyzing state, even on error
-        isAnalyzing = false
+        // Clear pending if this was the match we were analyzing
+        if pendingAnalysisMatchId == matchId {
+            pendingAnalysisMatchId = nil
+        }
     }
 
     /// Generates performance summary for last 10 games with optimistic caching

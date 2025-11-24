@@ -29,7 +29,8 @@ public struct CoachingSystemPrompts {
     • Assess if player carried, got carried, or underperformed relative to their team
     • Adjust tone based on their relative contribution (encourage effort vs focus on improvement)
     • Focus on role-specific responsibilities (Support: vision/roaming, ADC: positioning/farming, etc.)
-    • Use performance labels ("excellent vision", "poor CS") instead of raw numbers ("0.7 vision score", "5.2 CS/min")
+    • Use performance labels ("excellent vision", "poor CS" for non-Support roles) instead of raw numbers
+    • CRITICAL: For Support role matches, NEVER mention CS, farming, minions, or any minion-related metrics. CS is not relevant for Support players.
 
     PERFORMANCE INTERPRETATION:
     • "Excellent" = significantly above average → praise and maintain
@@ -38,7 +39,7 @@ public struct CoachingSystemPrompts {
     • "Poor" = significantly below average → make this the top priority
 
     ROLE-SPECIFIC PRIORITIES:
-    • Support: Vision control, roaming timing, peel/engage decisions
+    • Support: Vision control, roaming timing, peel/engage decisions. NEVER mention CS, farming, or minions - these metrics are not relevant for Support role.
     • ADC: Positioning, farming efficiency, teamfight target selection
     • Mid: Map pressure, roaming impact, CS advantage
     • Jungle: Pathing efficiency, gank timing, objective control
@@ -134,13 +135,11 @@ public struct CoachingPromptBuilder {
     ) -> DualPrompt {
         let gameResult = participant.win ? "Victory" : "Defeat"
         let kda = "\(participant.kills)/\(participant.deaths)/\(participant.assists)"
-        let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
         let gameDuration = match.gameDuration / 60
 
         let rankContext = createRankContext(summoner: summoner)
 
         // Add critical performance metrics with descriptive labels (preferred over raw stats)
-        let csPerMin = participant.csPerMinute.oneDecimal
         let visionPerMin = participant.visionScorePerMinute.oneDecimal
         let killParticipationLabel = formatParticipationLabel(
             value: participant.killParticipation,
@@ -167,6 +166,11 @@ public struct CoachingPromptBuilder {
             match.isRanked
             ? " | Queue: \(match.queueName)" : " | Queue: \(match.queueName) (practice)"
 
+        // Check if role should include CS (exclude Support)
+        let shouldIncludeCS = shouldIncludeCSPerMinute(for: role)
+        let cs = MatchStatsCalculator.calculateTotalCS(participant: participant)
+        let csPerMin = participant.csPerMinute.oneDecimal
+
         // Build user prompt with match data
         var userPrompt = """
             **GAME CONTEXT:**
@@ -175,7 +179,16 @@ public struct CoachingPromptBuilder {
             \(teamContext)
 
             **PERFORMANCE METRICS:**
+            """
+        
+        // Only include CS for non-Support roles
+        if shouldIncludeCS {
+            userPrompt += """
             - CS: \(cs) total (\(csPerMin)/min)
+            """
+        }
+        
+        userPrompt += """
             - Vision: \(visionPerMin)/min
             - Kill Participation: \(killParticipationLabel)
             - Team Damage: \(teamDamageLabel)
@@ -207,6 +220,15 @@ public struct CoachingPromptBuilder {
 
             **PLAYER'S IMPROVEMENT FOCUS:**
             \(focusedKPI)
+            """
+        }
+
+        // Add role-specific constraint for Support matches
+        if role.uppercased() == "SUPPORT" {
+            userPrompt += """
+
+            **CRITICAL ROLE CONSTRAINT:**
+            This is a Support role match. You MUST NOT mention CS, farming, minions, or any minion-related metrics in your analysis. CS is completely irrelevant for Support players. Focus exclusively on vision control, roaming, peel, engage, and team utility. If you see CS mentioned in the performance metrics above, ignore it - it should not have been included for Support.
             """
         }
 
@@ -634,6 +656,13 @@ public struct CoachingPromptBuilder {
             return participant.csPerMinute
         }
         return values.isEmpty ? 0.0 : values.reduce(0.0, +) / Double(values.count)
+    }
+    
+    /// Determines if CS per minute should be included for the given role
+    private static func shouldIncludeCSPerMinute(for role: String) -> Bool {
+        let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        return csEligibleRoles.contains(baselineRole)
     }
 
     private static func calculateAverageDeaths(matches: [Match], summoner: Summoner) -> Double {

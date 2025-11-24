@@ -56,7 +56,8 @@ public class OpenAIService {
         // Get relative performance context (team/enemy comparisons)
         let relativePerformanceContext = createRelativePerformanceContext(
             match: match,
-            userParticipant: participant
+            userParticipant: participant,
+            role: role
         )
         ClaimbLogger.debug(
             "Relative performance context: \(relativePerformanceContext != nil ? "generated" : "not available")",
@@ -502,7 +503,8 @@ public class OpenAIService {
     /// Provides quantitative comparisons optimized for LLM understanding
     private func createRelativePerformanceContext(
         match: Match,
-        userParticipant: Participant
+        userParticipant: Participant,
+        role: String
     ) -> String? {
         let userTeamId = userParticipant.teamId
         let userTeam = match.participants.filter { $0.teamId == userTeamId }
@@ -520,15 +522,27 @@ public class OpenAIService {
             let deaths = max(participant.deaths, 1)  // Avoid division by zero
             return Double(participant.kills + participant.assists) / Double(deaths)
         }
-        let teamCSMins = userTeam.map { $0.csPerMinute }
-        let teamDamageTotal = userTeam.reduce(0) { $0 + $1.totalDamageDealtToChampions }
-
         let teamAvgKDA = teamKDAs.reduce(0, +) / Double(teamKDAs.count)
-        let teamAvgCS = teamCSMins.reduce(0, +) / Double(teamCSMins.count)
 
         // Player metrics
         let playerKDA = userParticipant.kda
-        let playerCS = userParticipant.csPerMinute
+
+        // Check if role should include CS (exclude Support)
+        let shouldIncludeCS = shouldIncludeCSPerMinute(for: role)
+        var teamAvgCS: Double = 0.0
+        var playerCS: Double = 0.0
+        var csDiff: Double = 0.0
+        var csSign: String = ""
+        
+        if shouldIncludeCS {
+            let teamCSMins = userTeam.map { $0.csPerMinute }
+            teamAvgCS = teamCSMins.reduce(0, +) / Double(teamCSMins.count)
+            playerCS = userParticipant.csPerMinute
+            csDiff = teamAvgCS > 0 ? ((playerCS - teamAvgCS) / teamAvgCS) * 100 : 0
+            csSign = csDiff >= 0 ? "+" : ""
+        }
+
+        let teamDamageTotal = userTeam.reduce(0) { $0 + $1.totalDamageDealtToChampions }
 
         // Calculate player's damage share and all team damage shares
         let playerDamageShare =
@@ -542,17 +556,21 @@ public class OpenAIService {
 
         // Calculate percentage differences
         let kdaDiff = teamAvgKDA > 0 ? ((playerKDA - teamAvgKDA) / teamAvgKDA) * 100 : 0
-        let csDiff = teamAvgCS > 0 ? ((playerCS - teamAvgCS) / teamAvgCS) * 100 : 0
 
         // Calculate damage rank among teammates (1 = best)
         let damageRank = allDamageShares.filter { $0 > playerDamageShare }.count + 1
 
         // Format team comparison line
         let kdaSign = kdaDiff >= 0 ? "+" : ""
-        let csSign = csDiff >= 0 ? "+" : ""
-        contextLines.append(
-            "- Team comparison: KDA \(playerKDA.oneDecimal) (team avg \(teamAvgKDA.oneDecimal), \(kdaSign)\(String(format: "%.0f", kdaDiff))%), CS/min \(playerCS.oneDecimal) (team avg \(teamAvgCS.oneDecimal), \(csSign)\(String(format: "%.0f", csDiff))%), Damage rank: \(damageRank)/\(userTeam.count)"
-        )
+        if shouldIncludeCS {
+            contextLines.append(
+                "- Team comparison: KDA \(playerKDA.oneDecimal) (team avg \(teamAvgKDA.oneDecimal), \(kdaSign)\(String(format: "%.0f", kdaDiff))%), CS/min \(playerCS.oneDecimal) (team avg \(teamAvgCS.oneDecimal), \(csSign)\(String(format: "%.0f", csDiff))%), Damage rank: \(damageRank)/\(userTeam.count)"
+            )
+        } else {
+            contextLines.append(
+                "- Team comparison: KDA \(playerKDA.oneDecimal) (team avg \(teamAvgKDA.oneDecimal), \(kdaSign)\(String(format: "%.0f", kdaDiff))%), Damage rank: \(damageRank)/\(userTeam.count)"
+            )
+        }
 
         // Calculate enemy team strength
         let enemyKDAs = enemyTeam.map { participant -> Double in
@@ -690,6 +708,13 @@ public class OpenAIService {
         }
 
         return hasAnyBaseline ? context : nil
+    }
+    
+    /// Determines if CS per minute should be included for the given role
+    private func shouldIncludeCSPerMinute(for role: String) -> Bool {
+        let csEligibleRoles = ["MIDDLE", "BOTTOM", "JUNGLE", "TOP"]
+        let baselineRole = RoleUtils.normalizedRoleToBaselineRole(role)
+        return csEligibleRoles.contains(baselineRole)
     }
 
 }

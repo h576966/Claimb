@@ -16,7 +16,6 @@ struct ChampionView: View {
     @State private var selectedFilter: ChampionFilter = .mostPlayed
     @State private var showRoleSelection = false
     @State private var expandedChampionIds: Set<Int> = []
-    @State private var refreshTrigger = 0
 
     var body: some View {
         ZStack {
@@ -55,7 +54,9 @@ struct ChampionView: View {
                         loadingMessage: "Loading champions...",
                         emptyMessage: "No champions found",
                         retryAction: {
-                            refreshTrigger += 1
+                            Task {
+                                await matchDataViewModel?.refreshMatches()
+                            }
                         }
                     ) { champions in
                         if viewModel.championStats.isEmpty {
@@ -72,10 +73,10 @@ struct ChampionView: View {
         .onAppear {
             if matchDataViewModel == nil {
                 initializeViewModel()
+                Task {
+                    await matchDataViewModel?.loadAllData()
+                }
             }
-        }
-        .task(id: refreshTrigger) {
-            await matchDataViewModel?.loadAllData()
         }
         .onChange(of: userSession.selectedPrimaryRole) { _, _ in
             Task {
@@ -119,15 +120,7 @@ struct ChampionView: View {
     private var headerView: some View {
         SharedHeaderView(
             summoner: summoner,
-            actionButton: SharedHeaderView.ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: {
-                    refreshTrigger += 1
-                },
-                isLoading: matchDataViewModel?.isRefreshing ?? false,
-                isDisabled: matchDataViewModel?.isRefreshing ?? false
-            ),
+            actionButton: nil,
             userSession: userSession
         )
     }
@@ -149,7 +142,7 @@ struct ChampionView: View {
 
             Button("Load Champions") {
                 Task {
-                    await matchDataViewModel?.loadAllData()
+                    await matchDataViewModel?.refreshMatches()
                 }
             }
             .claimbButton(variant: .primary, size: .medium)
@@ -212,12 +205,7 @@ struct ChampionView: View {
             .padding(.bottom, DesignSystem.Spacing.xl)
         }
         .refreshable {
-            refreshTrigger += 1
             await matchDataViewModel?.refreshMatches()
-            await matchDataViewModel?.loadChampionStats(
-                role: userSession.selectedPrimaryRole,
-                filter: selectedFilter
-            )
         }
     }
 

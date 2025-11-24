@@ -172,7 +172,7 @@ public class MatchDataViewModel {
         roleStats = calculateRoleStats(from: matches, summoner: summoner)
     }
 
-    /// Refreshes matches from the API and recalculates role statistics
+    /// Refreshes matches from the API and recalculates all statistics
     public func refreshMatches() async {
         // Cancel any existing task
         currentTask?.cancel()
@@ -188,9 +188,26 @@ public class MatchDataViewModel {
             matchState = result
             isRefreshing = false
 
-            // Update role stats if we have matches
+            // Recalculate all statistics if we have matches
             if case .loaded(let matches) = result {
+                // Recalculate role stats
                 roleStats = calculateRoleStats(from: matches, summoner: summoner)
+
+                // Recalculate champion stats if champions are loaded
+                if case .loaded(let champions) = championState {
+                    // Check cancellation before expensive calculation
+                    guard !Task.isCancelled else { return }
+                    // Apply game type filter before calculating
+                    let filteredMatches = filterMatchesByGameType(matches)
+                    await calculateChampionStats(matches: filteredMatches, champions: champions)
+                }
+
+                // Recalculate KPIs if userSession exists
+                if userSession != nil {
+                    // Check cancellation before expensive calculation
+                    guard !Task.isCancelled else { return }
+                    await calculateKPIs(matches: matches)
+                }
             }
         }
 
