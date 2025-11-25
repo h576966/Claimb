@@ -70,6 +70,7 @@
 		F3D2D25C2ECE2E2A00C1EF06 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E629122E7AAA2000DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3E6297E2E7AAA6700DF2F2D /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
+		F3E939ED2ED4F43C0049DCD9 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 		F3F8AB6A2E7B11B1008E9E48 /* Claimb.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Claimb.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -352,6 +353,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F3E939F22ED4F43C0049DCD9 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F3F8AB6E2E7B11B1008E9E48 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -535,6 +541,10 @@
 				{
 					ProductGroup = F3CD97952E8F06B3002B709A /* Products */;
 					ProjectRef = F3CD97912E8F06B3002B709A /* Claimb.xcodeproj */;
+				},
+				{
+					ProductGroup = F3E939F22ED4F43C0049DCD9 /* Products */;
+					ProjectRef = F3E939ED2ED4F43C0049DCD9 /* Claimb.xcodeproj */;
 				},
 				{
 					ProductGroup = F34AF0882EC222FD0025B4FA /* Products */;
@@ -839,7 +849,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.3;
+				MARKETING_VERSION = 0.3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -880,7 +890,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.3;
+				MARKETING_VERSION = 0.3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = lol.claimb.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
